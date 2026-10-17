@@ -60,6 +60,7 @@ export function components(c) {
       s.basis ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '근거'), h('span', { class: 'v' }, s.basis)) : null,
       s.contract ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '약속'), h('span', { class: 'v' }, s.contract)) : null,
       (s.kind === 'dom' && s.reveal && !c.isOnScreen(s.id)) ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '나타남'), h('div', { class: 'v' }, `눌러야 나타난다 — ${s.reveal.map((x) => `"${x.text}"`).join(' → ')}를 누르면`, h('div', null, h('button', { class: 'smallbtn', style: 'margin-top:6px', onclick: async (ev) => { ev.stopPropagation(); const ok = await c.revealSpec(s.id); if (ok) { c.focusSpec(s.id); } else alert('화면을 열지 못했다. 화면 상태가 바뀌었을 수 있다'); c.render(); } }, '열어서 보기')))) : null,
+      (s.kind === 'dom' && !s.reveal && c.model && !c.isOnScreen(s.id)) ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '위치'), h('div', { class: 'v', style: 'color:var(--amber)' }, '지금 화면에서 못 찾았다 — 눌러서도 나타나지 않는다. 화면에 표시되지 않는다')) : null,
       s.kind !== 'logic' ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '동작'),
         s.ons.length ? h('div', { class: 'v' }, s.ons.map((o) => h('div', { style: 'margin-bottom:6px' }, h('span', { class: 'evt' }, o.event), h('div', null, o.effect)))) : h('span', { class: 'v empty' }, '@on 없음 — 표시만 하는 요소이거나 아직 적지 않았다')) : null,
       memoForm ? memoEditor(c) : h('div', null, h('button', { class: 'smallbtn', onclick: () => c.startMemoFor(s) }, '메모 남기기')));

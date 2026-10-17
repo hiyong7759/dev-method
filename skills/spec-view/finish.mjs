@@ -37,7 +37,8 @@ const CLICK = (st) => {
 const results = [];
 const reveal = {}; // 화면 이름 → { 컴포넌트 id → 누르는 순서 } (눌러야 나타나는 컴포넌트를 검사가 직접 찾아 기록)
 const snaps = {}; // 화면 이름 → 저장한 화면 스냅샷 파일 (모두 통과하면 status.mjs set test-requested가 기록에 붙인다)
-const step = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`${ok ? '통과' : '실패'}  ${name}${detail ? ' — ' + detail : ''}`); };
+// warn: 못 맞혀도 막지 않는 항목(검사의 한계 때문에 틀릴 수 있는 것). 경고로 알리고 보고에 쓰게 한다
+const step = (name, ok, detail = '', { warn = false } = {}) => { results.push({ name, ok: ok || warn, warned: !ok && warn, detail }); console.log(`${ok ? '통과' : warn ? '경고' : '실패'}  ${name}${detail ? ' — ' + detail : ''}`); };
 const run = (script) => { const r = spawnSync(process.execPath, [path.join(here, script), script === 'extract.mjs' ? src : root, ...(script === 'nav.mjs' ? ['--src', src] : []), '--check'], { encoding: 'utf8' }); return { ok: r.status === 0, text: (r.stdout + r.stderr).trim() }; };
 
 // 1. 경고 0
@@ -134,7 +135,7 @@ if (model) {
           if (Object.keys(revealed).length) reveal[sc.name] = revealed;
           const tell = Object.entries(revealed).map(([id, st]) => `${mine.find((m) => m.id === id).title}(${st.map((x) => `"${x.text}"`).join(' → ')}를 누르면)`).join(', ');
           step(`${route} 컴포넌트의 @anchor가 실제 화면에서 모두 찾힌다`, missing.length === 0,
-            missing.length ? `${missing.map((m) => m.title).join(', ')} — 처음 화면과 눌러 볼 수 있는 것을 눌러 봐도 나타나지 않는다. @anchor 선택자를 고치거나, 조건·데이터에 따라서만 나타나는 요소인지 확인한다` : `화면 요소 ${mine.length}개 모두 찾음${tell ? ` (${Object.keys(revealed).length}개는 눌러야 나타나 자동으로 찾아 기록: ${tell})` : ''}`);
+            missing.length ? `${missing.map((m) => m.title).join(', ')} — 처음 화면과 눌러 볼 수 있는 것을 눌러 봐도 나타나지 않는다. 선택자가 틀렸거나 입력·스와이프·데이터 조건으로만 나타나는 요소다. 선택자를 확인하고, 아니면 보고에 "설계서에서 표시되지 않는다"고 쓴다 (테스트 요청은 막지 않는다)` : `화면 요소 ${mine.length}개 모두 찾음${tell ? ` (${Object.keys(revealed).length}개는 눌러야 나타나 자동으로 찾아 기록: ${tell})` : ''}`, { warn: true });
           await page.locator('.tabs button', { hasText: '컴포넌트' }).click();
           await page.screenshot({ path: path.join(out, `${tag}-spec.png`) });
         } catch (e) { step(`${route} 열기`, false, String(e.message).split('\n')[0]); }
@@ -150,5 +151,6 @@ const ok = results.every((r) => r.ok);
 if (Object.keys(reveal).length) { const f = path.join(root, '.spec', 'reveal.json'); let old = {}; try { old = JSON.parse(fs.readFileSync(f, 'utf8')); } catch {} fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify({ ...old, ...reveal }, null, 2) + '\n'); }
 if (ok && Object.keys(snaps).length) { fs.mkdirSync(path.join(root, '.spec'), { recursive: true }); fs.writeFileSync(path.join(root, '.spec', 'pending-shots.json'), JSON.stringify(snaps)); }
 console.log(`\n스크린샷: ${out}`);
-console.log(ok ? '결과: 통과 — 스크린샷을 눈으로 본 뒤 "테스트 요청"을 쓴다(저장한 화면 스냅샷이 테스트 요청 기록에 붙는다)' : '결과: 실패 — 상태는 "개발 중". 테스트 요청을 내지 않는다');
+const warns = results.filter((r) => r.warned).length;
+console.log(ok ? `결과: 통과${warns ? ` (경고 ${warns}건 — 막지 않지만 보고에 쓴다)` : ''} — 스크린샷을 눈으로 본 뒤 "테스트 요청"을 쓴다(저장한 화면 스냅샷이 테스트 요청 기록에 붙는다)` : '결과: 실패 — 상태는 "개발 중". 테스트 요청을 내지 않는다');
 process.exit(ok ? 0 : 1);
