@@ -16,7 +16,7 @@ const root = path.resolve(arg('--root', '.')); // tsconfig.json이 있는 프로
 let cfg = {};
 try { cfg = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'config.json'), 'utf8')); } catch { /* 설정 없음 */ }
 const src = arg('--src', cfg.src || 'src');
-const base = arg('--url', `http://localhost:${cfg.port || 5190}`).replace(/\/$/, '');
+const base = arg('--url', `http://localhost:${cfg.port || 5290}`).replace(/\/$/, '');
 const routes = arg('--routes', '/').split(',');
 const out = arg('--out', fs.mkdtempSync(path.join(os.tmpdir(), 'spec-finish-')));
 fs.mkdirSync(out, { recursive: true });
@@ -44,7 +44,23 @@ if (model) {
     let browser;
     try { browser = await chromium.launch({ channel: 'chrome' }); } catch (e) { step('Chrome 실행', false, String(e.message).split('\n')[0]); }
     if (browser) {
+      // 설계서 보기 주소(base 또는 base/)가 화면 흐름으로 열린다
+      {
+        const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+        const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+        try {
+          await page.goto(base + '/', { waitUntil: 'networkidle' });
+          await page.waitForSelector('.top', { timeout: 5000 }).catch(() => {});
+          const onMap = /__spec/.test(page.url()) && (await page.locator('.tabs-top button.sel', { hasText: '화면 흐름' }).count()) > 0;
+          step('중계 서버 첫 화면이 설계서의 화면 흐름이다', onMap && errors.length === 0, onMap ? (errors[0] || '') : `열린 주소 ${page.url()}`);
+          await page.screenshot({ path: path.join(out, 'map.png') });
+        } catch (e) { step('설계서 첫 화면 열기', false, String(e.message).split('\n')[0]); }
+        await page.close();
+      }
       for (const route of routes) {
+        const sc = matchScreen(model, route);
+        step(`${route} 이 주소가 @screen의 @route와 맞는다`, !!sc, sc ? `화면 "${sc.name}"` : '맞는 @screen @route가 없다 — 설계서 보기가 이 화면을 찾지 못한다');
+        if (!sc) continue;
         const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
         const errors = [];
         page.on('pageerror', (e) => errors.push(e.message));
@@ -52,28 +68,17 @@ if (model) {
         page.on('console', (m) => { if (m.type() === 'error' && !/favicon\.ico/.test(m.location().url)) errors.push(m.text()); });
         const tag = route.replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '') || 'root';
         try {
-          await page.goto(base + route, { waitUntil: 'networkidle' });
-          const body = (await page.locator('body').innerText()).trim();
-          step(`${route} 화면이 열리고 오류가 없다`, errors.length === 0 && body.length > 0, errors.length ? errors.slice(0, 2).join(' / ') : body.length ? '' : '본문이 비어 있다');
-          await page.screenshot({ path: path.join(out, `${tag}-screen.png`) });
-          const sc = matchScreen(model, route);
-          step(`${route} 이 주소가 @screen의 @route와 맞는다`, !!sc, sc ? `화면 "${sc.name}"` : '맞는 @screen @route가 없다 — 설계서 보기가 이 화면을 찾지 못한다');
-          const fab = page.locator('.fab');
-          const hasFab = (await fab.count()) > 0;
-          step(`${route} 설계서 보기 토글이 보인다`, hasFab);
-          if (hasFab && sc) {
-            await fab.first().click();
-            await page.waitForURL(/__spec/, { timeout: 5000 }).catch(() => {});
-            await page.waitForSelector('.shead .nm', { timeout: 5000 }).catch(() => {});
-            const shown = await page.locator('.shead .nm').innerText().catch(() => '');
-            step(`${route} 토글을 켜면 화면 설계서 "${sc.name}"가 열린다`, shown === sc.name, shown ? `열린 화면 "${shown}"` : '화면 설계서가 열리지 않았다');
-            await page.locator('.tabs button', { hasText: '컴포넌트' }).click();
-            await page.waitForTimeout(700);
-            const domCards = await page.locator('.comp .kind', { hasText: 'dom' }).count();
-            const boxes = await page.locator('.mbox').count();
-            step(`${route} 컴포넌트의 @anchor가 실제 화면에서 모두 찾힌다`, boxes === domCards, `화면 요소 ${domCards}개 중 ${boxes}개 찾음${boxes < domCards ? ' — @anchor 선택자를 고친다' : ''}`);
-            await page.screenshot({ path: path.join(out, `${tag}-spec.png`) });
-          }
+          await page.goto(`${base}/__spec/#/screen/${encodeURIComponent(sc.name)}?tab=components&at=${encodeURIComponent(route)}`, { waitUntil: 'networkidle' });
+          await page.waitForSelector('.shead .nm', { timeout: 5000 }).catch(() => {});
+          await page.waitForTimeout(900);
+          const shown = await page.locator('.shead .nm').innerText().catch(() => '');
+          step(`${route} 화면 설계서 "${sc.name}"가 열린다`, shown === sc.name, shown ? '' : '화면 설계서가 열리지 않았다');
+          const body = (await page.frameLocator('iframe').locator('body').innerText().catch(() => '')).trim();
+          step(`${route} 실제 화면이 열리고 오류가 없다`, errors.length === 0 && body.length > 0, errors.length ? errors.slice(0, 2).join(' / ') : body.length ? '' : '화면 본문이 비어 있다');
+          const domCards = await page.locator('.comp .kind', { hasText: 'dom' }).count();
+          const boxes = await page.locator('.mbox').count();
+          step(`${route} 컴포넌트의 @anchor가 실제 화면에서 모두 찾힌다`, boxes === domCards, `화면 요소 ${domCards}개 중 ${boxes}개 찾음${boxes < domCards ? ' — @anchor 선택자를 고친다' : ''}`);
+          await page.screenshot({ path: path.join(out, `${tag}-spec.png`) });
         } catch (e) { step(`${route} 열기`, false, String(e.message).split('\n')[0]); }
         await page.close();
       }

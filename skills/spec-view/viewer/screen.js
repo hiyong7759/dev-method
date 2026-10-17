@@ -5,7 +5,7 @@ import { overview, components, memoTab, approval, history } from './tabs.js';
 
 const TABS = [['overview', '개요'], ['components', '컴포넌트'], ['memo', '메모'], ['approval', '승인'], ['history', '히스토리']];
 
-export function screenView(root, { model, name, tab, at, go, toMap, toApp }) {
+export function screenView(root, { model, name, tab, at, go }) {
   let alive = true, raf = 0;
   const c = {
     model, name, tab: tab || 'overview', at,
@@ -34,9 +34,7 @@ export function screenView(root, { model, name, tab, at, go, toMap, toApp }) {
   const side = h('aside', { class: 'side' });
   const shead = h('div', { class: 'shead' }), banners = h('div', { class: 'banners' }), tabsEl = h('div', { class: 'tabs' });
   const tbody = h('div', { class: 'tbody' });
-  const foot = h('div', { class: 'sfoot' }, h('span', null, '개발 모드 전용'),
-    h('button', { class: 'fabbtn', onclick: () => toApp(c.route()) }, h('span', null, '설계서 보기'), h('span', { class: 'sw on' }, h('i'))));
-  side.append(shead, banners, tabsEl, tbody, foot);
+  side.append(shead, banners, tabsEl, tbody);
   root.append(live, side);
 
   // ── 실제 화면 ──

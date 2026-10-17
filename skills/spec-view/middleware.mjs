@@ -1,6 +1,5 @@
 // 개발 서버에 설계서 보기를 붙이는 접속 부분 — 서버 종류(vite, 순수 node)와 무관하게 같은 경로를 낸다.
 //   /__spec/            설계서 보기 화면(화면 흐름·정보 흐름·화면 설계서)
-//   /__spec/fab.js      앱 화면 아래 구석의 "설계서 보기" 토글(누르면 위 화면으로 간다)
 //   /__spec/model.json  요청 때마다 소스에서 다시 만든 모델 (저장물 없음)
 //   /__spec/*           상태·확인 목록·메모·히스토리·처리 요청 글 (쓰기는 프로젝트 .spec 폴더만)
 // 개발 서버에서만 쓴다: 운영 빌드에는 이 파일도 화면도 들어가지 않는다.
@@ -14,7 +13,6 @@ import { addMemo, confirmMemo, markCopied, exportText, loadMemos } from './memo.
 import { screenHistory } from './history.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const FAB_TAG = '<script type="module" src="/__spec/fab.js"></script>';
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
 
 export function specHandler(scanRoot) {
@@ -31,7 +29,6 @@ export function specHandler(scanRoot) {
     if (!url.startsWith('/__spec')) return next();
     try {
       if (url === '/__spec' || url === '/__spec/') return send(res, path.join(HERE, 'viewer', 'index.html'));
-      if (url === '/__spec/fab.js') return send(res, path.join(HERE, 'viewer', 'fab.js'));
       if (url.startsWith('/__spec/ui/')) {
         const f = path.resolve(HERE, 'viewer', url.slice('/__spec/ui/'.length));
         if (!f.startsWith(path.join(HERE, 'viewer') + path.sep) || !fs.existsSync(f)) { res.statusCode = 404; return res.end('없음'); }

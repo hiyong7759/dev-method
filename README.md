@@ -8,7 +8,7 @@
   - `git-multisession` — 위험한 git 명령을 막는 Claude 훅 설치(시험 포함)
   - `monitor-screen` — 진행 상황을 화면으로 보여주는 원칙과 참고 구현
   - `secret-guard` — 비밀번호·키 커밋을 막는 git 훅
-  - `spec-view` — 소스 주석 태그와 TypeScript 분석으로 화면 흐름·정보 흐름·화면 설계서를 보여주는 도구. 화면·정보·로직을 만들거나 고칠 때의 순서와 규칙(`SKILL.md`, `rules/`)과 도구, 설계서 보기 서버 `serve.mjs`(앱 개발 서버를 중계)와 화면 `viewer/`, 이동 대조 `nav.mjs`, 끝낼 때 확인 `finish.mjs`, 상태 기록 `status.mjs`, 메모 `memo.mjs`, 커밋 검사 `precommit.mjs`
+  - `spec-view` — 소스 주석 태그와 TypeScript 분석으로 화면 흐름·정보 흐름·화면 설계서를 보여주는 도구. 화면·정보·로직을 만들거나 고칠 때의 순서와 규칙(`SKILL.md`, `rules/`)과 도구, 한 줄 실행 `open.mjs`, 설계서 보기 서버 `serve.mjs`(앱 개발 서버를 중계)와 화면 `viewer/`, 이동 대조 `nav.mjs`, 끝낼 때 확인 `finish.mjs`, 상태 기록 `status.mjs`, 메모 `memo.mjs`, 커밋 검사 `precommit.mjs`
 - `install.sh` — `links`(스킬을 `~/.claude/skills`에 링크), `hooks <프로젝트>`(훅 설치), `spec <프로젝트> [소스폴더]`(spec-view 경고 0 커밋 검사 연결), `check`·`sync`(설치본이 원본과 같은지 보기·맞추기)
 - `installed-projects.txt` — 훅을 설치한 프로젝트 목록 (`check`·`sync`가 읽는다)
 

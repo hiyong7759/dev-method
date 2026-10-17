@@ -3,4 +3,3 @@
 export default function specView() {
   return { name: 'spec-view-removed', apply: 'serve', configureServer() { console.warn('[spec-view] vite 플러그인은 더 쓰지 않는다. vite.config에서 지우고 serve.mjs로 설계서 보기를 띄운다.'); } };
 }
-export const FAB_TAG = '';
