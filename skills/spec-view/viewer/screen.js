@@ -78,7 +78,7 @@ export function screenView(root, { model, name, tab, at, go }) {
     tabsEl.classList.remove('hidden'); shead.classList.remove('hidden'); banners.classList.remove('hidden');
     const view = { overview, components, memo: memoTab, approval, history }[c.tab](c);
     tbody.append(view);
-    hint.textContent = { overview: '실제로 동작하는 화면이다. 오른쪽 "다루는 정보"에 올리면 화면에서 그 정보가 보이는 자리가 강조된다.', components: '점선 번호표는 오른쪽 컴포넌트 카드의 번호와 같다. 카드에 올리면 그 영역이 강조된다.', memo: '화면 위를 끌어서 아무 영역이나 고른다. 컴포넌트가 아닌 빈 곳도 고를 수 있다.', approval: '실제로 동작하는 화면이다. 눌러 보면서 오른쪽 확인 목록을 따라 테스트한다.', history: '항목을 누르면 그 변경이 닿은 컴포넌트가 화면에 강조되고, 닿은 정보가 아래에 나온다.' }[c.tab];
+    hint.textContent = { overview: '실제로 동작하는 화면이다. 오른쪽 "다루는 정보"에 올리면 화면에서 그 정보가 보이는 자리가 강조된다.', components: '점선 번호표는 오른쪽 카드의 번호와 같다. 카드를 누르면 그 영역이 강조되고, 화면 밖이면 보이는 자리로 이동한다.', memo: '화면 위를 끌어서 아무 영역이나 고른다. 컴포넌트가 아닌 빈 곳도 고를 수 있다.', approval: '실제로 동작하는 화면이다. 눌러 보면서 오른쪽 확인 목록을 따라 테스트한다.', history: '항목을 누르면 그 변경이 바꾼 화면 요소가 화면에 강조되고, 바꾼 정보가 아래에 나온다.' }[c.tab];
   }
   function showDrawer() {
     [shead, banners, tabsEl].forEach((n) => n.classList.add('hidden'));
@@ -94,9 +94,18 @@ export function screenView(root, { model, name, tab, at, go }) {
     regionBtn.classList.toggle('on', c.regionMode); regionBtn.textContent = c.regionMode ? '영역 메모 켬' : '영역 메모';
   }
   c.render = render;
-  c.setTab = (t) => { c.tab = t; c.drawer = null; go(c.name, t); render(); };
+  c.setTab = (t) => { c.tab = t; c.drawer = null; c.active = null; go(c.name, t); render(); };
   c.setHL = (s) => { c.hl = s; };
   c.setActive = (id) => { c.active = id; };
+  // 컴포넌트 카드를 누르면 그 영역을 강조하고, 화면 밖이면 보이는 자리로 스크롤한다(한 번 더 누르면 해제)
+  c.pickComp = (id) => {
+    c.active = c.active === id ? null : id;
+    const sp = c.specs.find((x) => x.id === id);
+    if (c.active && sp && sp.kind === 'dom' && sp.anchor) {
+      try { frameDoc()?.querySelector(sp.anchor.slice(4))?.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* 잘못된 선택자 */ }
+    }
+    render();
+  };
   c.openInfo = (info, prop) => { c.drawer = { info, prop }; const f = c.sc().fields.find((x) => x.info === info && x.prop === prop); c.hl = new Set(f ? f.specs : []); render(); };
   c.go = (n) => { const t = c.model.screens.find((s) => s.name === n); if (!t) return; c.name = n; c.drawer = null; c.ap = { problem: false }; c.draft = null; go(n, 'overview'); c.tab = 'overview'; loadFrame(t.sample || t.route); render(); };
   c.refresh = async () => { const m = await get('/__spec/model.json'); if (m.generatedAt >= c.model.generatedAt) { c.model = m; render(); } };

@@ -45,7 +45,8 @@ export function specHandler(scanRoot) {
         const out = extractSpecs(scanRoot);
         const sc = out.screens.find((s) => s.name === u.searchParams.get('screen'));
         if (!sc) return json(res, { items: [] });
-        return json(res, { items: screenHistory(scanRoot, sc, allStatus(scanRoot, out)[sc.name]) });
+        const m = buildModel(scanRoot);
+        return json(res, { items: screenHistory(scanRoot, sc, allStatus(scanRoot, out)[sc.name], { specs: m.specs, screens: m.screens, infos: m.infos }) });
       }
       if (req.method === 'POST') {
         const b = await body(req);
