@@ -78,7 +78,7 @@ export function screenView(root, { model, name, tab, at, go }) {
     tabsEl.classList.remove('hidden'); shead.classList.remove('hidden'); banners.classList.remove('hidden');
     const view = { overview, components, memo: memoTab, approval, history }[c.tab](c);
     tbody.append(view);
-    hint.textContent = { overview: '실제로 동작하는 화면이다. 오른쪽 "다루는 정보"에 올리면 화면에서 그 정보가 보이는 자리가 강조된다.', components: '점선 번호표는 오른쪽 카드의 번호와 같다. 카드를 누르면 그 영역이 강조되고, 화면 밖이면 보이는 자리로 이동한다.', memo: '화면 위를 끌어서 아무 영역이나 고른다. 컴포넌트가 아닌 빈 곳도 고를 수 있다.', approval: '실제로 동작하는 화면이다. 눌러 보면서 오른쪽 확인 목록을 따라 테스트한다.', history: '변경 항목을 누르면 그 변경이 바꾼 요소로 이동해 노란 테두리로 보여 준다.' }[c.tab];
+    hint.textContent = { overview: '실제로 동작하는 화면이다. 오른쪽 "다루는 정보"에 올리면 화면에서 그 정보가 보이는 자리가 강조된다.', components: '점선 번호표는 오른쪽 카드의 번호와 같다. 카드를 누르면 그 영역이 강조되고, 화면 밖이면 보이는 자리로 이동한다.', memo: '화면 위를 끌어서 아무 영역이나 고른다. 컴포넌트가 아닌 빈 곳도 고를 수 있다.', approval: '실제로 동작하는 화면이다. 눌러 보면서 오른쪽 확인 목록을 따라 테스트한다.', history: '"상세 보기"를 누르면 그 변경이 바꾼 곳이 목록으로 나오고, 작은 화면 요소는 노란 테두리로 보여 준다.' }[c.tab];
   }
   function showDrawer() {
     [shead, banners, tabsEl].forEach((n) => n.classList.add('hidden'));

@@ -204,68 +204,76 @@ export function approval(c) {
 }
 
 // ── 히스토리 ─────────────────────────────────────────
+// 이 화면이 왜 지금 모습인지: 언제 무엇을 왜 바꿨고(결정), 무엇을 버렸고(기각), 누가 요청·승인했는지. 코드 줄 같은 자세한 내용은 "상세 보기"에 접어 둔다.
+const FILTERS = [['전체', () => true], ['변경', (i) => i.type === 'commit'], ['오류 수정', (i) => i.kind === '오류 수정'], ['승인 기록', (i) => i.type === 'status']];
+const PLACE_KINDS = { spec: '화면 요소', logic: '로직', info: '정보', other: '그 밖' };
+const SPAN_NOTE = { ok: '화면에 표시', big: '화면 대부분을 차지해 표시 생략', none: '지금 화면에 없음', logic: '화면에 안 보이는 로직' };
+
 export function history(c) {
   const sc = c.sc();
   const el = h('div', { style: 'display:contents' });
-  const holder = h('div', { class: 'tl' }, h('div', { style: 'font-size:12px;color:var(--dim)' }, '읽는 중…'));
   const chips = h('div', { class: 'chips' });
-  el.append(chips, holder);
+  const holder = h('div', { class: 'tl' }, h('div', { style: 'font-size:12px;color:var(--dim)' }, '읽는 중…'));
+  el.append(h('div', { style: 'font-size:12.5px;line-height:1.6;color:var(--dim)' }, '이 화면이 왜 지금 모습인지 — 언제 무엇을 왜 바꿨고, 무엇을 버렸는지'), chips, holder);
   get(`/__spec/history.json?screen=${encodeURIComponent(sc.name)}`).then(({ items }) => {
-    const kinds = ['전체', '오류 수정', '변경', '승인'];
-    const count = (k) => (k === '전체' ? items.length : items.filter((i) => i.kind === k).length);
+    const thumb = (x, cap) => h('div', { style: 'min-width:0;flex:1' }, h('div', { class: 'mmeta', style: 'margin-bottom:3px' }, cap),
+      x ? h('a', { href: `/__spec/shots/${x.shot}`, target: '_blank', title: '누르면 크게' }, h('img', { src: `/__spec/shots/${x.shot}`, style: 'width:100%;border-radius:6px;border:1px solid var(--line);background:#fff;display:block', onerror: (e) => e.target.replaceWith('화면 파일 없음') })) : h('div', { class: 'mmeta' }, '저장된 화면 없음'));
+    const placeRow = (pl) => {
+      const logic = pl.kind === 'spec' && c.model.specs.find((x) => x.id === pl.id)?.kind === 'logic';
+      const st = pl.kind === 'spec' ? c.spanState(pl.id) : null, open = c.hOpen.has(pl.key);
+      return h('div', { style: 'border:1px solid var(--line);border-radius:8px;background:var(--bg2);overflow:hidden' },
+        h('button', { style: 'display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:6px 10px;border:0;background:none;text-align:left', onclick: (ev) => {
+          ev.stopPropagation(); open ? c.hOpen.delete(pl.key) : c.hOpen.add(pl.key);
+          if (pl.kind === 'spec' && !open) c.setFlash(st === 'ok' ? [pl.id] : []);
+          draw(); } },
+          h('span', { class: 'kindtag k3', style: 'margin:0;flex:none' }, PLACE_KINDS[logic ? 'logic' : pl.kind]), h('b', { style: 'font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis' }, pl.title),
+          h('span', { class: 'mono', style: 'margin-left:auto;flex:none;font-size:11px' }, h('span', { style: 'color:var(--green)' }, `+${pl.added}`), ' ', h('span', { style: 'color:var(--red)' }, `−${pl.removed}`)), h('span', { style: 'flex:none;color:var(--dim)' }, open ? '▾' : '▸')),
+        st ? h('div', { class: 'mmeta', style: `padding:0 10px 8px;color:${st === 'ok' ? 'var(--amber)' : 'var(--dim)'}` }, SPAN_NOTE[st]) : null,
+        open ? h('div', { style: 'padding:0 10px 10px;display:flex;flex-direction:column;gap:8px' },
+          pl.hunks.map((hk) => h('div', null, h('div', { class: 'mmeta mono', style: 'margin-bottom:3px' }, `${pl.file}:${hk.line}`),
+            hk.removed.map((x) => h('div', { class: 'dline m' }, `− ${x}`)), hk.added.map((x) => h('div', { class: 'dline p' }, `+ ${x}`)))),
+          pl.kind === 'info' ? h('button', { class: 'smallbtn', style: 'align-self:flex-start', onclick: (ev) => { ev.stopPropagation(); c.openInfo(pl.info, pl.prop || undefined); } }, '정보 상세 열기 ›') : null) : null);
+    };
+    // 상세 보기: 어디를 어떻게 고쳤는지(개발자도 확인할 수 있는 수준)
+    const detail = (i) => {
+      const places = i.places || [];
+      const small = (i.touchedSpecs || []).filter((id) => c.spanState(id) === 'ok');
+      return h('div', { style: 'display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:10px;background:var(--bg2);border:1px solid var(--line)' },
+        h('div', { class: 'mmeta mono' }, `커밋 ${i.hash}${i.files ? ` · 파일 ${i.files}개` : ''}${i.author ? ` · ${i.author}` : ''}`),
+        h('div', { style: 'font-weight:700;font-size:13px' }, `바뀐 곳 · ${places.length}`),
+        places.length ? places.slice(0, 8).map(placeRow) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '이 화면의 파일에서 바뀐 줄을 찾지 못했다(이름 변경이나 파일 이동일 수 있다)'),
+        places.length > 8 ? h('div', { class: 'mmeta' }, `외 ${places.length - 8}곳`) : null,
+        small.length ? h('div', { class: 'mmeta', style: 'color:var(--amber)' }, `왼쪽 화면에 노란 테두리로 표시했다 (${small.length}곳)`) : (places.length ? h('div', { class: 'mmeta' }, '테두리로 보여 줄 작은 화면 요소가 없다. 위 목록의 바뀐 내용으로 확인한다') : null),
+        !i.before && !i.after ? h('div', { class: 'mmeta' }, '이 시점의 화면 기록이 없다. 테스트 요청과 승인 때마다 화면이 저장된다') : null);
+    };
+    const channel = (i) => (i.request ? h('span', { class: 'chan' }, `요청: ${i.request.split('—')[0].trim()}`) : null);
+    const reasonRows = (i) => [
+      ...i.decisions.map((d) => h('div', { class: 'why d' }, h('b', null, '결정'), d)),
+      ...i.rejections.map((d) => h('div', { class: 'why r' }, h('b', null, '버림'), d)),
+      i.cause ? h('div', { class: 'why c' }, h('b', null, '원인'), i.cause) : null];
     const draw = () => {
-      chips.replaceChildren(...kinds.map((k) => h('button', { class: `pill${c.hFilter === k ? ' sel' : ''}`, style: 'min-height:30px;font-size:12px', onclick: () => { c.hFilter = k; draw(); } }, `${k} · ${count(k)}`)));
-      const shown = items.filter((i) => c.hFilter === '전체' || i.kind === c.hFilter);
-      const touched = (i) => ({ specs: c.model.specs.filter((x) => (i.touchedSpecs || []).includes(x.id)), infos: i.touchedInfos || [] });
-      const pick = (i) => { const on = c.hSel === i.hash + i.at; c.hSel = on ? null : i.hash + i.at; c.hOpen = new Set(); c.setFlash(on ? [] : (i.touchedSpecs || [])); draw(); };
-      const KINDS = { spec: '화면 요소', logic: '로직', info: '정보', other: '그 밖' };
-      const stateNote = { ok: '화면에 표시', big: '화면 대부분을 차지해 표시 생략', none: '지금 화면에 없음', logic: '화면에 안 보이는 로직' };
-      const placeRow = (pl) => {
-        const logic = pl.kind === 'spec' && c.model.specs.find((x) => x.id === pl.id)?.kind === 'logic';
-        const kind = logic ? 'logic' : pl.kind;
-        const st = pl.kind === 'spec' ? c.spanState(pl.id) : null;
-        const open = c.hOpen.has(pl.key);
-        return h('div', { style: 'border:1px solid var(--line);border-radius:8px;background:var(--bg2);overflow:hidden' },
-          h('button', { style: 'display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:6px 10px;border:0;background:none;text-align:left', onclick: (ev) => {
-            ev.stopPropagation(); open ? c.hOpen.delete(pl.key) : c.hOpen.add(pl.key);
-            if (pl.kind === 'spec' && !open) { const only = st === 'ok' ? [pl.id] : []; c.setFlash(only); }
-            draw(); } },
-            h('span', { class: 'kindtag k3', style: 'margin:0;flex:none' }, KINDS[kind]), h('b', { style: 'font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis' }, pl.title),
-            h('span', { class: 'mono', style: 'margin-left:auto;flex:none;font-size:11px' }, h('span', { style: 'color:var(--green)' }, `+${pl.added}`), ' ', h('span', { style: 'color:var(--red)' }, `−${pl.removed}`)), h('span', { style: 'flex:none;color:var(--dim)' }, open ? '▾' : '▸')),
-          st ? h('div', { class: 'mmeta', style: `padding:0 10px 8px;color:${st === 'ok' ? 'var(--amber)' : 'var(--dim)'}` }, stateNote[st]) : null,
-          open ? h('div', { style: 'padding:0 10px 10px;display:flex;flex-direction:column;gap:8px' },
-            pl.hunks.map((hk) => h('div', null, h('div', { class: 'mmeta mono', style: 'margin-bottom:3px' }, `${pl.file}:${hk.line}`),
-              hk.removed.map((x) => h('div', { class: 'dline m' }, `− ${x}`)), hk.added.map((x) => h('div', { class: 'dline p' }, `+ ${x}`)))),
-            pl.kind === 'info' ? h('button', { class: 'smallbtn', style: 'align-self:flex-start', onclick: (ev) => { ev.stopPropagation(); c.openInfo(pl.info, pl.prop || undefined); } }, '정보 상세 열기 ›') : null) : null);
-      };
-      // 화면이 어떻게 달라졌는지: 이 변경 직전·직후에 저장된 화면(테스트 요청·승인 때 저장)을 나란히
-      const snapCell = (x, cap, missing) => h('div', { style: 'min-width:0' }, h('div', { class: 'mmeta', style: 'margin-bottom:4px' }, cap),
-        x ? h('a', { href: `/__spec/shots/${x.shot}`, target: '_blank', title: '누르면 크게' }, h('img', { src: `/__spec/shots/${x.shot}`, style: 'width:100%;border-radius:6px;border:1px solid var(--line);background:#fff;display:block', onerror: (e) => e.target.replaceWith('화면 파일 없음') }))
-          : h('div', { style: 'display:flex;align-items:center;justify-content:center;min-height:90px;border:1px dashed var(--line);border-radius:6px;font-size:12px;color:var(--dim2);text-align:center;padding:8px' }, missing));
-      const snapBlock = (i) => (i.before || i.after) ? h('div', null, h('div', { style: 'font-weight:700;margin-bottom:8px' }, '화면이 이렇게 달라졌다'),
-        h('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px' },
-          snapCell(i.before, i.before ? `변경 전 · ${fmt(i.before.at)} ${i.before.label} 때` : '변경 전', '이전에 저장된 화면 없음'),
-          snapCell(i.after, i.after ? `변경 후 · ${fmt(i.after.at)} ${i.after.label} 때` : '변경 후', '아직 저장 안 됨 — 다음 테스트 요청 때 저장된다')),
-        h('div', { class: 'mmeta', style: 'margin-top:6px' }, '저장된 두 시점 사이의 화면이라, 다른 변경이 함께 섞여 있을 수 있다'))
-        : h('div', { style: 'font-size:12px;color:var(--dim);line-height:1.55' }, '이 시점의 화면 기록이 없다. 테스트 요청과 승인 때마다 화면이 저장되어, 앞으로는 변경 전·후 화면이 여기에 나온다');
-      const detailBlock = (i) => {
-        if (i.type === 'status') return i.shot ? h('div', { class: 'dec', style: 'border:1px solid var(--accent-deep)' }, h('div', { style: 'font-weight:700;margin-bottom:6px' }, `${i.kind} 때 화면`), h('a', { href: `/__spec/shots/${i.shot}`, target: '_blank' }, h('img', { src: `/__spec/shots/${i.shot}`, style: 'width:100%;border-radius:6px;background:#fff;display:block' }))) : null;
-        const places = i.places || [];
-        const small = (i.touchedSpecs || []).filter((id) => c.spanState(id) === 'ok');
-        return h('div', { class: 'dec', style: 'border:1px solid var(--accent-deep);display:flex;flex-direction:column;gap:12px' },
-          snapBlock(i),
-          h('div', { style: 'font-weight:700' }, `이 변경이 바꾼 곳 · ${places.length}`),
-          places.length ? places.slice(0, 8).map(placeRow) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '이 화면의 파일에서 바뀐 줄을 찾지 못했다(이름 변경이나 파일 이동일 수 있다)'),
-          places.length > 8 ? h('div', { class: 'mmeta' }, `외 ${places.length - 8}곳`) : null,
-          small.length ? h('div', { class: 'mmeta', style: 'color:var(--amber)' }, `왼쪽 화면에 노란 테두리로 표시했다 (${small.length}곳)`) : (places.length ? h('div', { class: 'mmeta' }, '화면에 테두리로 보여 줄 작은 요소가 없다. 위 목록의 바뀐 내용으로 확인한다') : null));
-      };
-      holder.replaceChildren(...(shown.length ? shown.map((i) => h('div', { class: `ev${c.hSel === i.hash + i.at ? ' sel' : ''}`, style: 'cursor:pointer', onclick: () => pick(i) },
-        h('div', { class: `dot${i.kind === '오류 수정' ? ' err' : i.kind === '승인' ? ' ap' : i.kind === '수정 필요' ? ' err' : i.kind === '테스트 요청' ? ' ap' : ''}` }),
-        h('div', { class: 'body' },
-          h('div', { class: 'tit' }, h('span', { class: `kindtag ${i.kind === '오류 수정' || i.kind === '수정 필요' ? 'k2' : i.kind === '변경' ? 'k1' : 'k3'}` }, i.kind), i.title || (i.kind === '승인' ? `${sc.name} 승인 (${i.author})` : i.kind)),
-          h('div', { class: 'meta mono' }, `${i.hash || '—'} · ${fmt(i.at)}${i.request ? ` · 요청: ${i.request.split('—')[0].trim()}` : ''}${i.files ? ` · 파일 ${i.files}` : ''}`),
-          c.hSel === i.hash + i.at ? detailBlock(i) : null,
-          i.decisions.length || i.rejections.length || i.cause ? h('div', { class: 'dec' }, i.cause ? h('div', null, `원인: ${i.cause}`) : null, i.decisions.map((d) => h('div', null, `결정: ${d}`)), i.rejections.map((d) => h('div', null, `기각: ${d}`))) : null))) : [h('div', { style: 'font-size:12px;color:var(--dim2);line-height:1.6' }, '아직 이력이 없다. 이 화면의 소스를 바꾼 커밋과 승인 기록이 여기에 쌓인다.')]));
+      chips.replaceChildren(...FILTERS.map(([k, fn]) => h('button', { class: `pill${c.hFilter === k ? ' sel' : ''}`, style: 'min-height:30px;font-size:12px', onclick: () => { c.hFilter = k; draw(); } }, `${k} · ${items.filter(fn).length}`)));
+      const fn = (FILTERS.find(([k]) => k === c.hFilter) || FILTERS[0])[1];
+      const shown = items.filter(fn);
+      holder.replaceChildren(...(shown.length ? shown.map((i) => {
+        const key = i.hash + i.at, open = c.hSel === key;
+        const dot = i.kind === '오류 수정' || i.kind === '수정 필요' ? 'err' : i.type === 'status' ? 'ap' : '';
+        const kindCls = i.kind === '오류 수정' || i.kind === '수정 필요' ? 'k2' : i.kind === '변경' ? 'k1' : 'k3';
+        if (i.type === 'status') {
+          return h('div', { class: 'ev' }, h('div', { class: `dot ${dot}` }), h('div', { class: 'body' },
+            h('div', { class: 'ev-top' }, h('span', { class: 'ev-date mono' }, fmt(i.at)), h('span', { class: `kindtag ${kindCls}` }, i.kind), h('span', { class: 'chan' }, i.author)),
+            h('div', { class: 'tit ev-clamp' }, i.title || (i.kind === '승인' ? `${sc.name} 승인` : i.kind)),
+            i.shot ? h('div', { style: 'display:flex' }, thumb({ shot: i.shot }, `${i.kind} 때 화면`)) : null,
+            i.hash ? h('div', { class: 'mmeta mono' }, `소스 버전 ${i.hash}`) : null));
+        }
+        return h('div', { class: 'ev' }, h('div', { class: `dot ${dot}` }), h('div', { class: 'body' },
+          h('div', { class: 'ev-top' }, h('span', { class: 'ev-date mono' }, fmt(i.at)), h('span', { class: `kindtag ${kindCls}` }, i.kind), channel(i)),
+          h('div', { class: 'tit' }, i.title),
+          (i.before || i.after) ? h('div', { style: 'display:flex;gap:8px' }, thumb(i.before, '변경 전'), thumb(i.after, '변경 후')) : null,
+          ...reasonRows(i),
+          h('button', { class: 'smallbtn', style: 'align-self:flex-start', onclick: () => { c.hSel = open ? null : key; c.hOpen = new Set(); c.setFlash(open ? [] : (i.touchedSpecs || [])); draw(); } }, open ? '상세 닫기 ▾' : '상세 보기 ▸'),
+          open ? detail(i) : null));
+      }) : [h('div', { style: 'font-size:12px;color:var(--dim2);line-height:1.6' }, '아직 이력이 없다. 이 화면의 소스를 바꾼 커밋과 승인 기록이 여기에 쌓인다')]));
     };
     draw();
   }).catch((e) => holder.replaceChildren(h('div', { class: 'note' }, `이력을 읽지 못했다: ${e.message}`)));
