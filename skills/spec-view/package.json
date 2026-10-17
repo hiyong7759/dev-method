@@ -1,0 +1,7 @@
+{
+  "name": "spec-view-tools",
+  "private": true,
+  "type": "module",
+  "description": "finish.mjs가 쓰는 브라우저 제어. 브라우저는 내려받지 않고 컴퓨터의 Chrome을 쓴다",
+  "dependencies": { "playwright-core": "^1.50.0" }
+}

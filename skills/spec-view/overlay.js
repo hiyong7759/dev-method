@@ -101,7 +101,8 @@
   };
 
   const isLogic = (s) => s.kind === 'logic';
-  const missing = (s) => !s.why || !s.basis;
+  // 필수 메타정보(존재 이유)만 미작성으로 센다. 근거·약속은 선택이라 비어 있으면 표시하지 않는다
+  const missing = (s) => !s.why;
 
   function renderSummary() {
     const sum = $('.sum'); sum.textContent = '';
@@ -137,7 +138,8 @@
         top.append(el('span', `num mono${isLogic(s) ? ' logic' : ''}`, String(data.num[s.id])), el('span', 'ctitle', s.title));
         const kind = el('span', 'kind mono', KIND_LABEL[s.kind] || s.kind); kind.style.color = color; kind.style.borderColor = color;
         top.append(kind);
-        card.append(top, el('div', 'where mono', `${s.file}:${s.line}`), row('이유', s.why), row('근거', s.basis));
+        card.append(top, el('div', 'where mono', `${s.file}:${s.line}`), row('이유', s.why));
+        if (s.basis) card.append(row('근거', s.basis));
         if (s.contract) card.append(row('약속', s.contract));
         card.addEventListener('mouseenter', () => setActive(s.id));
         card.addEventListener('mouseleave', () => setActive(null));
