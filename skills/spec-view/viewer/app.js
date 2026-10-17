@@ -95,4 +95,7 @@ async function load(initial) {
   if (active && r.view === 'screen') { active.update(m); if (!menu) topEl.replaceWith(topEl = topbar(r)); } else render();
 }
 window.addEventListener('hashchange', render);
+// 정보 흐름은 창 폭에 맞춰 상자를 줄바꿈해 놓으므로, 창 크기가 바뀌면(폭이 달라졌을 때만) 다시 배치한다
+let lastW = window.innerWidth, resizeT = 0;
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (window.innerWidth !== lastW) { lastW = window.innerWidth; if (parse().view === 'info') render(); } }, 150); });
 load(true).then(() => { render(); setInterval(() => load(false).catch(() => {}), 2500); }).catch((e) => { root.append(h('div', { class: 'empty-note' }, `모델을 읽지 못했다: ${e.message}`)); });
