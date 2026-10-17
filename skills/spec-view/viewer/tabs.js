@@ -34,19 +34,17 @@ export function overview(c) {
     list.length ? list.map((w) => pill(dir, w, other(w))) : h('div', { class: `mv-none${dir === 'out' && c.model.screens.length > 1 ? ' warn' : ''}` }, dir === 'in' ? '시작 화면' : '나가는 이동 없음'));
   el.append(h('div', { class: 'sec' }, h('h4', null, '화면 이동', h('small', null, '누르면 이벤트와 값')),
     h('div', { class: 'mv-grid' }, col('in', sc.incoming, (w) => w.from), h('div', { class: 'mv-center' }, '이 화면'), col('out', sc.to, (w) => w.target)), detail));
-  // 다루는 정보: 필드마다 역할 칩. 누르면 정보 상세, 올리면 화면에서 그 정보가 보이는 자리가 강조된다
+  // 다루는 정보: 한 줄짜리 작은 행. 올리면 화면에서 그 정보가 보이는 자리가 강조되고, 누르면 정보 상세(이 화면에서의 쓰임이 맨 위에 나온다)가 열린다
   const fields = sc.fields;
   const counts = Object.fromEntries(ROLES.map((r) => [r, fields.filter((f) => f.roles.includes(r)).length]));
   const sel = c.fieldRole;
   el.append(h('div', { class: 'sec' }, h('h4', null, `다루는 정보 · ${fields.length}`, h('small', null, '누르면 정보 상세')),
-    h('div', { class: 'chips', style: 'margin-bottom:8px' }, ROLES.filter((r) => counts[r]).map((r) => h('button', { class: `role ${r}`, style: `background:${sel === r ? 'var(--accent-bg)' : 'none'};cursor:pointer;padding:3px 9px`, onclick: () => { c.fieldRole = sel === r ? null : r; c.render(); } }, `${ROLE_LABEL[r]} ${counts[r]}`))),
-    fields.length ? h('div', { class: 'finfo' }, fields.filter((f) => !sel || f.roles.includes(sel)).map((f, i) => h('div', {
-      class: `fr${c.focus && c.focus.info === f.info && c.focus.prop === f.prop ? ' on' : ''}`,
+    h('div', { class: 'chips', style: 'margin-bottom:10px' }, ROLES.filter((r) => counts[r]).map((r) => h('button', { class: `role ${r}`, style: `background:${sel === r ? 'var(--accent-bg)' : 'none'};cursor:pointer;padding:3px 9px`, onclick: () => { c.fieldRole = sel === r ? null : r; c.render(); } }, `${ROLE_LABEL[r]} ${counts[r]}`))),
+    fields.length ? h('div', { class: 'fi-list' }, fields.filter((f) => !sel || f.roles.includes(sel)).map((f) => h('button', {
+      class: `fi-row${c.focus && c.focus.info === f.info && c.focus.prop === f.prop ? ' on' : ''}`, title: f.doc || '존재 이유 미작성',
       onmouseenter: () => c.setHL(new Set(f.specs)), onmouseleave: () => c.setHL(new Set()),
       onclick: () => c.openInfo(f.info, f.prop),
-    }, h('div', { class: 'fn' }, h('span', { class: 'i' }, `${f.info}.`), h('b', null, f.prop)),
-      h('div', { class: 'fd' }, f.doc || h('span', { style: 'color:var(--dim2);font-style:italic' }, '존재 이유 미작성')),
-      h('div', null, f.roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])))))) : h('div', { style: 'font-size:12px;color:var(--dim2)' }, '이 화면이 읽거나 쓰는 정보 필드가 없다')));
+    }, h('span', { class: 'fi-name' }, h('span', { class: 'i' }, `${f.info}.`), h('b', null, f.prop)), h('span', { class: 'fi-roles' }, f.roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])))))) : h('div', { style: 'font-size:12px;color:var(--dim2)' }, '이 화면이 읽거나 쓰는 정보 필드가 없다')));
   return el;
 }
 

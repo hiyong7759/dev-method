@@ -108,14 +108,14 @@ button{font:inherit;color:inherit;cursor:pointer}
 .tdot{width:8px;height:8px;border-radius:4px;background:var(--accent)}
 .tdot.p{background:var(--purple)}
 .tdot.a{background:var(--amber)}
-.tbody{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;min-height:0}
+.tbody{flex:1;overflow-y:auto;padding:20px 16px 36px;display:flex;flex-direction:column;gap:28px;min-height:0}
 .sfoot{flex:none;height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-top:1px solid var(--line);font-size:12px;color:var(--dim)}
 .fabbtn{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 16px 0 14px;border:1px solid var(--accent-deep);border-radius:22px;background:var(--accent-bg);color:var(--text);font-size:13px;font-weight:500}
 .reason{padding:14px;border-radius:10px;background:var(--card)}
 .reason .k{font-size:11px;color:var(--dim);margin-bottom:6px}
 .reason .v{font-size:14px;line-height:1.55}
 .reason .w{margin-top:8px;font-size:11px;color:var(--dim)}
-.sec h4{margin:0 0 8px;font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:baseline}
+.sec h4{margin:0 0 12px;font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:baseline}
 .sec h4 small{font-weight:400;font-size:12px;color:var(--dim)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .tag{font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--line);background:var(--card)}
@@ -296,3 +296,23 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .mv-vals{display:flex;gap:6px;flex-wrap:wrap}
 .mv-val{font-size:11px;padding:1px 8px;border-radius:5px;background:#14161f;border:1px solid var(--line);color:var(--accent)}
 .mv-warn{font-size:12px;color:var(--amber)}
+
+/* 같은 목록 안의 카드는 촘촘하게(섹션 사이만 넓게) */
+.comp+.comp,.mcard+.mcard,.comp+.zone,.zone+.comp,.mcard+.mcard{margin-top:-14px}
+.zone{margin-top:0}
+.reason{padding:16px}
+.mv-grid{margin-top:2px}
+/* 다루는 정보 한 줄 행 */
+.fi-list{display:flex;flex-direction:column;gap:6px}
+.fi-row{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);text-align:left;min-width:0}
+.fi-row:hover{border-color:var(--accent-deep)}
+.fi-row.on{background:var(--accent-bg);border-color:var(--accent)}
+.fi-name{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fi-name .i{color:var(--dim)}.fi-name b{font-weight:700}
+.fi-roles{margin-left:auto;flex:none;display:flex;gap:4px}
+.fi-roles .role{margin:0;font-size:10.5px;padding:0 6px}
+/* 정보 상세 맨 위: 이 화면에서의 쓰임 */
+.thisscreen{padding:14px;border-radius:10px;border:1px solid var(--accent-deep);background:var(--accent-bg)}
+.ts-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.ts-badge{font-size:11px;font-weight:700;padding:1px 8px;border-radius:10px;background:var(--accent);color:#14161f}
+.ts-sub{font-size:12px;color:var(--dim)}

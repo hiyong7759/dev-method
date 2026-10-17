@@ -4,8 +4,17 @@ import { h, ROLES, ROLE_LABEL } from './util.js';
 const place = (list) => (list.length ? list.join(' · ') : null);
 
 // 정보 상세 — 존재 이유, 관계, 정보의 흐름(입력·보여줌·수정·판단), 필드
+// 화면에서 연 정보 상세: 앱 전체의 쓰임과 섞이지 않게, 이 화면에서의 쓰임을 맨 위에 따로 보인다
+function thisScreen(model, info, screenName, focusField) {
+  const sc = model.screens.find((x) => x.name === screenName);
+  const mine = (sc?.fields || []).filter((f) => f.info === info.name);
+  const row = (f) => h('div', { style: `display:flex;align-items:center;gap:8px;padding:6px 0;${f.prop === focusField ? 'font-weight:700' : ''}` }, h('span', { class: 'mono', style: 'font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis' }, f.prop), h('span', { style: 'margin-left:auto;flex:none' }, f.roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r]))));
+  return h('div', { class: 'thisscreen' }, h('div', { class: 'ts-head' }, h('span', { class: 'ts-badge' }, '이 화면'), h('b', null, screenName), h('span', { class: 'ts-sub' }, '에서는')),
+    mine.length ? mine.map(row) : h('div', { style: 'font-size:12px;color:var(--dim2)' }, '이 화면에서 이 정보의 필드를 직접 쓰지는 않는다'),
+    h('div', { style: 'margin-top:6px;font-size:11.5px;color:var(--dim)' }, '아래는 앱 전체에서의 쓰임이다'));
+}
 const KIND = { create: '새 객체를 만들어 씀', update: '있던 값을 고침(대입 또는 ...펼침)', read: '읽음', write: '씀' };
-export function infoDrawer(model, name, { focusField, onClose, openInfo, openScreen }) {
+export function infoDrawer(model, name, { focusField, currentScreen, onClose, openInfo, openScreen }) {
   const open = new Set(focusField ? [focusField] : []);
   const info = model.infos.find((i) => i.name === name);
   const el = h('div', { class: 'side-in', style: 'display:flex;flex-direction:column;min-height:0;flex:1' });
@@ -20,6 +29,7 @@ export function infoDrawer(model, name, { focusField, onClose, openInfo, openScr
       h('div', { class: 'reason' }, h('div', { class: 'k' }, '존재 이유'),
         info.doc ? h('div', { class: 'v' }, info.doc) : h('div', { class: 'v', style: 'color:var(--dim2);font-style:italic' }, '미작성'),
         h('div', { class: 'w mono' }, `${info.file}:${info.line} · 필드 ${info.props.length} · 쓰는 곳 ${places.size}`)),
+      currentScreen ? thisScreen(model, info, currentScreen, focusField) : null,
       h('div', { class: 'sec' }, h('h4', null, '관계'),
         rels.length ? rels.map((r) => {
           const mine = r.from === name, other = mine ? r.to : r.from;
@@ -29,7 +39,7 @@ export function infoDrawer(model, name, { focusField, onClose, openInfo, openScr
         }) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '다른 정보와 이어진 곳이 없다')),
       h('div', { class: 'sec' }, h('h4', null, '정보의 흐름'),
         flowKinds.map(([r, list]) => h('div', { class: 'flowrow' }, h('span', { class: `lab role ${r}`, style: 'margin:0' }, ROLE_LABEL[r]),
-          h('div', { class: 'chips', style: 'gap:6px' }, list.length ? list.map((p) => h('span', { class: 'tag', style: `cursor:${screens.has(p) ? 'pointer' : 'default'}${screens.has(p) ? '' : ';border-color:#6a5a99;border-radius:12px'}`, onclick: screens.has(p) ? () => openScreen(p) : null }, p + (screens.has(p) ? '' : ' (모듈)'))) : h('span', { style: 'font-size:12px;color:var(--dim2)' }, '없음'))))),
+          h('div', { class: 'chips', style: 'gap:6px' }, list.length ? list.map((p) => h('span', { class: 'tag', style: `cursor:${screens.has(p) ? 'pointer' : 'default'}${screens.has(p) ? '' : ';border-color:#6a5a99;border-radius:12px'}${p === currentScreen ? ';border-color:var(--accent);background:var(--accent-bg);font-weight:700' : ''}`, onclick: screens.has(p) ? () => openScreen(p) : null }, p + (screens.has(p) ? '' : ' (모듈)') + (p === currentScreen ? ' · 지금 화면' : ''))) : h('span', { style: 'font-size:12px;color:var(--dim2)' }, '없음'))))),
       h('div', { class: 'sec' }, h('h4', null, `필드 · ${info.props.length}`, info.flagged ? h('small', { style: 'color:var(--amber)' }, `확인 ${info.flagged}`) : null),
         h('div', { class: 'fld' }, info.props.map((p) => {
           const rolesOf = ROLES.filter((r) => p.roles[r].length);

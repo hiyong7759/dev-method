@@ -83,7 +83,7 @@ export function screenView(root, { model, name, tab, at, go }) {
   function showDrawer() {
     [shead, banners, tabsEl].forEach((n) => n.classList.add('hidden'));
     tbody.replaceChildren(infoDrawer(c.model, c.drawer.info, {
-      focusField: c.drawer.prop, onClose: () => { c.drawer = null; c.hl = new Set(); c.render(); },
+      focusField: c.drawer.prop, currentScreen: c.name, onClose: () => { c.drawer = null; c.hl = new Set(); c.render(); },
       openInfo: (n) => { c.drawer = { info: n }; c.render(); }, openScreen: (n) => { c.drawer = null; go(n, 'overview'); c.name = n; c.render(); },
     }));
     tbody.style.padding = '0'; tbody.firstChild.style.flex = '1';
