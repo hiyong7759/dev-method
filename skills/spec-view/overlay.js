@@ -22,19 +22,20 @@
     .fab,.header,.panel{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,sans-serif}
     .mono{font-family:ui-monospace,'JetBrains Mono',Menlo,monospace}
     button{font:inherit;cursor:pointer}
-    .fab{position:fixed;right:20px;bottom:20px;z-index:2147483000;display:flex;align-items:center;gap:10px;min-height:44px;padding:0 16px 0 14px;border:1px solid #3a362f;border-radius:22px;background:#1c1a17;color:#efe9e0;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(28,26,23,.28)}
-    .tag{font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid #5b6fb8;color:#9db4ff}
-    .header{position:fixed;left:0;top:-${HEADER_H}px;width:100vw;height:${HEADER_H}px;z-index:2147483000;display:flex;align-items:center;gap:20px;padding:0 20px;background:#1c1a17;border-bottom:1px solid #3a362f;color:#efe9e0}
+    .fab{position:fixed;right:20px;bottom:20px;z-index:2147483001;display:flex;align-items:center;gap:10px;min-height:44px;padding:0 16px 0 14px;border:1px solid #3a362f;border-radius:22px;background:#1c1a17;color:#efe9e0;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(28,26,23,.28)}
+        .header{position:fixed;left:0;top:-${HEADER_H}px;width:100vw;height:${HEADER_H}px;z-index:2147483000;display:flex;align-items:center;gap:20px;padding:0 20px;background:#1c1a17;border-bottom:1px solid #3a362f;color:#efe9e0}
     .header .dev{font-size:11px;padding:3px 8px;border-radius:4px;background:#9db4ff;color:#14161f}
     .htext{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .hrow{display:flex;align-items:baseline;gap:10px}
     .hrow .at{font-size:11px;color:#a89f92}
     .hname{font-size:17px;font-weight:700}
     .hwhy{font-size:13px;line-height:1.5;color:#d9d1c6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .toggle{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border:1px solid #5b6fb8;border-radius:22px;background:#232a45;color:#efe9e0;font-size:13px;font-weight:500}
-    .sw{position:relative;width:36px;height:20px;border-radius:10px;background:#9db4ff}
-    .sw i{position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:8px;background:#14161f}
-    .panel{position:fixed;left:100%;top:0;width:${PANEL_W}px;height:100%;z-index:2147483000;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:#22201d;border-left:1px solid #3a362f;color:#efe9e0}
+    .sw{position:relative;width:36px;height:20px;border-radius:10px;background:#5a564f;transition:background .12s}
+    .sw i{position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:8px;background:#efe9e0;transition:left .12s,background .12s}
+    .fab.on{right:calc(20px - ${PANEL_W}px);border-color:#5b6fb8;background:#232a45}
+    .fab.on .sw{background:#9db4ff}
+    .fab.on .sw i{left:18px;background:#14161f}
+    .panel{position:fixed;left:100%;top:0;width:${PANEL_W}px;height:100%;z-index:2147483000;overflow-y:auto;padding:16px 16px 84px;display:flex;flex-direction:column;gap:12px;background:#22201d;border-left:1px solid #3a362f;color:#efe9e0}
     .phead{display:flex;align-items:baseline;justify-content:space-between;padding:0 2px 2px;font-size:13px;font-weight:700}
     .phead span.mono{font-size:11px;font-weight:400;color:#a89f92}
     .card{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:10px;border:1px solid #3a362f;background:#2b2824;transition:opacity .12s}
@@ -58,12 +59,11 @@
     .badge{position:absolute;left:-8px;top:-8px;width:26px;height:26px;border-radius:13px;background:#5b6fb8;color:#fff;border:2px solid #f3ebe1;font-size:12px;display:flex;align-items:center;justify-content:center}
     .hide{display:none}
   </style>
-  <button class="fab" aria-pressed="false"><span>설계서 보기</span><span class="tag mono">DEV</span></button>
+  <button class="fab" aria-pressed="false"><span>설계서 보기</span><span class="sw"><i></i></span></button>
   <div class="marks hide"></div>
   <header class="header hide">
     <span class="dev mono">DEV</span>
     <div class="htext"><div class="hrow"><span class="at mono">@screen</span><span class="hname"></span></div><div class="hwhy"></div></div>
-    <button class="toggle" aria-pressed="true"><span>설계서 보기</span><span class="sw"><i></i></span></button>
   </header>
   <aside class="panel hide" aria-label="컴포넌트 설명"></aside>`;
 
@@ -152,7 +152,7 @@
   async function show(on) {
     open = on;
     try { localStorage.setItem(STORE_KEY, on ? '1' : '0'); } catch { /* 저장소가 막힌 환경 */ }
-    fab.classList.toggle('hide', on);
+    fab.classList.toggle('on', on); fab.setAttribute('aria-pressed', String(on));
     [marks, header, panel].forEach((n) => n.classList.toggle('hide', !on));
     layout(on);
     if (!on) { cancelAnimationFrame(raf); return; }
@@ -165,8 +165,7 @@
     }
   }
 
-  fab.addEventListener('click', () => show(true));
-  $('.toggle').addEventListener('click', () => show(false));
+  fab.addEventListener('click', () => show(!open));
   let was = false;
   try { was = localStorage.getItem(STORE_KEY) === '1'; } catch { /* 없음 */ }
   if (was) show(true);
