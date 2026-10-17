@@ -25,11 +25,12 @@
 ## 설계 = 소스
 
 - 설계문서 없이 **방향 설정만으로** 돌아가게 한다. **존재 이유 주석 + 그 아래 실제 코드**가 설계고, 히스토리·결정·기각은 커밋 메시지에 남긴다
-- 소스를 쓰거나 고칠 때: `design-as-source` 스킬
+- 소스를 쓰거나 고치려 할 때: /Volumes/macex/workspace/dev-method/docs/source-comments.md를 읽는다
 
 ## 기록
 
-- 성공이든 실패든 작업마다 커밋한다 (여러 세션이 한 폴더를 쓸 때 포함: `git-multisession` 스킬)
+- 성공이든 실패든 작업마다 커밋한다
+- 커밋하려 할 때: /Volumes/macex/workspace/dev-method/docs/commit-message.md를 읽는다. 여러 세션이 한 작업 폴더를 쓰는 프로젝트면 /Volumes/macex/workspace/dev-method/docs/commit-multisession.md도 읽는다
 - 진행 상황을 사용자가 화면으로 보게 할 때: `monitor-screen` 스킬
 
 ## 메모리
