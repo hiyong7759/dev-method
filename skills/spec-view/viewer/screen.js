@@ -115,7 +115,17 @@ export function screenView(root, { model, name, tab, at, go }) {
   };
   c.setActive = (id) => { c.active = id; };
   // 컴포넌트 카드를 누르면 그 영역을 강조하고, 화면 밖이면 보이는 자리로 스크롤한다(한 번 더 누르면 해제)
-  c.pickComp = (id) => {
+  // 눌러야 나타나는 컴포넌트: 검사가 찾아 둔 순서대로 화면을 눌러 열어 준다
+  c.revealSpec = async (id) => {
+    const sp = ordered().find((x) => x.id === id), doc = frameDoc();
+    if (!sp?.reveal || !doc) return false;
+    const norm = (e) => (e.innerText || e.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+    for (const st of sp.reveal) { const el = [...doc.querySelectorAll(st.tag)].filter((x) => norm(x) === st.text)[st.nth]; if (!el) break; el.click(); await new Promise((r) => setTimeout(r, 350)); }
+    return c.isOnScreen(id);
+  };
+  c.pickComp = async (id) => {
+    const sp0 = c.specs.find((x) => x.id === id);
+    if (sp0 && sp0.kind === 'dom' && !c.isOnScreen(id) && sp0.reveal) await c.revealSpec(id);
     c.active = c.active === id ? null : id;
     const sp = c.specs.find((x) => x.id === id);
     if (c.active && sp && sp.kind === 'dom' && sp.anchor) {

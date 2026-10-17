@@ -60,6 +60,9 @@ export function buildModel(scanRoot) {
   const rel = (f) => path.relative(scanRoot, path.join(root, f)); // 분석 경로(프로젝트 루트 기준) → 소스 폴더 기준
   const status = allStatus(scanRoot, out);
   const memos = loadMemos(scanRoot).memos;
+  let revealMap = {};
+  try { revealMap = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'reveal.json'), 'utf8')); } catch { /* 없음 */ }
+  for (const sp of out.specs) { for (const n of sp.screens) { if (revealMap[n]?.[sp.id]) { sp.reveal = revealMap[n][sp.id]; break; } } }
   const nav = cachedNav(scanRoot, root, out);
   out.warnings.push(...nav.warnings);
 

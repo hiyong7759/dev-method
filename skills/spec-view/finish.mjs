@@ -21,7 +21,21 @@ const routes = arg('--routes', '/').split(',');
 const out = arg('--out', fs.mkdtempSync(path.join(os.tmpdir(), 'spec-finish-')));
 fs.mkdirSync(out, { recursive: true });
 
+// 눌러 볼 수 있는 것들을 화면에 있는 그대로 설명하고(태그·글자·몇 번째), 같은 설명으로 다시 누를 수 있게 한다(설계서 보기의 '열어서 보기'도 같은 방식)
+const DESCRIBE = () => {
+  const norm = (e) => (e.innerText || e.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+  const vis = (e) => { const r = e.getBoundingClientRect(); const st = getComputedStyle(e); return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none'; };
+  return [...document.querySelectorAll('button,[role=button],[role=tab],summary')].filter(vis).map((e) => {
+    const tag = e.tagName.toLowerCase(), text = norm(e);
+    return { tag, text, nth: [...document.querySelectorAll(tag)].filter((x) => norm(x) === text).indexOf(e) };
+  }).filter((d) => d.text);
+};
+const CLICK = (st) => {
+  const norm = (e) => (e.innerText || e.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+  const el = [...document.querySelectorAll(st.tag)].filter((x) => norm(x) === st.text)[st.nth]; if (el) el.click(); return !!el;
+};
 const results = [];
+const reveal = {}; // 화면 이름 → { 컴포넌트 id → 누르는 순서 } (눌러야 나타나는 컴포넌트를 검사가 직접 찾아 기록)
 const snaps = {}; // 화면 이름 → 저장한 화면 스냅샷 파일 (모두 통과하면 status.mjs set test-requested가 기록에 붙인다)
 const step = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`${ok ? '통과' : '실패'}  ${name}${detail ? ' — ' + detail : ''}`); };
 const run = (script) => { const r = spawnSync(process.execPath, [path.join(here, script), script === 'extract.mjs' ? src : root, ...(script === 'nav.mjs' ? ['--src', src] : []), '--check'], { encoding: 'utf8' }); return { ok: r.status === 0, text: (r.stdout + r.stderr).trim() }; };
@@ -84,9 +98,44 @@ if (model) {
             snaps[sc.name] = name;
           } catch { /* 스냅샷 실패는 검사 실패가 아니다 */ }
           await page.locator('.tabs button', { hasText: '컴포넌트' }).click(); await page.waitForTimeout(700);
-          const domCards = await page.locator('.comp .kind', { hasText: 'dom' }).count();
-          const boxes = await page.locator('.mbox').count();
-          step(`${route} 컴포넌트의 @anchor가 실제 화면에서 모두 찾힌다`, boxes === domCards, `화면 요소 ${domCards}개 중 ${boxes}개 찾음${boxes < domCards ? ' — @anchor 선택자를 고친다' : ''}`);
+          const mine = model.specs.filter((x) => x.screens.includes(sc.name) && x.kind === 'dom' && x.anchor);
+          const frame = page.frames().find((f) => f !== page.mainFrame());
+          const isThere = (f, list) => f.evaluate((sels) => sels.map((q) => { try { return !!document.querySelector(q); } catch { return false; } }), list.map((x) => x.anchor.slice(4)));
+          let there = frame ? await isThere(frame, mine) : mine.map(() => false);
+          let missing = mine.filter((_, i) => !there[i]);
+          const initial = missing.length;
+          const revealed = {};
+          // 처음 화면에 없는 것은 눌러야 나타나는 것일 수 있다: 눌러 볼 수 있는 것을 하나씩(최대 두 번 연달아) 눌러 보며 찾는다
+          if (missing.length && frame) {
+            const url = frame.url(); const t0 = Date.now(); let probes = 0;
+            const reset = async () => { await frame.goto(url, { waitUntil: 'load' }); await page.waitForTimeout(350); };
+            const apply = async (steps) => { await reset(); for (const st of steps) { await frame.evaluate(CLICK, st); await page.waitForTimeout(300); } };
+            const check = async (steps) => {
+              if (new URL(frame.url()).pathname !== new URL(url).pathname) return; // 다른 화면으로 가 버리면 이 화면에서 나타난 것이 아니다
+              const now = await isThere(frame, missing);
+              missing.forEach((m, i) => { if (now[i]) revealed[m.id] = steps; });
+              missing = missing.filter((m) => !revealed[m.id]);
+            };
+            await reset();
+            const first = await frame.evaluate(DESCRIBE);
+            const key = (d) => `${d.tag}|${d.text}|${d.nth}`; const base = new Set(first.map(key));
+            for (const d of first) {
+              if (!missing.length || probes > 70 || Date.now() - t0 > 30000) break;
+              probes++; await apply([d]); await check([d]);
+              if (!missing.length) break;
+              const next = (await frame.evaluate(DESCRIBE)).filter((x) => !base.has(key(x))).slice(0, 12); // 누르고 나서 새로 생긴 것(두 번째 눌러 볼 것)
+              for (const d2 of next) {
+                if (!missing.length || probes > 70 || Date.now() - t0 > 30000) break;
+                probes++; await apply([d, d2]); await check([d, d2]);
+              }
+            }
+            await reset();
+          }
+          if (Object.keys(revealed).length) reveal[sc.name] = revealed;
+          const tell = Object.entries(revealed).map(([id, st]) => `${mine.find((m) => m.id === id).title}(${st.map((x) => `"${x.text}"`).join(' → ')}를 누르면)`).join(', ');
+          step(`${route} 컴포넌트의 @anchor가 실제 화면에서 모두 찾힌다`, missing.length === 0,
+            missing.length ? `${missing.map((m) => m.title).join(', ')} — 처음 화면과 눌러 볼 수 있는 것을 눌러 봐도 나타나지 않는다. @anchor 선택자를 고치거나, 조건·데이터에 따라서만 나타나는 요소인지 확인한다` : `화면 요소 ${mine.length}개 모두 찾음${tell ? ` (${Object.keys(revealed).length}개는 눌러야 나타나 자동으로 찾아 기록: ${tell})` : ''}`);
+          await page.locator('.tabs button', { hasText: '컴포넌트' }).click();
           await page.screenshot({ path: path.join(out, `${tag}-spec.png`) });
         } catch (e) { step(`${route} 열기`, false, String(e.message).split('\n')[0]); }
         await page.close();
@@ -97,6 +146,8 @@ if (model) {
 }
 
 const ok = results.every((r) => r.ok);
+// 눌러야 나타나는 컴포넌트를 찾은 결과는 설계서 보기가 '열어서 보기'에 쓴다(.spec/reveal.json, 검사가 만드는 파일이라 직접 고치지 않는다)
+if (Object.keys(reveal).length) { const f = path.join(root, '.spec', 'reveal.json'); let old = {}; try { old = JSON.parse(fs.readFileSync(f, 'utf8')); } catch {} fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify({ ...old, ...reveal }, null, 2) + '\n'); }
 if (ok && Object.keys(snaps).length) { fs.mkdirSync(path.join(root, '.spec'), { recursive: true }); fs.writeFileSync(path.join(root, '.spec', 'pending-shots.json'), JSON.stringify(snaps)); }
 console.log(`\n스크린샷: ${out}`);
 console.log(ok ? '결과: 통과 — 스크린샷을 눈으로 본 뒤 "테스트 요청"을 쓴다(저장한 화면 스냅샷이 테스트 요청 기록에 붙는다)' : '결과: 실패 — 상태는 "개발 중". 테스트 요청을 내지 않는다');
