@@ -9,4 +9,6 @@
   - `monitor-screen` — 진행 상황을 화면으로 보여주는 원칙과 참고 구현
   - `secret-guard` — 비밀번호·키 커밋을 막는 git 훅
 
+- `hooks/log-evidence-request.py` — 사용자가 "근거?"로 물으면 직전 답을 `checks/evidence-requests.md`에 기록 (`~/.claude/settings.json` UserPromptSubmit에 등록)
+
 바꿀 때는 사용자 확인을 받고, 이유를 커밋에 남긴다.
