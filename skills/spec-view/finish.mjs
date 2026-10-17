@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 존재 이유: 에이전트가 "테스트 요청"을 내기 전에 끝낼 때 확인(경고 0, 서버, 화면 열림, 설계서 보기 열림)을 말이 아니라 실행으로 거치게 하려고.
-// 사용: node finish.mjs --src src --url http://localhost:5173 --routes /,/trips/1 [--out 폴더]
+// 사용: node finish.mjs --src src --url http://localhost:5173 --routes /,/trips/1 [--root 프로젝트 루트(기본 현재 폴더)] [--out 폴더]
 // 모두 통과해야 종료 코드 0. 하나라도 실패하면 상태는 "개발 중"이고 테스트 요청을 내지 않는다.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const src = arg('--src', 'src');
+const root = path.resolve(arg('--root', '.')); // tsconfig.json이 있는 프로젝트 루트(analyze-ts가 필요)
 const base = arg('--url', 'http://localhost:5173').replace(/\/$/, '');
 const routes = arg('--routes', '/').split(',');
 const out = arg('--out', fs.mkdtempSync(path.join(os.tmpdir(), 'spec-finish-')));
@@ -18,7 +19,7 @@ fs.mkdirSync(out, { recursive: true });
 
 const results = [];
 const step = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`${ok ? '통과' : '실패'}  ${name}${detail ? ' — ' + detail : ''}`); };
-const run = (script) => { const r = spawnSync(process.execPath, [path.join(here, script), src, '--check'], { encoding: 'utf8' }); return { ok: r.status === 0, text: (r.stdout + r.stderr).trim() }; };
+const run = (script) => { const r = spawnSync(process.execPath, [path.join(here, script), script === 'analyze-ts.mjs' ? root : src, '--check'], { encoding: 'utf8' }); return { ok: r.status === 0, text: (r.stdout + r.stderr).trim() }; };
 
 // 1. 경고 0
 for (const [label, script] of [['메타정보 경고 0 (extract)', 'extract.mjs'], ['정보 존재 이유 경고 0 (analyze-ts)', 'analyze-ts.mjs']]) {

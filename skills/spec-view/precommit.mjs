@@ -1,0 +1,25 @@
+// 존재 이유: 필수 메타정보가 비었거나 끊긴 참조가 있는 채로 커밋되지 않게, 경고 0을 말이 아니라 커밋 때 기계가 확인하려고.
+// 프로젝트의 .spec/config.json {"src": "<소스 폴더>"}를 읽는다. 없으면 이 프로젝트는 대상이 아니라 통과한다.
+// 우회: git commit --no-verify (쓰면 이유를 커밋 메시지에 남긴다)
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(process.argv[2] || '.');
+let cfg;
+try { cfg = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'config.json'), 'utf8')); } catch { process.exit(0); }
+const src = path.resolve(root, cfg.src || 'src');
+let bad = false;
+for (const script of ['extract.mjs', 'analyze-ts.mjs']) {
+  const r = spawnSync(process.execPath, [path.join(here, script), script === 'analyze-ts.mjs' ? root : src, '--check'], { encoding: 'utf8' });
+  if (r.status !== 0) {
+    bad = true;
+    console.error(`[spec-view] ${script} 경고:`);
+    const lines = r.stdout.split('\n').filter((l) => l.startsWith('경고')).slice(0, 10);
+    // 경고 줄이 없는데 실패했다면 도구 자체 오류다 (tsconfig 없음 등) — 내용을 그대로 보인다
+    console.error(lines.length ? lines.join('\n') : (r.stderr || r.stdout).trim().split('\n').slice(0, 8).join('\n'));
+  }
+}
+if (bad) { console.error('[spec-view] 경고를 0으로 만든 뒤 커밋한다 (메타정보 채우기: spec-view 스킬 rules/meta.md)'); process.exit(1); }

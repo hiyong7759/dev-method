@@ -177,6 +177,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // --check: 존재 이유(주석)가 빈 정보·필드를 경고로 낸다 (spec-view 스킬 rules/meta.md "필수 메타정보")
   if (process.argv.includes('--check')) {
     let n = 0;
+    // 아무것도 못 읽었는데 통과하면 검사한 것이 아니다 (tsconfig.json이 있는 프로젝트 루트를 줘야 한다)
+    if (!r.infos.length) { console.log('경고: 정보를 하나도 읽지 못했다 — tsconfig.json이 있는 프로젝트 루트를 인자로 준다'); n++; }
     for (const i of r.infos) {
       if (!i.doc) { console.log(`경고: 정보 ${i.name}에 존재 이유가 없다 (${i.file}:${i.line})`); n++; }
       for (const p of i.props) if (!p.doc) { console.log(`경고: ${i.name}.${p.name}에 존재 이유가 없다 (${i.file}:${p.line})`); n++; }

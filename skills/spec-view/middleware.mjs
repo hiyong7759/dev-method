@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractSpecs } from './extract.mjs';
+import { currentStatus, setStatus } from './status.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const OVERLAY_TAG = '<script type="module" src="/__spec/overlay.js"></script>';
@@ -16,7 +17,20 @@ export function specHandler(scanRoot) {
     if (url === '/__spec/spec.json') {
       res.setHeader('content-type', 'application/json; charset=utf-8');
       res.setHeader('cache-control', 'no-store');
-      res.end(JSON.stringify(extractSpecs(scanRoot)));
+      const out = extractSpecs(scanRoot);
+      res.end(JSON.stringify({ ...out, status: currentStatus(scanRoot, out) }));
+    } else if (url === '/__spec/status.json') {
+      res.setHeader('content-type', 'application/json; charset=utf-8');
+      res.setHeader('cache-control', 'no-store');
+      if (req.method === 'POST') {
+        // 승인·수정 필요는 사용자가 설계서 보기에서만 남긴다 (에이전트용 명령은 이 둘을 거부한다)
+        let body = '';
+        req.on('data', (c) => { body += c; });
+        req.on('end', () => {
+          try { const { status, note } = JSON.parse(body || '{}'); res.end(JSON.stringify(setStatus(scanRoot, status, { by: 'user', note: String(note || '') }))); }
+          catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })); }
+        });
+      } else res.end(JSON.stringify(currentStatus(scanRoot)));
     } else if (url === '/__spec/overlay.js') {
       res.setHeader('content-type', 'text/javascript; charset=utf-8');
       res.setHeader('cache-control', 'no-store');

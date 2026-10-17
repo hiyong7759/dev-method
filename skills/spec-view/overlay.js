@@ -66,16 +66,27 @@
     .box.dim{opacity:.35}
     .badge{position:absolute;left:-8px;top:-8px;width:26px;height:26px;border-radius:13px;background:#5b6fb8;color:#fff;border:2px solid #f3ebe1;font-size:12px;display:flex;align-items:center;justify-content:center}
     .hide{display:none}
+    .stat{display:flex;align-items:center;gap:8px;flex:none}
+    .st{font-size:12px;padding:3px 10px;border-radius:12px;background:#3a362f;color:#efe9e0;font-weight:700}
+    .st.test-requested,.st.approved-changed,.fb{background:#9db4ff;color:#14161f}
+    .st.needs-fix{background:#e0b25a;color:#2a2108}
+    .st.approved{background:#7fd8bd;color:#0f2a21}
+    .fb{font-size:11px;padding:1px 7px;border-radius:10px;font-weight:700}
+    .abtn{min-height:32px;padding:0 12px;border-radius:16px;border:1px solid #5b6fb8;background:#262c4a;color:#efe9e0;font-size:13px}
+    .abtn.ok{background:#9db4ff;color:#14161f;border-color:#9db4ff;font-weight:700}
+    @keyframes specPulse{0%,100%{box-shadow:0 0 0 0 rgba(157,180,255,.6)}50%{box-shadow:0 0 0 7px rgba(157,180,255,0)}}
+    @media (prefers-reduced-motion: no-preference){.pulse{animation:specPulse 1.8s ease-in-out infinite}}
   </style>
-  <button class="fab" aria-pressed="false"><span>설계서 보기</span><span class="sw"><i></i></span></button>
+  <button class="fab" aria-pressed="false"><span>설계서 보기</span><span class="fb pulse hide"></span><span class="sw"><i></i></span></button>
   <div class="marks hide"></div>
   <header class="header hide">
     <span class="dev mono">DEV</span>
     <div class="htext"><div class="hrow"><span class="at mono">@screen</span><span class="hname"></span></div><div class="hwhy"></div></div>
+    <div class="stat"></div>
     <div class="sum"></div>
   </header>
   <aside class="panel hide" aria-label="컴포넌트 설명"></aside>
-  <div class="foot hide"><span>개발 모드 전용 · 읽기 전용</span></div>`;
+  <div class="foot hide"><span>개발 모드 전용</span></div>`;
 
   const $ = (s) => sh.querySelector(s);
   const fab = $('.fab'), marks = $('.marks'), header = $('.header'), panel = $('.panel'), foot = $('.foot');
@@ -103,6 +114,30 @@
   const isLogic = (s) => s.kind === 'logic';
   // 필수 메타정보(존재 이유)만 미작성으로 센다. 근거·약속은 선택이라 비어 있으면 표시하지 않는다
   const missing = (s) => !s.why;
+
+  // 화면 상태: 칩 + (확인할 상태일 때) 승인/문제 있음. 승인·수정 필요는 사용자가 여기서만 남긴다
+  const NEEDS_CHECK = ['test-requested', 'approved-changed'];
+  function renderStatus(st) {
+    const box = $('.stat'); box.textContent = '';
+    const fb = $('.fb');
+    if (!st) { fb.classList.add('hide'); return; }
+    fb.textContent = st.label; fb.classList.toggle('hide', !NEEDS_CHECK.includes(st.status));
+    const chip = el('span', `st ${st.status}${NEEDS_CHECK.includes(st.status) ? ' pulse' : ''}`, st.label);
+    chip.title = st.note || '';
+    box.append(chip);
+    if (NEEDS_CHECK.includes(st.status)) {
+      const send = async (status, note) => {
+        const r = await fetch('/__spec/status.json', { method: 'POST', body: JSON.stringify({ status, note }) });
+        const j = await r.json();
+        if (j.error) { alert(j.error); return; }
+        data.status = j; renderStatus(j);
+      };
+      const ok = el('button', 'abtn ok', '승인'); ok.addEventListener('click', () => send('approved'));
+      const bad = el('button', 'abtn', '문제 있음');
+      bad.addEventListener('click', () => { const note = prompt('무엇이 문제인가요? 한 줄로 적어 주세요'); if (note && note.trim()) send('needs-fix', note.trim()); });
+      box.append(ok, bad);
+    }
+  }
 
   function renderSummary() {
     const sum = $('.sum'); sum.textContent = '';
@@ -197,6 +232,7 @@
       data.num = Object.fromEntries(data.ordered.map((x, i) => [x.id, i + 1]));
       $('.hname').textContent = data.screen ? data.screen.name : '(@screen 없음)';
       $('.hwhy').textContent = data.screen ? data.screen.why : '';
+      renderStatus(data.status);
       renderPanel();
     } catch (e) {
       panel.textContent = '';
@@ -205,6 +241,8 @@
   }
 
   fab.addEventListener('click', () => show(!open));
+  // 닫혀 있어도 확인할 일이 있으면 토글 배지가 깜빡인다
+  fetch('/__spec/status.json', { cache: 'no-store' }).then((r) => r.json()).then((st) => { if (!open) renderStatus(st); }).catch(() => {});
   let was = false;
   try { was = localStorage.getItem(STORE_KEY) === '1'; } catch { /* 없음 */ }
   if (was) show(true);
