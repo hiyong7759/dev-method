@@ -1,7 +1,7 @@
 # 개발 방법 — 핵심 (모든 프로젝트)
 
-> 모든 프로젝트에서 늘 읽힌다(~/.claude/CLAUDE.md가 불러옴). 그래서 원칙만 한 줄씩 둔다. 깊이는 필요한 순간에 읽는 스킬로.
-> 이 방법은 계속 검증하며 고친다. 바꿀 때는 사용자 확인을 받고, 이유를 이 저장소 커밋에 남긴다. 정책을 더하거나 고칠 때: /Volumes/macex/workspace/dev-method/docs/method-authoring.md를 읽는다.
+> 모든 프로젝트에서 늘 읽힌다(~/.claude/CLAUDE.md가 불러옴). 그래서 원칙만 한 줄씩 둔다. 깊이는 맨 아래 표의 문서로, 해당 순간에만 읽는다.
+> 이 방법은 계속 검증하며 고친다. 바꿀 때는 사용자 확인을 받고, 이유를 이 저장소 커밋에 남긴다.
 
 ## 사용자
 
@@ -15,22 +15,16 @@
 - **사실은 확인하고 근거(파일:줄, 측정값과 날짜, 문서 이름)와 함께 말한다.** 확인하지 않은 것은 "확인 안 함", 못 찾은 것은 "모른다"고 말한다 (사용자 결정)
 - 핵심부터 검증하고, 검증할 수 있는 범위까지만 작게 진행한다. 원인을 모르면 검증된 기준선부터 재현한다. 결과는 숫자와 스크린샷으로, 실패는 실패라고 말한다
 - 비밀번호·키는 저장소에 넣지 않는다 (막는 훅: `secret-guard`)
-- 다른 에이전트에게 일을 맡기려 할 때: /Volumes/macex/workspace/dev-method/docs/delegate.md를 읽는다
-- 학습·대량 처리처럼 결과를 보는 데 오래 걸리는 일을 띄우려 할 때: /Volumes/macex/workspace/dev-method/docs/long-running.md를 읽는다
-- 작업을 다른 창·세션에서 이어가게 하려 할 때: /Volumes/macex/workspace/dev-method/docs/new-session.md를 읽는다
-- 한 작업 묶음이 끝났거나 메모리를 정리하려 할 때: /Volumes/macex/workspace/dev-method/docs/memory-cleanup.md를 읽는다
 - 방향이 흔들리면 짧은 방향 메모로 맞춘다. 설계는 사용자 검토·확정이 먼저고, 확정되면 그에 맞춘 구현은 따로 묻지 않고 진행한다
 - 사용량 때문에 필요한 일을 줄이거나 미루지 않는다. 다만 비용만큼 결과가 나아지는지는 늘 본다
 
 ## 설계 = 소스
 
 - 설계문서 없이 **방향 설정만으로** 돌아가게 한다. **존재 이유 주석 + 그 아래 실제 코드**가 설계고, 히스토리·결정·기각은 커밋 메시지에 남긴다
-- 소스를 쓰거나 고치려 할 때: /Volumes/macex/workspace/dev-method/docs/source-comments.md를 읽는다
 
 ## 기록
 
 - 성공이든 실패든 작업마다 커밋한다
-- 커밋하려 할 때: /Volumes/macex/workspace/dev-method/docs/commit-message.md를 읽는다. 여러 세션이 한 작업 폴더를 쓰는 프로젝트면 /Volumes/macex/workspace/dev-method/docs/commit-multisession.md도 읽는다
 - 진행 상황을 사용자가 화면으로 보게 할 때: `monitor-screen` 스킬
 
 ## 메모리
@@ -38,3 +32,18 @@
 - 메모리에는 사용자가 한 말 중 기억할 것만 담는다. 에이전트가 사건 하나를 겪고 스스로 만든 규칙은 담지 않는다
 - 같은 문제나 비효율이 세 번 반복되면 자동화(훅·스크립트)나 규칙으로 만들자고 사용자에게 제안한다
 - 메모리·프로젝트 규칙·이 방법을 바꾸는 것은 사용자 확인 뒤에 한다
+
+## 상황별 문서
+
+기준 경로: /Volumes/macex/workspace/dev-method/docs/ — 아래 상황이면 해당 문서를 먼저 읽는다.
+
+| 상황 | 문서 |
+|---|---|
+| 다른 에이전트에게 일을 맡기려 할 때 | delegate.md |
+| 학습·대량 처리처럼 결과를 보는 데 오래 걸리는 일을 띄우려 할 때 | long-running.md |
+| 작업을 다른 창·세션에서 이어가게 하려 할 때 | new-session.md |
+| 한 작업 묶음이 끝났거나 메모리를 정리하려 할 때 | memory-cleanup.md |
+| 소스를 쓰거나 고치려 할 때 | source-comments.md |
+| 커밋하려 할 때 | commit-message.md |
+| 여러 세션이 한 작업 폴더를 쓰는 프로젝트에서 커밋하려 할 때 | commit-multisession.md |
+| 이 방법(CORE·문서·스킬·훅)에 정책을 더하거나 고치려 할 때 | method-authoring.md |
