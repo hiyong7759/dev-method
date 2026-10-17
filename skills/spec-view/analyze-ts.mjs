@@ -72,6 +72,42 @@ export function analyzeTs(root, opts = {}) {
     if (par && ts.isPropertyAccessExpression(par) && par.parent && ts.isBinaryExpression(par.parent) && par.parent.left === par) return 'update';
     return 'write';
   };
+  // 이 참조가 화면에 값을 그리는 곳이면, 그 요소를 화면에서 찾을 선택자 힌트를 만든다.
+  // {값}이 든 JSX 요소의 className(첫 고정 이름)을 쓰고, 없으면 가까운 className 조상 아래의 태그로 찾는다. 요소 안에 다른 것이 섞여 있으면 mode:'text'(그 요소의 글자 부분만)
+  // 함수 안(필터·정렬 콜백 등)에서 읽은 값은 화면에 그리는 곳이 아니므로 힌트를 만들지 않는다
+  const classToken = (el) => {
+    const open = ts.isJsxElement(el) ? el.openingElement : el;
+    const attr = open.attributes.properties.find((a) => ts.isJsxAttribute(a) && a.name.text === 'className');
+    if (!attr || !attr.initializer) return null;
+    let text = null; const init = attr.initializer;
+    if (ts.isStringLiteral(init)) text = init.text;
+    else if (ts.isJsxExpression(init) && init.expression) { const e = init.expression; if (ts.isStringLiteralLike(e)) text = e.text; else if (ts.isTemplateExpression(e)) text = e.head.text; else if (ts.isConditionalExpression(e) && ts.isStringLiteralLike(e.whenTrue)) text = e.whenTrue.text; }
+    const tok = (text || '').trim().split(/\s+/)[0];
+    return tok && /^[\w-]+$/.test(tok) ? tok : null;
+  };
+  const domHint = (sf, pos) => {
+    if (!sf || !/\.(tsx|jsx)$/.test(sf.fileName)) return null;
+    let node = sf;
+    for (let again = true; again;) { again = false; ts.forEachChild(node, (c) => { if (!again && c.getStart() <= pos && pos < c.getEnd()) { node = c; again = true; } }); }
+    let cur = node, expr = null;
+    while (cur && cur !== sf) {
+      if (ts.isJsxExpression(cur)) { expr = cur; break; }
+      if (ts.isArrowFunction(cur) || ts.isFunctionExpression(cur) || ts.isFunctionDeclaration(cur) || ts.isMethodDeclaration(cur) || ts.isJsxElement(cur) || ts.isJsxSelfClosingElement(cur)) return null;
+      cur = cur.parent;
+    }
+    if (!expr) return null;
+    let el, mode = 'el';
+    // 속성에 쓴 값은 눈에 보이는 속성(모양·글자·그림)일 때만 인정한다. to·href·key·onClick 같은 것은 화면에 안 나온다
+    if (ts.isJsxAttribute(expr.parent)) { if (!['className', 'style', 'value', 'defaultValue', 'checked', 'src', 'alt', 'placeholder', 'title', 'label'].includes(expr.parent.name.text)) return null; el = expr.parent.parent.parent; }
+    else if (ts.isJsxElement(expr.parent)) { el = expr.parent; const real = el.children.filter((c) => !(ts.isJsxText(c) && !c.text.trim())); mode = real.length === 1 ? 'el' : 'text'; }
+    else return null;
+    const tag = (ts.isJsxElement(el) ? el.openingElement.tagName : el.tagName).getText();
+    let sel = classToken(el) ? `.${classToken(el)}` : null;
+    if (!sel && /^[a-z]/.test(tag)) {
+      for (let a = el.parent; a; a = a.parent) { if ((ts.isJsxElement(a) || ts.isJsxSelfClosingElement(a)) && classToken(a)) { sel = `.${classToken(a)} ${tag}`; break; } }
+    }
+    return sel ? { sel, mode } : null;
+  };
   const ownerLabel = (node) => {
     for (let p = node.parent; p; p = p.parent) {
       if ((ts.isFunctionDeclaration(p) || ts.isInterfaceDeclaration(p) || ts.isTypeAliasDeclaration(p) || ts.isClassDeclaration(p)) && p.name) return p.name.text;
@@ -151,7 +187,7 @@ export function analyzeTs(root, opts = {}) {
         const b = e.isWriteAccess ? p.writes : p.reads; const a = areaOf(e.fileName); b[a] = (b[a] || 0) + 1;
         // 어느 파일에서, 읽기인지 쓰기인지(쓰기는 새로 만드는 입력인지 기존 값을 고치는 수정인지)
         const rsf = program.getSourceFile(e.fileName);
-        p.refs.push({ file: rel(e.fileName), line: rsf ? rsf.getLineAndCharacterOfPosition(e.textSpan.start).line + 1 : 0, write: !!e.isWriteAccess, kind: e.isWriteAccess ? writeKind(rsf, e.textSpan.start) : 'read' });
+        p.refs.push({ file: rel(e.fileName), line: rsf ? rsf.getLineAndCharacterOfPosition(e.textSpan.start).line + 1 : 0, write: !!e.isWriteAccess, kind: e.isWriteAccess ? writeKind(rsf, e.textSpan.start) : 'read', dom: domHint(rsf, e.textSpan.start) });
       });
     }
   }

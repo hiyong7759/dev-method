@@ -42,7 +42,7 @@ export function overview(c) {
     h('div', { class: 'chips', style: 'margin-bottom:10px' }, ROLES.filter((r) => counts[r]).map((r) => h('button', { class: `role ${r}`, style: `background:${sel === r ? 'var(--accent-bg)' : 'none'};cursor:pointer;padding:3px 9px`, onclick: () => { c.fieldRole = sel === r ? null : r; c.render(); } }, `${ROLE_LABEL[r]} ${counts[r]}`))),
     fields.length ? h('div', { class: 'fi-list' }, fields.filter((f) => !sel || f.roles.includes(sel)).map((f) => h('button', {
       class: `fi-row${c.focus && c.focus.info === f.info && c.focus.prop === f.prop ? ' on' : ''}`, title: f.doc || '존재 이유 미작성',
-      onmouseenter: () => c.setHL(new Set(f.specs)), onmouseleave: () => c.setHL(new Set()),
+      onmouseenter: () => c.setHLField(f), onmouseleave: () => c.setHLField(null),
       onclick: () => c.openInfo(f.info, f.prop),
     }, h('span', { class: 'fi-name' }, h('span', { class: 'i' }, `${f.info}.`), h('b', null, f.prop)), h('span', { class: 'fi-roles' }, f.roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])))))) : h('div', { style: 'font-size:12px;color:var(--dim2)' }, '이 화면이 읽거나 쓰는 정보 필드가 없다')));
   return el;

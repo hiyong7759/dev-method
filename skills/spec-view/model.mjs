@@ -102,11 +102,11 @@ export function buildModel(scanRoot) {
         const owners = screenOfFile(ref.file);
         const sp = nearestSpec(out.specs, rel(ref.file), ref.line);
         if (!ref.write) {
-          if (ui) { owners.forEach((n) => { roles.shown.add(n); addField(n, i, p, 'shown', sp); }); if (owners.length) p.evidence.push({ role: 'shown', who: owners.join('·'), file: rel(ref.file), line: ref.line, kind: ref.kind }); }
+          if (ui) { owners.forEach((n) => { roles.shown.add(n); addField(n, i, p, 'shown', sp, ref.dom); }); if (owners.length) p.evidence.push({ role: 'shown', who: owners.join('·'), file: rel(ref.file), line: ref.line, kind: ref.kind }); }
           else if (!/\/(mock|seed|fixtures?)\//.test(ref.file)) { const who = sp?.title || path.basename(ref.file); roles.judge.add(who); p.evidence.push({ role: 'judge', who, file: rel(ref.file), line: ref.line, kind: ref.kind }); }
         } else if (ui) {
           const k = ref.kind === 'create' ? 'input' : 'modify';
-          owners.forEach((n) => { roles[k].add(n); addField(n, i, p, k, sp); });
+          owners.forEach((n) => { roles[k].add(n); addField(n, i, p, k, sp, ref.dom); });
           if (owners.length) p.evidence.push({ role: k, who: owners.join('·'), file: rel(ref.file), line: ref.line, kind: ref.kind });
         }
       }
@@ -115,11 +115,12 @@ export function buildModel(scanRoot) {
       for (const k of Object.keys(roles)) roles[k].forEach((v) => i.flow[k].add(v));
     }
   }
-  function addField(screenName, info, prop, role, sp) {
+  function addField(screenName, info, prop, role, sp, dom) {
     const key = `${info.name}.${prop.name}`;
     const m = screenFields[screenName];
-    if (!m.has(key)) m.set(key, { info: info.name, prop: prop.name, doc: clean(prop.doc), roles: new Set(), specs: new Set() });
+    if (!m.has(key)) m.set(key, { info: info.name, prop: prop.name, doc: clean(prop.doc), roles: new Set(), specs: new Set(), doms: new Map() });
     const f = m.get(key); f.roles.add(role); if (sp) f.specs.add(sp.id);
+    if (dom) f.doms.set(`${dom.mode}|${dom.sel}`, dom);
   }
 
   // ── 화면 흐름: 들어오는 길, 단계(시작에서 몇 번째) ───────────
@@ -139,7 +140,7 @@ export function buildModel(scanRoot) {
   const screens = out.screens.map((s) => {
     const specs = specsOfScreen(s.name);
     const mine = memos.filter((m) => m.screen === s.name);
-    const fields = [...screenFields[s.name].values()].map((f) => ({ ...f, roles: [...f.roles], specs: [...f.specs] }));
+    const fields = [...screenFields[s.name].values()].map((f) => ({ ...f, roles: [...f.roles], specs: [...f.specs], doms: [...f.doms.values()] }));
     const missing = specs.filter((x) => !x.why).length + (s.why ? 0 : 1);
     const warns = out.warnings.filter((w) => s.files.some((f) => w.includes(`(${f}:`)));
     const st = status[s.name];

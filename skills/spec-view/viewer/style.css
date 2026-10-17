@@ -339,3 +339,8 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .why b{flex:none;width:34px;font-size:12px}
 .why.d b{color:var(--green)}.why.r b{color:var(--red)}.why.c b{color:var(--amber)}
 .ev .tit{font-size:14.5px}
+
+/* 정보가 화면에 나오는 자리 강조 */
+@keyframes fieldGlow{0%,100%{box-shadow:0 0 0 0 rgba(91,111,184,.55)}50%{box-shadow:0 0 0 8px rgba(91,111,184,0)}}
+.fbox{position:absolute;border-radius:6px;outline:3px solid var(--accent-deep);outline-offset:1px;background:rgba(157,180,255,.28)}
+@media (prefers-reduced-motion:no-preference){.fbox{animation:fieldGlow 1.4s ease-in-out infinite}}

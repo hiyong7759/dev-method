@@ -96,6 +96,8 @@ export function screenView(root, { model, name, tab, at, go }) {
   c.render = render;
   c.setTab = (t) => { c.tab = t; c.drawer = null; c.active = null; c.flash = false; if (t !== 'overview') c.hl = new Set(); go(c.name, t); render(); };
   c.setHL = (s) => { c.hl = s; };
+  // 정보 필드에 올리면: 그 정보가 화면에 나오는 자리(글자·배지 등)를 강조. 찾지 못하면(가공해서 보여 주는 값 등) 그 값을 쓰는 컴포넌트로 대신한다
+  c.setHLField = (f) => { c.hlField = f; c.hl = f ? new Set(f.specs) : new Set(); };
   c.setActive = (id) => { c.active = id; };
   // 컴포넌트 카드를 누르면 그 영역을 강조하고, 화면 밖이면 보이는 자리로 스크롤한다(한 번 더 누르면 해제)
   c.pickComp = (id) => {
@@ -174,11 +176,35 @@ export function screenView(root, { model, name, tab, at, go }) {
     const doc = frameDoc(); if (!doc) return [];
     return ordered().filter((s) => s.kind === 'dom' && s.anchor).map((s) => ({ s, r: unionRect(doc, s.anchor.slice(4)) })).filter((x) => x.r);
   };
+  // 정보가 나오는 자리: 선택자로 찾은 요소(모드 text면 그 요소 안 글자 부분만)의 화면 위 사각형들
+  function fieldRects() {
+    const f = c.hlField, doc = frameDoc(); if (!f || !f.doms?.length || !doc) return [];
+    const out = [];
+    for (const d of f.doms) {
+      let els; try { els = [...doc.querySelectorAll(d.sel)].slice(0, 24); } catch { continue; }
+      for (const el of els) {
+        if (d.mode === 'text') {
+          let l = 1e9, t = 1e9, r = -1e9, b = -1e9; const rng = doc.createRange();
+          for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) { rng.selectNodeContents(n); for (const q of rng.getClientRects()) { l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom); } }
+          if (r > l) out.push({ left: l, top: t, right: r, bottom: b });
+        } else { const q = el.getBoundingClientRect(); if (q.width || q.height) out.push({ left: q.left, top: q.top, right: q.right, bottom: q.bottom }); }
+      }
+    }
+    return out;
+  }
   function track() {
     if (!alive) return;
-    const ids = new Set(c.tab === 'components' ? ordered().filter((s) => s.kind === 'dom').map((s) => s.id) : c.hl);
+    const frs = fieldRects();
+    // 필드에 올린 동안에는, 그 자리를 찾았으면 그 자리만 강조하고 못 찾았을 때만 컴포넌트 상자로 대신한다
+    const fbPool = [...marks.querySelectorAll('.fbox')];
+    frs.forEach((r, i) => {
+      let e = fbPool[i]; if (!e) { e = h('div', { class: 'fbox' }); marks.append(e); }
+      e.style.cssText = `left:${r.left - 4}px;top:${r.top - 3}px;width:${r.right - r.left + 8}px;height:${r.bottom - r.top + 6}px`;
+    });
+    fbPool.slice(frs.length).forEach((e) => e.remove());
+    const ids = new Set(c.tab === 'components' ? ordered().filter((s) => s.kind === 'dom').map((s) => s.id) : (frs.length ? [] : c.hl));
     if (c.draft?.type === 'component') ids.add(c.draft.spec);
-    const have = new Map([...marks.children].map((e) => [e.dataset.id, e]));
+    const have = new Map([...marks.querySelectorAll('.mbox')].map((e) => [e.dataset.id, e])); // 컴포넌트 상자만 다룬다(정보 강조·고른 영역 표시는 따로 관리)
     const rs = rects();
     for (const { s, r } of rs) {
       if (!ids.has(s.id)) continue;
