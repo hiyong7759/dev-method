@@ -1,8 +1,3 @@
----
-name: delegate-research
-description: 다른 에이전트(Sonnet·Haiku 등)에게 일을 맡기려 할 때 무엇을 맡기고 맡기지 않을지 정하는 기준. 에이전트를 띄우기 전에 읽는다
----
-
 # 다른 에이전트에게 맡기기
 
 - 맡기는 건 조사만 한다 (Sonnet·Haiku)

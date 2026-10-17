@@ -1,7 +1,7 @@
 # 개발 방법 — 핵심 (모든 프로젝트)
 
 > 모든 프로젝트에서 늘 읽힌다(~/.claude/CLAUDE.md가 불러옴). 그래서 원칙만 한 줄씩 둔다. 깊이는 필요한 순간에 읽는 스킬로.
-> 이 방법은 계속 검증하며 고친다. 바꿀 때는 사용자 확인을 받고, 이유를 이 저장소 커밋에 남긴다. 정책을 더하거나 고칠 때: `method-authoring` 스킬.
+> 이 방법은 계속 검증하며 고친다. 바꿀 때는 사용자 확인을 받고, 이유를 이 저장소 커밋에 남긴다. 정책을 더하거나 고칠 때: /Volumes/macex/workspace/dev-method/docs/method-authoring.md를 읽는다.
 
 ## 사용자
 
@@ -15,6 +15,10 @@
 - **사실은 확인하고 근거(파일:줄, 측정값과 날짜, 문서 이름)와 함께 말한다.** 확인하지 않은 것은 "확인 안 함", 못 찾은 것은 "모른다"고 말한다 (사용자 결정)
 - 핵심부터 검증하고, 검증할 수 있는 범위까지만 작게 진행한다. 원인을 모르면 검증된 기준선부터 재현한다. 결과는 숫자와 스크린샷으로, 실패는 실패라고 말한다
 - 비밀번호·키는 저장소에 넣지 않는다 (막는 훅: `secret-guard`)
+- 다른 에이전트에게 일을 맡기려 할 때: /Volumes/macex/workspace/dev-method/docs/delegate.md를 읽는다
+- 학습·대량 처리처럼 결과를 보는 데 오래 걸리는 일을 띄우려 할 때: /Volumes/macex/workspace/dev-method/docs/long-running.md를 읽는다
+- 작업을 다른 창·세션에서 이어가게 하려 할 때: /Volumes/macex/workspace/dev-method/docs/new-session.md를 읽는다
+- 한 작업 묶음이 끝났거나 메모리를 정리하려 할 때: /Volumes/macex/workspace/dev-method/docs/memory-cleanup.md를 읽는다
 - 방향이 흔들리면 짧은 방향 메모로 맞춘다. 설계는 사용자 검토·확정이 먼저고, 확정되면 그에 맞춘 구현은 따로 묻지 않고 진행한다
 - 사용량 때문에 필요한 일을 줄이거나 미루지 않는다. 다만 비용만큼 결과가 나아지는지는 늘 본다
 
