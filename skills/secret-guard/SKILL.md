@@ -11,12 +11,8 @@ description: 비밀번호·API 키·토큰이 저장소에 커밋되는 것을 �
 
 ## 설치 (새 프로젝트)
 
-1. 프로젝트의 `tools/hooks/`로 복사하고 실행 권한을 준다
-2. `.git/hooks/pre-commit`에서 부른다. 이미 pre-commit 훅이 있으면 그 안에 한 줄을 더한다:
-```bash
-"$(git rev-parse --show-toplevel)"/tools/hooks/pre-commit-secrets.sh || exit 1
-```
-3. 확인: 시험용 파일에 `API_KEY="abcd1234efgh"`를 넣고 커밋해서 막히는지 본다
+저장소 루트에서 `./install.sh hooks <프로젝트 경로>` (훅 복사 + git pre-commit 연결 + 설치 목록 등록). `.git/hooks`는 저장소에 올라가지 않으므로 새로 clone하면 다시 실행해야 하고, `./install.sh check`가 연결이 빠진 곳을 알려 준다.
+확인: 시험용 파일에 `API_KEY="abcd1234efgh"`를 넣고 커밋해서 막히는지 본다
 
 ## 막혔을 때
 

@@ -14,11 +14,14 @@ description: 여러 Claude 세션이 같은 작업 폴더와 같은 git 스테�
 
 ## 훅 설치 (새 프로젝트)
 
-`hooks/claude-block-git.sh`는 `add -A`, `add .`, `reset --hard`, `stash`, `clean`, `checkout .`, `restore .`, `commit --amend`, `rebase`, `push --force`를 막는다.
+`hooks/claude-block-git.sh`는 `add -A`·`add .`·`add -u`(경로 없음), `commit -a`·`--amend`·`-n`(검사 우회), `reset --hard`, `stash`, `clean`, `checkout .`, `restore .`, `rebase`, `push --force`·`+ref`를 막는다. `git -C`·`git -c` 같은 앞 옵션과 `-am` 같은 합친 옵션도 읽고, 따옴표 안(커밋 메시지)과 heredoc 본문은 명령으로 보지 않는다.
 
-1. 프로젝트의 `tools/hooks/`로 복사하고 실행 권한을 준다
+1. 저장소 루트에서 `./install.sh hooks <프로젝트 경로>` — 훅 복사, secret-guard의 git pre-commit 연결, `installed-projects.txt`에 등록
 2. 프로젝트 `.claude/settings.json`에 등록:
 ```json
 { "hooks": { "PreToolUse": [ { "matcher": "Bash", "hooks": [
   { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/tools/hooks/claude-block-git.sh" } ] } ] } }
 ```
+
+훅은 프로젝트에 복사본으로 있어서 원본을 고치면 낡는다. `./install.sh check`로 어디가 다른지 보고, `./install.sh sync`로 맞춘다.
+훅을 고치면 `hooks/test-claude-block-git.sh`를 돌린다. 새로 샌 명령이 나오면 그 사례를 시험에 먼저 더한다.
