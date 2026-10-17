@@ -34,7 +34,7 @@
     .toggle{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border:1px solid #5b6fb8;border-radius:22px;background:#232a45;color:#efe9e0;font-size:13px;font-weight:500}
     .sw{position:relative;width:36px;height:20px;border-radius:10px;background:#9db4ff}
     .sw i{position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:8px;background:#14161f}
-    .panel{position:fixed;left:100%;top:-${HEADER_H}px;width:${PANEL_W}px;height:100vh;z-index:2147483000;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:#22201d;border-left:1px solid #3a362f;color:#efe9e0}
+    .panel{position:fixed;left:100%;top:0;width:${PANEL_W}px;height:100%;z-index:2147483000;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:#22201d;border-left:1px solid #3a362f;color:#efe9e0}
     .phead{display:flex;align-items:baseline;justify-content:space-between;padding:0 2px 2px;font-size:13px;font-weight:700}
     .phead span.mono{font-size:11px;font-weight:400;color:#a89f92}
     .card{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:10px;border:1px solid #3a362f;background:#2b2824;transition:opacity .12s}
@@ -46,7 +46,7 @@
     .ctitle{font-size:15px;font-weight:700}
     .kind{margin-left:auto;font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid}
     .row{display:flex;gap:10px;font-size:13px;line-height:1.5}
-    .row .k{flex:0 0 52px;font-size:11px;color:#a89f92;padding-top:2px}
+    .row .k{flex:0 0 36px;font-size:12px;color:#a89f92;padding-top:2px}
     .row .v{color:#e4ddd2;min-width:0;overflow-wrap:anywhere}
     .row .v.empty{color:#8f867a;font-style:italic}
     .where{font-size:11px;color:#8f867a;overflow-wrap:anywhere}
@@ -87,7 +87,7 @@
   }
 
   const row = (k, v, emptyText) => {
-    const r = el('div', 'row'); r.append(el('span', 'k mono', k), el('span', v ? 'v' : 'v empty', v || emptyText || '미작성')); return r;
+    const r = el('div', 'row'); r.append(el('span', 'k', k), el('span', v ? 'v' : 'v empty', v || emptyText || '미작성')); return r;
   };
 
   function renderPanel() {
@@ -101,8 +101,8 @@
       top.append(el('span', `num mono${s.kind === 'logic' ? ' logic' : ''}`, String(i + 1)), el('span', 'ctitle', s.title));
       const kind = el('span', 'kind mono', KIND_LABEL[s.kind] || s.kind); kind.style.color = color; kind.style.borderColor = color;
       top.append(kind);
-      card.append(top, row('why', s.why), row('basis', s.basis));
-      if (s.contract) card.append(row('contract', s.contract));
+      card.append(top, row('이유', s.why), row('근거', s.basis));
+      if (s.contract) card.append(row('약속', s.contract));
       card.append(el('div', 'where mono', `${s.file}:${s.line}`));
       card.addEventListener('mouseenter', () => setActive(s.id));
       card.addEventListener('mouseleave', () => setActive(null));
