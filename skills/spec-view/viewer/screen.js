@@ -78,7 +78,7 @@ export function screenView(root, { model, name, tab, at, go }) {
     tabsEl.classList.remove('hidden'); shead.classList.remove('hidden'); banners.classList.remove('hidden');
     const view = { overview, components, memo: memoTab, approval, history }[c.tab](c);
     tbody.append(view);
-    hint.textContent = { overview: '실제로 동작하는 화면이다. 오른쪽 "다루는 정보"에 올리면 화면에서 그 정보가 보이는 자리가 강조된다.', components: '점선 번호표는 오른쪽 카드의 번호와 같다. 카드를 누르면 그 영역이 강조되고, 화면 밖이면 보이는 자리로 이동한다.', memo: '화면 위를 끌어서 아무 영역이나 고른다. 컴포넌트가 아닌 빈 곳도 고를 수 있다.', approval: '실제로 동작하는 화면이다. 눌러 보면서 오른쪽 확인 목록을 따라 테스트한다.', history: '항목을 누르면 그 변경이 바꾼 화면 요소가 화면에 강조되고, 바꾼 정보가 아래에 나온다.' }[c.tab];
+    hint.textContent = { overview: '실제로 동작하는 화면이다. 오른쪽 "다루는 정보"에 올리면 화면에서 그 정보가 보이는 자리가 강조된다.', components: '점선 번호표는 오른쪽 카드의 번호와 같다. 카드를 누르면 그 영역이 강조되고, 화면 밖이면 보이는 자리로 이동한다.', memo: '화면 위를 끌어서 아무 영역이나 고른다. 컴포넌트가 아닌 빈 곳도 고를 수 있다.', approval: '실제로 동작하는 화면이다. 눌러 보면서 오른쪽 확인 목록을 따라 테스트한다.', history: '변경 항목을 누르면 그 변경이 바꾼 요소로 이동해 노란 테두리로 보여 준다.' }[c.tab];
   }
   function showDrawer() {
     [shead, banners, tabsEl].forEach((n) => n.classList.add('hidden'));
@@ -94,7 +94,7 @@ export function screenView(root, { model, name, tab, at, go }) {
     regionBtn.classList.toggle('on', c.regionMode); regionBtn.textContent = c.regionMode ? '영역 메모 켬' : '영역 메모';
   }
   c.render = render;
-  c.setTab = (t) => { c.tab = t; c.drawer = null; c.active = null; go(c.name, t); render(); };
+  c.setTab = (t) => { c.tab = t; c.drawer = null; c.active = null; c.flash = false; if (t !== 'overview') c.hl = new Set(); go(c.name, t); render(); };
   c.setHL = (s) => { c.hl = s; };
   c.setActive = (id) => { c.active = id; };
   // 컴포넌트 카드를 누르면 그 영역을 강조하고, 화면 밖이면 보이는 자리로 스크롤한다(한 번 더 누르면 해제)
@@ -106,7 +106,7 @@ export function screenView(root, { model, name, tab, at, go }) {
     }
     render();
   };
-  c.openInfo = (info, prop) => { c.drawer = { info, prop }; const f = c.sc().fields.find((x) => x.info === info && x.prop === prop); c.hl = new Set(f ? f.specs : []); render(); };
+  c.openInfo = (info, prop) => { c.flash = false; c.drawer = { info, prop }; const f = c.sc().fields.find((x) => x.info === info && x.prop === prop); c.hl = new Set(f ? f.specs : []); render(); };
   c.go = (n) => { const t = c.model.screens.find((s) => s.name === n); if (!t) return; c.name = n; c.drawer = null; c.ap = { problem: false }; c.draft = null; go(n, 'overview'); c.tab = 'overview'; loadFrame(t.sample || t.route); render(); };
   c.refresh = async () => { const m = await get('/__spec/model.json'); if (m.generatedAt >= c.model.generatedAt) { c.model = m; render(); } };
   c.copyRequest = async () => {
@@ -145,6 +145,11 @@ export function screenView(root, { model, name, tab, at, go }) {
     await post('/__spec/shot', { name, data }); return name;
   };
 
+  // 요소가 지금 실제 화면에 있는지, 있으면 그 자리로 스크롤
+  c.isOnScreen = (id) => { const sp = ordered().find((x) => x.id === id); const doc = frameDoc(); if (!sp || sp.kind !== 'dom' || !sp.anchor || !doc) return false; try { return !!doc.querySelector(sp.anchor.slice(4)); } catch { return false; } };
+  c.focusSpec = (id) => { const sp = ordered().find((x) => x.id === id); if (!sp?.anchor) return; try { frameDoc()?.querySelector(sp.anchor.slice(4))?.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* 잘못된 선택자 */ } };
+  c.setFlash = (ids) => { c.hl = new Set(ids); c.flash = ids.length > 0; const first = ids.find((id) => c.isOnScreen(id)); if (first) c.focusSpec(first); };
+
   // ── 화면 위 표시(번호표, 강조) ──
   const frameDoc = () => { try { return iframe.contentDocument; } catch { return null; } };
   function unionRect(doc, selector) {
@@ -172,6 +177,12 @@ export function screenView(root, { model, name, tab, at, go }) {
       e.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.right - r.left}px;height:${r.bottom - r.top}px`;
       e.firstChild.style.display = c.showNumbers ? '' : 'none';
       e.classList.toggle('on', c.active === s.id); e.classList.toggle('dim', !!c.active && c.active !== s.id);
+      // 히스토리에서 고른 변경이 바꾼 요소는 눈에 띄게(깜빡이는 노란 테두리 + 이름표)
+      const fl = c.flash && c.hl.has(s.id);
+      e.classList.toggle('flash', fl);
+      let lab = e.querySelector('.mlabel');
+      if (fl && !lab) { lab = h('span', { class: 'mlabel' }, `바뀐 곳 · ${s.title}`); e.append(lab); }
+      if (!fl && lab) lab.remove();
     }
     have.forEach((e) => e.remove());
     // 고른 영역은 메모를 쓰는 동안 화면에 남긴다(페이지 좌표 → 지금 스크롤 위치 기준)

@@ -217,7 +217,7 @@ export function history(c) {
       chips.replaceChildren(...kinds.map((k) => h('button', { class: `pill${c.hFilter === k ? ' sel' : ''}`, style: 'min-height:30px;font-size:12px', onclick: () => { c.hFilter = k; draw(); } }, `${k} · ${count(k)}`)));
       const shown = items.filter((i) => c.hFilter === '전체' || i.kind === c.hFilter);
       const touched = (i) => ({ specs: c.model.specs.filter((x) => (i.touchedSpecs || []).includes(x.id)), infos: i.touchedInfos || [] });
-      const pick = (i) => { c.hSel = c.hSel === i.hash + i.at ? null : i.hash + i.at; c.setHL(new Set(c.hSel ? touched(i).specs.map((x) => x.id) : [])); draw(); };
+      const pick = (i) => { const on = c.hSel === i.hash + i.at; c.hSel = on ? null : i.hash + i.at; c.setFlash(on ? [] : touched(i).specs.map((x) => x.id)); draw(); };
       holder.replaceChildren(...(shown.length ? shown.map((i) => h('div', { class: `ev${c.hSel === i.hash + i.at ? ' sel' : ''}`, style: 'cursor:pointer', onclick: () => pick(i) },
         h('div', { class: `dot${i.kind === '오류 수정' ? ' err' : i.kind === '승인' ? ' ap' : i.kind === '수정 필요' ? ' err' : i.kind === '테스트 요청' ? ' ap' : ''}` }),
         h('div', { class: 'body' },
@@ -226,10 +226,14 @@ export function history(c) {
           c.hSel === i.hash + i.at ? (() => {
             const t = touched(i); const fieldChips = t.infos.flatMap((x) => (x.fields.length ? x.fields.map((f) => ({ info: x.name, prop: f })) : [{ info: x.name, prop: null }]));
             const more = (n) => (n > 6 ? h('span', { class: 'mmeta' }, `외 ${n - 6}개`) : null);
+            const domSpecs = t.specs.filter((x) => x.kind !== 'logic');
+            const found = domSpecs.filter((x) => c.isOnScreen(x.id)), missing = domSpecs.filter((x) => !c.isOnScreen(x.id));
             return h('div', { class: 'dec', style: 'border:1px solid var(--accent-deep)' },
-              h('div', { style: 'font-weight:700;margin-bottom:2px' }, '이 변경이 바꾼 것'),
-              h('div', { style: 'color:var(--dim);font-size:12px;margin-bottom:8px' }, '이 변경에서 실제로 고친 부분이 걸린 화면 요소와 정보다. 화면 요소는 왼쪽 화면에 강조된다.'),
-              t.specs.length ? h('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px' }, h('span', { class: 'mmeta', style: 'flex:none;width:56px' }, '화면 요소'), t.specs.slice(0, 6).map((x) => h('span', { class: 'tag' }, x.title)), more(t.specs.length)) : null,
+              h('div', { style: 'font-weight:700;margin-bottom:8px' }, '이 변경이 바꾼 것'),
+              t.specs.length ? h('div', { style: 'margin-bottom:8px' },
+                h('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap' }, h('span', { class: 'mmeta', style: 'flex:none;width:56px' }, '화면 요소'),
+                  t.specs.slice(0, 6).map((x) => (x.kind === 'logic' ? h('span', { class: 'tag', style: 'border-color:#6a5a99', title: '화면에 보이지 않는 안쪽 로직' }, `${x.title} · 로직`) : c.isOnScreen(x.id) ? h('button', { class: 'tag', style: 'cursor:pointer;border-color:#ffd166', title: '누르면 화면의 그 자리로 이동', onclick: (ev) => { ev.stopPropagation(); c.focusSpec(x.id); } }, `${x.title} ↗`) : h('span', { class: 'tag', style: 'opacity:.6;border-style:dashed' }, `${x.title} · 지금 화면에 없음`))), more(t.specs.length)),
+                (domSpecs.length ? h('div', { class: 'mmeta', style: 'margin:6px 0 0 62px' }, found.length ? `왼쪽 화면에 노란 테두리로 표시했다${missing.length ? ` (${missing.length}개는 지금 화면에 없다)` : ''}` : '지금 화면에서 찾을 수 없다(이 화면에서 빠졌거나 이름이 바뀐 요소)') : h('div', { class: 'mmeta', style: 'margin:6px 0 0 62px' }, '화면에 보이지 않는 안쪽 로직이라 왼쪽 화면에는 표시가 없다'))) : null,
               fieldChips.length ? h('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap' }, h('span', { class: 'mmeta', style: 'flex:none;width:56px' }, '정보'), fieldChips.slice(0, 6).map((f) => h('button', { class: 'tag', style: 'cursor:pointer', onclick: (ev) => { ev.stopPropagation(); c.openInfo(f.info, f.prop || undefined); } }, f.prop ? `${f.info}.${f.prop}` : f.info)), more(fieldChips.length)) : null,
               !t.specs.length && !fieldChips.length ? h('div', { style: 'font-size:12px;color:var(--dim)' }, '화면 요소와 정보 정의는 그대로다. 안쪽 동작이나 모양만 바뀌었다.') : null); })() : null,
           i.decisions.length || i.rejections.length || i.cause ? h('div', { class: 'dec' }, i.cause ? h('div', null, `원인: ${i.cause}`) : null, i.decisions.map((d) => h('div', null, `결정: ${d}`)), i.rejections.map((d) => h('div', null, `기각: ${d}`))) : null))) : [h('div', { style: 'font-size:12px;color:var(--dim2);line-height:1.6' }, '아직 이력이 없다. 이 화면의 소스를 바꾼 커밋과 승인 기록이 여기에 쌓인다.')]));
