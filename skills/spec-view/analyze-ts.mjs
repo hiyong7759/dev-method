@@ -118,7 +118,7 @@ export function analyzeTs(root, opts = {}) {
           doc: docOf(n, sf), typeRefs: new Set(), typeAreas: {},
           props: members.filter((m) => ts.isPropertySignature(m) && nameOf(m)).map((m) => ({
             name: nameOf(m), optional: !!m.questionToken, type: (m.type ? m.type.getText() : '').slice(0, 80),
-            line: sf.getLineAndCharacterOfPosition(m.getStart()).line + 1, pos: m.name.getStart(), reads: {}, writes: {}, seen: new Set(),
+            line: sf.getLineAndCharacterOfPosition(m.getStart()).line + 1, doc: docOf(m, sf), pos: m.name.getStart(), reads: {}, writes: {}, seen: new Set(),
           })),
         };
         infos.set(id, info);
@@ -159,7 +159,7 @@ export function analyzeTs(root, opts = {}) {
         ev.strs = (strings.get(p.name) || []).slice(0, 6);
       }
       const maybe = status !== 'rw' && (ev.dupTotal > 0 || (strings.get(p.name) || []).length > 0);
-      return { name: p.name, optional: p.optional, type: p.type, line: p.line, reads: p.reads, writes: p.writes, status, maybe, evidence: ev };
+      return { name: p.name, optional: p.optional, type: p.type, line: p.line, doc: p.doc, reads: p.reads, writes: p.writes, status, maybe, evidence: ev };
     });
     out.push({
       id: info.id, name: info.name, kind: info.kind, file: info.file, line: info.line, doc: info.doc,
@@ -174,4 +174,14 @@ export function analyzeTs(root, opts = {}) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const r = analyzeTs(process.argv[2] || '.');
   console.log(`정보 ${r.infos.length}개, 영역 ${r.areas.length}개, ${r.ms}ms`);
+  // --check: 존재 이유(주석)가 빈 정보·필드를 경고로 낸다 (spec-view.md "필수 메타정보")
+  if (process.argv.includes('--check')) {
+    let n = 0;
+    for (const i of r.infos) {
+      if (!i.doc) { console.log(`경고: 정보 ${i.name}에 존재 이유가 없다 (${i.file}:${i.line})`); n++; }
+      for (const p of i.props) if (!p.doc) { console.log(`경고: ${i.name}.${p.name}에 존재 이유가 없다 (${i.file}:${p.line})`); n++; }
+    }
+    console.log(`정보 경고 ${n}건`);
+    process.exit(n ? 1 : 0);
+  }
 }

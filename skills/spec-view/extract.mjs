@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const EXTS = new Set(['.js', '.mjs', '.ts', '.jsx', '.tsx', '.html', '.vue', '.svelte', '.css', '.py']);
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', '.venv', 'runs', 'data']);
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', '.venv', 'runs']);
 const FIELDS = ['why', 'basis', 'contract', 'anchor'];
 
 // 주석 덩어리 = 줄 번호와 장식 문자를 벗긴 본문 줄들
