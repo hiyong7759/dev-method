@@ -1,6 +1,7 @@
 // 화면 설계서: 왼쪽은 실제로 동작하는 화면(iframe), 오른쪽은 개요·컴포넌트·메모·승인·히스토리 패널. 정보를 고르면 같은 정보 상세 패널이 열린다.
 import { h, get, post, copyText, matchScreen, statusChip, toast } from './util.js';
 import { infoDrawer } from './info.js';
+import { runStep } from './steps.js';
 import { overview, components, memoTab, approval, history } from './tabs.js';
 
 const TABS = [['overview', '개요'], ['components', '컴포넌트'], ['memo', '메모'], ['approval', '승인'], ['history', '히스토리']];
@@ -119,8 +120,7 @@ export function screenView(root, { model, name, tab, at, go }) {
   c.revealSpec = async (id) => {
     const sp = ordered().find((x) => x.id === id), doc = frameDoc();
     if (!sp?.reveal || !doc) return false;
-    const norm = (e) => (e.innerText || e.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 40);
-    for (const st of sp.reveal) { const el = [...doc.querySelectorAll(st.tag)].filter((x) => norm(x) === st.text)[st.nth]; if (!el) break; el.click(); await new Promise((r) => setTimeout(r, 350)); }
+    for (const st of sp.reveal) { if (!runStep(doc, st)) break; await new Promise((r) => setTimeout(r, 350)); }
     return c.isOnScreen(id);
   };
   c.pickComp = async (id) => {

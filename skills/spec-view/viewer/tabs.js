@@ -1,4 +1,5 @@
 // 화면 설계서 오른쪽 패널의 다섯 탭: 개요, 컴포넌트, 메모, 승인, 히스토리. c는 screen.js가 넘기는 제어 객체.
+import { stepLabel } from './steps.js';
 import { h, get, post, fmt, ROLES, ROLE_LABEL, statusChip, toast } from './util.js';
 
 const kv = (k, v) => [h('span', { class: 'k' }, k), h('span', null, v)];
@@ -59,8 +60,7 @@ export function components(c) {
       h('div', { class: 'crow' }, h('span', { class: 'k' }, '이유'), s.why ? h('span', { class: 'v' }, s.why) : h('span', { class: 'v empty' }, '미작성')),
       s.basis ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '근거'), h('span', { class: 'v' }, s.basis)) : null,
       s.contract ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '약속'), h('span', { class: 'v' }, s.contract)) : null,
-      (s.kind === 'dom' && s.reveal && !c.isOnScreen(s.id)) ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '나타남'), h('div', { class: 'v' }, `눌러야 나타난다 — ${s.reveal.map((x) => `"${x.text}"`).join(' → ')}를 누르면`, h('div', null, h('button', { class: 'smallbtn', style: 'margin-top:6px', onclick: async (ev) => { ev.stopPropagation(); const ok = await c.revealSpec(s.id); if (ok) { c.focusSpec(s.id); } else alert('화면을 열지 못했다. 화면 상태가 바뀌었을 수 있다'); c.render(); } }, '열어서 보기')))) : null,
-      (s.kind === 'dom' && !s.reveal && c.model && !c.isOnScreen(s.id)) ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '위치'), h('div', { class: 'v', style: 'color:var(--amber)' }, '지금 화면에서 못 찾았다 — 눌러서도 나타나지 않는다. 화면에 표시되지 않는다')) : null,
+      (s.kind === 'dom' && s.reveal && !c.isOnScreen(s.id)) ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '나타남'), h('div', { class: 'v' }, `처음에는 숨어 있다 — ${s.reveal.map(stepLabel).join(' → ')} 순서로 하면 나타난다`, h('div', null, h('button', { class: 'smallbtn', style: 'margin-top:6px', onclick: async (ev) => { ev.stopPropagation(); const ok = await c.revealSpec(s.id); if (ok) { c.focusSpec(s.id); } else alert('화면을 열지 못했다. 화면 상태가 바뀌었을 수 있다'); c.render(); } }, '열어서 보기')))) : null,
       s.kind !== 'logic' ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '동작'),
         s.ons.length ? h('div', { class: 'v' }, s.ons.map((o) => h('div', { style: 'margin-bottom:6px' }, h('span', { class: 'evt' }, o.event), h('div', null, o.effect)))) : h('span', { class: 'v empty' }, '@on 없음 — 표시만 하는 요소이거나 아직 적지 않았다')) : null,
       memoForm ? memoEditor(c) : h('div', null, h('button', { class: 'smallbtn', onclick: () => c.startMemoFor(s) }, '메모 남기기')));
@@ -208,7 +208,7 @@ export function approval(c) {
 // 이 화면이 왜 지금 모습인지: 언제 무엇을 왜 바꿨고(결정), 무엇을 버렸고(기각), 누가 요청·승인했는지. 코드 줄 같은 자세한 내용은 "상세 보기"에 접어 둔다.
 const FILTERS = [['전체', () => true], ['변경', (i) => i.type === 'commit'], ['오류 수정', (i) => i.kind === '오류 수정'], ['승인 기록', (i) => i.type === 'status']];
 const PLACE_KINDS = { spec: '화면 요소', logic: '로직', info: '정보', other: '그 밖' };
-const SPAN_NOTE = { ok: '화면에 표시', big: '화면 대부분을 차지해 표시 생략', none: '지금 화면에 없음', logic: '화면에 안 보이는 로직' };
+const SPAN_NOTE = { ok: '화면에 표시', big: '화면 대부분을 차지해 표시 생략', logic: '화면에 안 보이는 로직' };
 
 export function history(c) {
   const sc = c.sc();
@@ -229,7 +229,7 @@ export function history(c) {
           draw(); } },
           h('span', { class: 'kindtag k3', style: 'margin:0;flex:none' }, PLACE_KINDS[logic ? 'logic' : pl.kind]), h('b', { style: 'font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis' }, pl.title),
           h('span', { class: 'mono', style: 'margin-left:auto;flex:none;font-size:11px' }, h('span', { style: 'color:var(--green)' }, `+${pl.added}`), ' ', h('span', { style: 'color:var(--red)' }, `−${pl.removed}`)), h('span', { style: 'flex:none;color:var(--dim)' }, open ? '▾' : '▸')),
-        st ? h('div', { class: 'mmeta', style: `padding:0 10px 8px;color:${st === 'ok' ? 'var(--amber)' : 'var(--dim)'}` }, SPAN_NOTE[st]) : null,
+        st && SPAN_NOTE[st] ? h('div', { class: 'mmeta', style: `padding:0 10px 8px;color:${st === 'ok' ? 'var(--amber)' : 'var(--dim)'}` }, SPAN_NOTE[st]) : null,
         open ? h('div', { style: 'padding:0 10px 10px;display:flex;flex-direction:column;gap:8px' },
           pl.hunks.map((hk) => h('div', null, h('div', { class: 'mmeta mono', style: 'margin-bottom:3px' }, `${pl.file}:${hk.line}`),
             hk.removed.map((x) => h('div', { class: 'dline m' }, `− ${x}`)), hk.added.map((x) => h('div', { class: 'dline p' }, `+ ${x}`)))),

@@ -9,6 +9,7 @@ import os from 'node:os';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { matchScreen } from './viewer/util.js';
+import { runStep } from './viewer/steps.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
@@ -30,10 +31,7 @@ const DESCRIBE = () => {
     return { tag, text, nth: [...document.querySelectorAll(tag)].filter((x) => norm(x) === text).indexOf(e) };
   }).filter((d) => d.text);
 };
-const CLICK = (st) => {
-  const norm = (e) => (e.innerText || e.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 40);
-  const el = [...document.querySelectorAll(st.tag)].filter((x) => norm(x) === st.text)[st.nth]; if (el) el.click(); return !!el;
-};
+const CLICK = ({ fn, st }) => new Function('return ' + fn)()(document, st); // 한 단계 실행은 설계서 보기와 같은 함수(viewer/steps.js)를 쓴다
 const results = [];
 const reveal = {}; // 화면 이름 → { 컴포넌트 id → 누르는 순서 } (눌러야 나타나는 컴포넌트를 검사가 직접 찾아 기록)
 const snaps = {}; // 화면 이름 → 저장한 화면 스냅샷 파일 (모두 통과하면 status.mjs set test-requested가 기록에 붙인다)
@@ -110,13 +108,15 @@ if (model) {
           if (missing.length && frame) {
             const url = frame.url(); const t0 = Date.now(); let probes = 0;
             const reset = async () => { await frame.goto(url, { waitUntil: 'load' }); await page.waitForTimeout(350); };
-            const apply = async (steps) => { await reset(); for (const st of steps) { await frame.evaluate(CLICK, st); await page.waitForTimeout(300); } };
+            const apply = async (steps) => { await reset(); for (const st of steps) { await frame.evaluate(CLICK, { fn: runStep.toString(), st }); await page.waitForTimeout(300); } };
             const check = async (steps) => {
               if (new URL(frame.url()).pathname !== new URL(url).pathname) return; // 다른 화면으로 가 버리면 이 화면에서 나타난 것이 아니다
               const now = await isThere(frame, missing);
               missing.forEach((m, i) => { if (now[i]) revealed[m.id] = steps; });
               missing = missing.filter((m) => !revealed[m.id]);
             };
+            // 소스에 @open(여는 순서)이 적힌 것은 그 순서대로 먼저 열어 본다
+            for (const m of [...missing].filter((x) => x.open && x.open.length)) { await apply(m.open); await check(m.open); }
             await reset();
             const first = await frame.evaluate(DESCRIBE);
             const key = (d) => `${d.tag}|${d.text}|${d.nth}`; const base = new Set(first.map(key));
@@ -135,7 +135,7 @@ if (model) {
           if (Object.keys(revealed).length) reveal[sc.name] = revealed;
           const tell = Object.entries(revealed).map(([id, st]) => `${mine.find((m) => m.id === id).title}(${st.map((x) => `"${x.text}"`).join(' → ')}를 누르면)`).join(', ');
           step(`${route} 컴포넌트의 @anchor가 실제 화면에서 모두 찾힌다`, missing.length === 0,
-            missing.length ? `${missing.map((m) => m.title).join(', ')} — 처음 화면과 눌러 볼 수 있는 것을 눌러 봐도 나타나지 않는다. 선택자가 틀렸거나 입력·스와이프·데이터 조건으로만 나타나는 요소다. 선택자를 확인하고, 아니면 보고에 "설계서에서 표시되지 않는다"고 쓴다 (테스트 요청은 막지 않는다)` : `화면 요소 ${mine.length}개 모두 찾음${tell ? ` (${Object.keys(revealed).length}개는 눌러야 나타나 자동으로 찾아 기록: ${tell})` : ''}`, { warn: true });
+            missing.length ? `${missing.map((m) => `${m.title}${m.open && m.open.length ? '(@open 순서로 열어도 안 나타남)' : ''}`).join(', ')} — 화면에서 못 찾았다. ① @anchor 선택자가 실제 화면의 요소와 맞는지 보고 틀리면 고친다 ② 맞는데 처음에는 숨어 있는 요소면 그 @spec에 열기 순서를 쓴다(@open 누르기 글자 → 입력 칸이름=값 → 엔터). 고친 뒤 다시 실행해 통과하는지 확인한다 (테스트 요청은 막지 않는다)` : `화면 요소 ${mine.length}개 모두 찾음${tell ? ` (${Object.keys(revealed).length}개는 눌러야 나타나 자동으로 찾아 기록: ${tell})` : ''}`, { warn: true });
           await page.locator('.tabs button', { hasText: '컴포넌트' }).click();
           await page.screenshot({ path: path.join(out, `${tag}-spec.png`) });
         } catch (e) { step(`${route} 열기`, false, String(e.message).split('\n')[0]); }

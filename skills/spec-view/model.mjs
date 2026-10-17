@@ -62,7 +62,7 @@ export function buildModel(scanRoot) {
   const memos = loadMemos(scanRoot).memos;
   let revealMap = {};
   try { revealMap = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'reveal.json'), 'utf8')); } catch { /* 없음 */ }
-  for (const sp of out.specs) { for (const n of sp.screens) { if (revealMap[n]?.[sp.id]) { sp.reveal = revealMap[n][sp.id]; break; } } }
+  for (const sp of out.specs) { if (sp.open?.length) sp.reveal = sp.open; else for (const n of sp.screens) { if (revealMap[n]?.[sp.id]) { sp.reveal = revealMap[n][sp.id]; break; } } }
   const nav = cachedNav(scanRoot, root, out);
   out.warnings.push(...nav.warnings);
 

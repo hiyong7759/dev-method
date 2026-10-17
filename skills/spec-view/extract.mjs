@@ -4,6 +4,7 @@
 // 태그 규칙: 한 주석 덩어리에 @screen 또는 @spec 하나가 개체를 열고, 뒤따르는 태그(@why @basis @contract @anchor …)가 그 개체의 칸이 된다.
 //   화면은 @route @sample @domain @does @to, 컴포넌트는 @on도 쓴다 (parseBlock 위 설명)
 //   @anchor: dom:<CSS 선택자> | 3d:<오브젝트 이름> | (없음 = 화면과 연결 안 된 로직)
+//   @open: 처음 화면에 안 보이는 요소를 여는 순서(도구가 스스로 못 찾을 때만). 예: 입력 검색=서울 → 엔터 → 누르기 결과 보기
 import fs from 'node:fs';
 import path from 'node:path';
 import { screenFiles } from './files.mjs';
@@ -39,7 +40,7 @@ function commentBlocks(text) {
 // 한 덩어리를 개체 하나로. 태그가 없으면 null
 // 한 번만 쓰는 칸(why, basis, contract, anchor, route, sample, domain)과 여러 번 쓰는 칸(does, to, on)이 있다
 //   @does 사용자가 하는 일 | 확인 기준        @to 대상 화면 | 행동 | 넘기는 값        @on 이벤트: 효과
-const FIELDS = ['why', 'basis', 'contract', 'anchor', 'route', 'sample', 'domain', 'start'];
+const FIELDS = ['why', 'basis', 'contract', 'anchor', 'open', 'route', 'sample', 'domain', 'start'];
 const LISTS = ['does', 'to', 'on'];
 function parseBlock(block) {
   const entity = { kind: null, id: null, title: null, line: block.line, does: [], to: [], on: [] };
@@ -76,6 +77,18 @@ function* walk(dir) {
   }
 }
 
+// @open 한 줄을 단계 목록으로: '누르기 글자', '올리기 글자', '입력 칸이름=값', '엔터'를 → 로 잇는다
+const parseOpen = (text) => {
+  const steps = [], bad = [];
+  for (const raw of String(text || '').split('→').map((x) => x.trim()).filter(Boolean)) {
+    const m = raw.match(/^(누르기|올리기|입력|엔터)\s*(.*)$/);
+    if (!m) { bad.push(raw); continue; }
+    if (m[1] === '엔터') steps.push({ act: '엔터' });
+    else if (m[1] === '입력') { const i = m[2].indexOf('='); if (i < 0) { bad.push(raw); continue; } steps.push({ act: '입력', text: m[2].slice(0, i).trim(), value: m[2].slice(i + 1).trim() }); }
+    else if (!m[2]) bad.push(raw); else steps.push({ act: m[1], text: m[2] });
+  }
+  return { steps, bad };
+};
 const kindOf = (anchor) => (!anchor ? 'logic' : anchor.split(':')[0]);
 
 export function extractSpecs(root) {
@@ -105,11 +118,13 @@ export function extractSpecs(root) {
       } else {
         if (ids.has(e.id)) { out.warnings.push(`@spec ${e.id} 중복: ${ids.get(e.id)}, ${rel}:${e.line}`); continue; }
         ids.set(e.id, `${rel}:${e.line}`);
+        const openParsed = parseOpen(e.open);
         out.specs.push({
           id: e.id, title: e.title, why: e.why || '', basis: e.basis || '', contract: e.contract || '',
           ons: e.on.map((o) => { const i = o.indexOf(':'); return i < 0 ? { event: o.trim(), effect: '' } : { event: o.slice(0, i).trim(), effect: o.slice(i + 1).trim() }; }),
-          anchor: e.anchor || '', kind: kindOf(e.anchor), ...where,
+          anchor: e.anchor || '', open: openParsed.steps, kind: kindOf(e.anchor), ...where,
         });
+        if (openParsed.bad.length) out.warnings.push(`@spec ${e.id}의 @open을 읽지 못했다: ${openParsed.bad.join(' / ')} — '누르기 글자', '올리기 글자', '입력 칸이름=값', '엔터'를 → 로 잇는다 (${rel}:${e.line})`);
         if (!e.why) out.warnings.push(`@spec ${e.id}에 @why가 없다 (${rel}:${e.line})`);
         // 화면에 안 보이는 로직은 제목이 유일한 식별 단서 — 한 단어나 id 그대로면 무엇을 맡는지 알 수 없다
         if (!e.anchor && (e.title === e.id || e.title.replace(/\s/g, '').length < 4)) out.warnings.push(`@spec ${e.id}의 제목 "${e.title}"이 짧거나 id와 같다 — 무엇을 맡는지 보이게 쓴다 (${rel}:${e.line})`);
