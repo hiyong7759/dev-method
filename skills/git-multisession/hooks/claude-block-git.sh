@@ -17,6 +17,8 @@ m() { printf '%s' "$CMD" | grep -Eq "$1"; }
 
 # 검사 우회 표시는 훅 스크립트만 쓴다 (에이전트가 쓰면 커밋 검사를 건너뛰게 됨)
 printf '%s' "$CMD" | grep -q "DOCKEEPER=1" && block "DOCKEEPER=1 (커밋 검사 우회)"
+m "${G}commit[[:space:]]+([^;&|]*[[:space:]])?(--no-verify|-n)${E}" && block "git commit --no-verify (커밋 검사 우회)"
+m "${G}push[[:space:]]+([^;&|]*[[:space:]])?--no-verify${E}" && block "git push --no-verify (검사 우회)"
 m "${G}add([[:space:]]+-[^[:space:]]+)*[[:space:]]+(-A|--all)${E}" && block "git add -A"
 m "${G}add[[:space:]]+([^;&|]*[[:space:]])?\.${E}" && block "git add ."
 m "${G}add[[:space:]]+(-u|--update)[[:space:]]*(\$|[;&|])" && block "git add -u (경로 없음)"

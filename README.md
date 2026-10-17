@@ -7,5 +7,6 @@
   - `design-as-source` — 소스를 쓰거나 고칠 때 주석·커밋
   - `git-multisession` — 여러 세션이 한 폴더를 쓸 때 git, 위험 명령 훅
   - `monitor-screen` — 진행 상황을 화면으로 보여주는 원칙과 참고 구현
+  - `secret-guard` — 비밀번호·키 커밋을 막는 git 훅
 
 바꿀 때는 사용자 확인을 받고, 이유를 커밋에 남긴다.
