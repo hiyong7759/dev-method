@@ -36,11 +36,11 @@ export function screenStatus(scanRoot, sc, store = load(scanRoot)) {
   if (!rec) return { screen: sc.name, status: 'dev', label: LABEL.dev, files: files.length, checks };
   const changed = rec.hash !== hash;
   const status = rec.status === 'approved' && changed ? 'approved-changed' : rec.status;
-  return { screen: sc.name, status, label: LABEL[status], by: rec.by, at: rec.at, commit: rec.commit, note: rec.note || '', changedSinceRecord: changed, files: files.length, checks, history: rec.history || [] };
+  return { screen: sc.name, status, label: LABEL[status], by: rec.by, at: rec.at, commit: rec.commit, note: rec.note || '', changedSinceRecord: changed, shot: rec.shot || '', files: files.length, checks, history: rec.history || [] };
 }
 export const allStatus = (scanRoot, out = extractSpecs(scanRoot)) => { const st = load(scanRoot); return Object.fromEntries(out.screens.map((sc) => [sc.name, screenStatus(scanRoot, sc, st)])); };
 
-export function setStatus(scanRoot, name, status, { by, note = '' }) {
+export function setStatus(scanRoot, name, status, { by, note = '', shot = '' }) {
   if (by === 'agent' && !AGENT_STATES.includes(status)) throw new Error(`에이전트는 ${AGENT_STATES.join(', ')}만 남길 수 있다. ${status}는 사용자가 설계서 보기에서만 남긴다`);
   if (by === 'user' && !USER_STATES.includes(status)) throw new Error(`사용자 기록은 ${USER_STATES.join(', ')}만 가능하다`);
   const out = extractSpecs(scanRoot);
@@ -48,8 +48,8 @@ export function setStatus(scanRoot, name, status, { by, note = '' }) {
   const files = sc.files.map((f) => path.join(scanRoot, f));
   const store = load(scanRoot);
   const prev = store.screens[sc.name] || { history: [] };
-  const rec = { status, by, at: new Date().toISOString(), commit: sh('git rev-parse --short HEAD', scanRoot), dirty: !!sh('git status --porcelain', scanRoot), hash: hashOf(files), note };
-  store.screens[sc.name] = { ...rec, checks: status === 'test-requested' ? {} : (prev.checks || {}), history: [...(prev.history || []), { status, by, at: rec.at, commit: rec.commit, note }] };
+  const rec = { status, by, at: new Date().toISOString(), commit: sh('git rev-parse --short HEAD', scanRoot), dirty: !!sh('git status --porcelain', scanRoot), hash: hashOf(files), note, shot };
+  store.screens[sc.name] = { ...rec, checks: status === 'test-requested' ? {} : (prev.checks || {}), history: [...(prev.history || []), { status, by, at: rec.at, commit: rec.commit, note, shot }] };
   save(scanRoot, store);
   return screenStatus(scanRoot, sc);
 }

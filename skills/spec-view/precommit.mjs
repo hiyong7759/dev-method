@@ -12,8 +12,8 @@ let cfg;
 try { cfg = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'config.json'), 'utf8')); } catch { process.exit(0); }
 const src = path.resolve(root, cfg.src || 'src');
 let bad = false;
-for (const script of ['extract.mjs', 'analyze-ts.mjs']) {
-  const r = spawnSync(process.execPath, [path.join(here, script), script === 'analyze-ts.mjs' ? root : src, '--check'], { encoding: 'utf8' });
+for (const script of ['extract.mjs', 'analyze-ts.mjs', 'nav.mjs']) {
+  const r = spawnSync(process.execPath, [path.join(here, script), script === 'extract.mjs' ? src : root, ...(script === 'nav.mjs' ? ['--src', src] : []), '--check'], { encoding: 'utf8' });
   if (r.status !== 0) {
     bad = true;
     console.error(`[spec-view] ${script} 경고:`);

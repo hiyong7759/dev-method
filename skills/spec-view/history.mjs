@@ -22,6 +22,7 @@ export function screenHistory(scanRoot, sc, statusRec) {
       type: 'commit', kind: fix ? '오류 수정' : '변경', hash, at, author,
       title: subject.replace(/^\w+(\([^)]*\))?:\s*/, '').replace(/^"|"$/g, ''),
       request: field('요청')[0] || '', decisions: field('결정'), rejections: field('기각'), cause: field('원인')[0] || '', files: fileList.filter((f) => files.includes(f)).length || undefined,
+      fileList: fileList.filter((f) => files.includes(f)).map((f) => path.relative(scanRoot, path.join(root, f))),
     });
   }
   for (const h of statusRec?.history || []) {

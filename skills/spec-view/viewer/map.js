@@ -17,7 +17,7 @@ export function mapView(root, { model, domain, setDomain, openScreen }) {
       return h('button', { class: `scard${hot ? ' focus' : ''}${noOut ? ' dashed' : ''}`, onclick: () => openScreen(s.name) },
         h('div', { class: 'st-top' }, h('span', { class: 'nm' }, s.name), s.domain ? h('span', { class: 'dtag' }, s.domain) : null, statusChip(s.status, hot ? ' pulse' : ''),
           s.memoPending ? h('span', { class: 'chip-st memo pulse pp' }, `메모 전달 전 ${s.memoPending}`) : null, h('span', { class: 'cnt' }, `정보 ${s.infoCount}`)),
-        s.to.length ? s.to.map((t) => h('div', { class: 'mv' }, `→ ${t.target} · ${t.action || ''}${t.pass ? ` (${t.pass} 넘김)` : ''}`)) : h('div', { class: 'mv warn' }, noOut ? '나가는 길 없음 — 확인' : ''));
+        s.to.length ? s.to.map((t) => h('div', { class: `mv${t.verified ? '' : ' warn'}` }, `→ ${t.target} · ${t.action || ''}${t.pass ? ` (${t.pass} 넘김)` : ''}`, t.verified ? null : ' · 코드에서 못 찾음')) : h('div', { class: 'mv warn' }, noOut ? '나가는 길 없음 — 확인' : ''));
     })));
   root.append(h('div', { class: 'map-body' }, nav, h('div', { class: 'map-main' },
     h('p', { class: 'map-help' }, '왼쪽에서 오른쪽으로, 사용자가 가는 순서대로 놓았다. 화면을 누르면 그 화면의 설계서(존재 이유, 다루는 정보)가 열린다. 이동은 "어떤 행동으로, 무엇을 넘기며 가나"를 글로 적었다.'),

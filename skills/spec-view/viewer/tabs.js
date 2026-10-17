@@ -16,7 +16,7 @@ export function overview(c) {
   el.append(h('div', { class: 'sec' }, h('h4', null, '오가는 길'),
     h('div', { class: 'way' },
       sc.incoming.length ? sc.incoming.map((w, i) => [h('span', { class: 'k' }, i ? '' : '오는'), h('div', null, h('a', { onclick: () => c.go(w.from) }, `${w.from} › `), `${w.action || ''}${w.pass ? ` · 받음 ${w.pass}` : ''}`)]) : [h('span', { class: 'k' }, '오는'), h('div', { style: 'color:var(--dim2)' }, '들어오는 길이 없다 (시작 화면)')],
-      sc.to.length ? sc.to.map((w, i) => [h('span', { class: 'k' }, i ? '' : '가는'), h('div', null, h('a', { onclick: () => c.go(w.target) }, `${w.target} › `), `${w.action || ''}${w.pass ? ` · 넘김 ${w.pass}` : ''}`)]) : [h('span', { class: 'k' }, '가는'), h('div', { style: 'color:var(--amber)' }, '나가는 길 없음 — @to로 적는다')])));
+      sc.to.length ? sc.to.map((w, i) => [h('span', { class: 'k' }, i ? '' : '가는'), h('div', null, h('a', { onclick: () => c.go(w.target) }, `${w.target} › `), `${w.action || ''}${w.pass ? ` · 넘김 ${w.pass}` : ''}`, w.verified ? null : h('span', { style: 'color:var(--amber)' }, ' · 코드에서 못 찾음'))]) : [h('span', { class: 'k' }, '가는'), h('div', { style: 'color:var(--amber)' }, '나가는 길 없음 — @to로 적는다')])));
   // 다루는 정보: 필드마다 역할 칩. 누르면 정보 상세, 올리면 화면에서 그 정보가 보이는 자리가 강조된다
   const fields = sc.fields;
   const counts = Object.fromEntries(ROLES.map((r) => [r, fields.filter((f) => f.roles.includes(r)).length]));
@@ -66,7 +66,7 @@ function targetLabel(t) {
 }
 function targetCard(c, d) {
   const where = d.type === 'component' ? [h('b', null, d.title), h('div', { class: 'mono', style: 'font-size:11px;color:var(--dim)' }, d.file || '')] : [
-    h('div', { style: 'display:flex;gap:12px;align-items:center' }, h('div', { class: 'thumb' }), h('div', null, h('b', null, d.type === 'empty' ? '빈 영역 — 요소 없음' : '선택한 영역'), h('div', { class: 'mono', style: 'font-size:11px;color:var(--dim);margin-top:4px' }, `${d.route || ''} · x ${d.rect.x} y ${d.rect.y} · ${d.rect.w}×${d.rect.h}`))),
+    h('div', { style: 'display:flex;gap:12px;align-items:center' }, d.shotData ? h('img', { src: d.shotData, style: 'width:120px;max-height:80px;object-fit:contain;border:1px dashed #e0575a;border-radius:4px;background:#fff' }) : h('div', { class: 'thumb' }), h('div', null, h('b', null, d.type === 'empty' ? '빈 영역 — 요소 없음' : '선택한 영역', d.shotData ? ' · 스크린샷 첨부됨' : ''), h('div', { class: 'mono', style: 'font-size:11px;color:var(--dim);margin-top:4px' }, `${d.route || ''} · x ${d.rect.x} y ${d.rect.y} · ${d.rect.w}×${d.rect.h}`))),
     d.type === 'empty'
       ? h('div', { style: 'font-size:12px;line-height:1.7;color:#d9d1c6' }, h('div', null, h('b', null, '주변'), ' (자동 추정 — 위치 힌트로 에이전트에게 간다)'), h('div', null, `위  ${d.neighbors.above || '화면 맨 위 여백'}`), h('div', null, `아래  ${d.neighbors.below || '화면 끝까지 여백'}`))
       : h('div', { style: 'font-size:12px;color:#d9d1c6;line-height:1.6' }, h('b', null, '가장 가까운 컴포넌트'), ' (자동 추정) ', h('div', { class: 'tag', style: 'display:inline-block;margin-top:4px' }, d.nearest ? `${d.nearest.title}` : '없음'), d.nearest?.file ? h('div', { class: 'mono', style: 'font-size:11px;color:var(--dim)' }, d.nearest.file) : null)];
@@ -79,6 +79,7 @@ export function memoEditor(c) {
     if (!c.draftText?.trim()) return toast('메모 내용을 적어 주세요');
     try {
       const target = { ...d, route: d.route || c.route() };
+      if (d.shotData) { target.shot = await c.uploadShot(d.shotData, 'memo'); delete target.shotData; }
       await post('/__spec/memo', { screen: c.sc().name, target, text: c.draftText });
       c.draft = null; c.draftText = ''; await c.refresh(); toast("저장했습니다. 다음: '처리 요청 복사' → 에이전트에 붙여 넣기");
     } catch (e) { toast(e.message); }
@@ -106,6 +107,7 @@ export function memoTab(c) {
       h('div', { class: 'mtop' }, h('span', { class: 'mtag' }, targetLabel(m.target)), m.kind ? h('span', { class: 'mtag err' }, m.kind) : null, h('span', { class: `mstate ${m.state}` }, m.stateLabel)),
       h('div', { class: 'mmeta' }, `나 · ${fmt(m.at)}${m.state === 'pending' ? (m.copiedAt ? ' · 요청 복사함' : ' · 전달 전') : ''}`),
       h('div', { class: 'mtext' }, m.text),
+      m.target?.shot ? h('img', { src: `/__spec/shots/${m.target.shot}`, style: 'max-width:100%;max-height:140px;object-fit:contain;border-radius:6px;border:1px solid var(--line);background:#fff;align-self:flex-start', onerror: (e) => e.target.remove() }) : null,
       m.reply ? h('div', { class: 'reply' }, h('div', { class: 'meta' }, `에이전트 · ${fmt(m.reply.at)}`), m.reply.text) : null,
       m.applied ? h('div', { class: 'diff' }, h('div', { class: 'p' }, `반영: ${m.applied.change || '(내용 없음)'}`), h('div', { class: 'mmeta', style: 'margin-top:4px' }, `커밋 ${m.applied.commit || '—'}`)) : null,
       (m.state === 'answered' || m.state === 'applied') ? h('div', { class: 'btns', style: 'justify-content:flex-end' }, h('button', { class: 'smallbtn pri', onclick: async () => { await post('/__spec/memo/confirm', { id: m.id }); c.refresh(); } }, '확인 완료')) : null));
@@ -125,7 +127,7 @@ export function approval(c) {
   const sc = c.sc(), st = sc.status;
   const el = h('div', { style: 'display:contents' });
   el.append(stepper(st));
-  const approve = async () => { try { await post('/__spec/status.json', { screen: sc.name, status: 'approved' }); c.ap = { problem: false }; await c.refresh(); toast('승인했습니다. 이 소스 버전이 기준이 됩니다'); } catch (e) { toast(e.message); } };
+  const approve = async () => { try { const shot = await c.uploadShot(await c.capture(), 'approve'); await post('/__spec/status.json', { screen: sc.name, status: 'approved', shot }); c.ap = { problem: false }; await c.refresh(); toast('승인했습니다. 이 소스 버전이 기준이 됩니다'); } catch (e) { toast(e.message); } };
   const doneN = sc.does.filter((_, i) => st.checks && st.checks[i]).length;
   const allDone = !sc.does.length || doneN === sc.does.length;
   const checklist = () => h('div', { class: 'checks' },
@@ -145,7 +147,8 @@ export function approval(c) {
         h('button', { class: 'smallbtn', style: 'background:#ff9d9d;color:#2a1214;border-color:#ff9d9d;font-weight:700', onclick: async () => {
           if (!ap.text?.trim()) return toast('문제를 한 줄로 적어 주세요');
           const t = ap.target || 'screen';
-          const target = t === 'region' && ap.region ? ap.region : { type: 'screen', route: c.route() };
+          const target = t === 'region' && ap.region ? { ...ap.region } : { type: 'screen', route: c.route() };
+          if (target.shotData) { target.shot = await c.uploadShot(target.shotData, 'memo'); delete target.shotData; }
           const text = t.startsWith('item:') ? `[${sc.does[Number(t.slice(5))].title}] ${ap.text}` : ap.text;
           try { await post('/__spec/memo', { screen: sc.name, target, text, kind: '오류' }); await post('/__spec/status.json', { screen: sc.name, status: 'needs-fix', note: text }); c.ap = { problem: false }; await c.refresh(); toast("오류로 저장했습니다. '처리 요청 복사'로 에이전트에 알려 주세요"); } catch (e) { toast(e.message); }
         } }, '오류로 저장'))); };
@@ -162,12 +165,17 @@ export function approval(c) {
     el.append(h('div', { class: 'apcard red' }, h('h5', null, '수정 필요'), h('div', { class: 'kv' }, kv('기록한 사람', st.by === 'user' ? '사용자' : '에이전트'), kv('시각', fmt(st.at)), kv('내용', st.note || '—'))));
     el.append(h('div', { class: 'hbox' }, '에이전트가 이 메모를 읽고 고친 뒤 다시 "테스트 요청"을 남기면 확인 목록이 다시 열린다. 메모 탭에서 "처리 요청 복사"를 붙여 넣으면 에이전트가 읽는다.'));
   } else if (st.status === 'approved') {
-    el.append(h('div', { class: 'apcard' }, h('h5', null, '승인됨'), h('div', { class: 'kv' }, kv('승인한 사람', '사용자'), kv('시각', fmt(st.at)), kv('소스 버전', h('b', { class: 'mono' }, st.commit || '—')), kv('확인한 것', sc.does.length ? `${sc.does.map((d) => d.title).join(' · ')} (${doneN}/${sc.does.length})` : '확인 목록 없음'))));
+    el.append(h('div', { class: 'apcard' }, h('h5', null, '승인됨'), h('div', { class: 'kv' }, kv('승인한 사람', '사용자'), kv('시각', fmt(st.at)), kv('소스 버전', h('b', { class: 'mono' }, st.commit || '—')), kv('기준 화면', st.shot ? h('img', { src: `/__spec/shots/${st.shot}`, style: 'max-width:100%;max-height:150px;border-radius:6px;border:1px solid var(--line);background:#fff', onerror: (e) => e.target.replaceWith('스크린샷 없음') }) : '저장 안 됨'), kv('확인한 것', sc.does.length ? `${sc.does.map((d) => d.title).join(' · ')} (${doneN}/${sc.does.length})` : '확인 목록 없음'))));
     el.append(h('div', { class: 'hbox' }, h('span', null, '이후 이 화면의 소스가 바뀌면 자동으로 '), h('b', { style: 'color:var(--amber)' }, '승인 후 변경됨'), h('span', null, '이 되고, 바뀐 곳을 보고 다시 승인한다.')));
     el.append(h('div', { class: 'btns' }, h('button', { class: 'smallbtn', onclick: async () => { await post('/__spec/status.json', { screen: sc.name, status: 'dev', note: '승인 취소' }); c.refresh(); } }, '승인 취소'), h('button', { class: 'smallbtn pri', onclick: () => c.setTab('history') }, '히스토리 보기 ›')));
   } else if (st.status === 'approved-changed') {
     const box = h('div', { class: 'apcard amber' }, h('h5', null, '승인 후 변경됨', h('span', { class: 'mmeta', style: 'float:right;font-weight:400' }, `마지막 승인 ${fmt(st.at)} · ${st.commit || '—'}`)),
       h('div', { style: 'font-size:13px;line-height:1.55;margin-bottom:10px' }, `이 화면이 쓰는 소스(화면 파일과 불러 쓰는 파일 ${st.files}개)가 승인 뒤 바뀌었다. 지금 모습을 확인하고 승인하면 이 상태가 새 기준이 된다.`));
+    const nowImg = h('div', { style: 'font-size:12px;color:var(--dim)' }, '지금 화면을 찍는 중…');
+    c.capture().then((d) => { if (d) nowImg.replaceWith(h('img', { src: d, style: 'width:100%;border-radius:6px;background:#fff' })); else nowImg.textContent = '캡처하지 못했다'; });
+    box.append(h('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;font-size:12px;color:var(--dim)' },
+      h('div', null, h('div', { style: 'margin-bottom:4px' }, '승인 때'), st.shot ? h('img', { src: `/__spec/shots/${st.shot}`, style: 'width:100%;border-radius:6px;background:#fff', onerror: (e) => e.target.replaceWith('스크린샷 없음') }) : '저장된 스크린샷 없음'),
+      h('div', null, h('div', { style: 'margin-bottom:4px' }, '지금'), nowImg)));
     const list = h('div', null, h('div', { style: 'font-size:12px;color:var(--dim)' }, '그 뒤 바뀐 것을 읽는 중…')); box.append(list);
     get(`/__spec/history.json?screen=${encodeURIComponent(sc.name)}`).then(({ items }) => {
       const after = items.filter((i) => i.type === 'commit' && i.at > st.at);
@@ -193,11 +201,14 @@ export function history(c) {
     const draw = () => {
       chips.replaceChildren(...kinds.map((k) => h('button', { class: `pill${c.hFilter === k ? ' sel' : ''}`, style: 'min-height:30px;font-size:12px', onclick: () => { c.hFilter = k; draw(); } }, `${k} · ${count(k)}`)));
       const shown = items.filter((i) => c.hFilter === '전체' || i.kind === c.hFilter);
-      holder.replaceChildren(...(shown.length ? shown.map((i) => h('div', { class: 'ev' },
+      const touched = (i) => ({ specs: c.model.specs.filter((x) => x.screens.includes(sc.name) && (i.fileList || []).includes(x.file)), infos: c.model.infos.filter((x) => (i.fileList || []).includes(x.fileSrc)) });
+      const pick = (i) => { c.hSel = c.hSel === i.hash + i.at ? null : i.hash + i.at; c.setHL(new Set(c.hSel ? touched(i).specs.map((x) => x.id) : [])); draw(); };
+      holder.replaceChildren(...(shown.length ? shown.map((i) => h('div', { class: `ev${c.hSel === i.hash + i.at ? ' sel' : ''}`, style: 'cursor:pointer', onclick: () => pick(i) },
         h('div', { class: `dot${i.kind === '오류 수정' ? ' err' : i.kind === '승인' ? ' ap' : i.kind === '수정 필요' ? ' err' : i.kind === '테스트 요청' ? ' ap' : ''}` }),
         h('div', { class: 'body' },
           h('div', { class: 'tit' }, h('span', { class: `kindtag ${i.kind === '오류 수정' || i.kind === '수정 필요' ? 'k2' : i.kind === '변경' ? 'k1' : 'k3'}` }, i.kind), i.title || (i.kind === '승인' ? `${sc.name} 승인 (${i.author})` : i.kind)),
           h('div', { class: 'meta mono' }, `${i.hash || '—'} · ${fmt(i.at)}${i.request ? ` · 요청: ${i.request.split('—')[0].trim()}` : ''}${i.files ? ` · 파일 ${i.files}` : ''}`),
+          c.hSel === i.hash + i.at ? (() => { const t = touched(i); return h('div', { class: 'dec', style: 'border:1px solid var(--accent-deep)' }, h('div', { style: 'color:var(--dim);font-size:12px;margin-bottom:4px' }, `닿은 곳 · 파일 ${(i.fileList || []).length}개`), t.specs.length ? h('div', { class: 'chips', style: 'margin-bottom:6px' }, t.specs.map((x) => h('span', { class: 'tag' }, `컴포넌트 ${x.title}`))) : null, t.infos.length ? h('div', { class: 'chips' }, t.infos.map((x) => h('button', { class: 'tag', style: 'cursor:pointer', onclick: (ev) => { ev.stopPropagation(); c.openInfo(x.name); } }, `정보 ${x.name}`))) : null, !t.specs.length && !t.infos.length ? h('div', { style: 'font-size:12px;color:var(--dim)' }, '컴포넌트·정보 정의 파일이 아닌 곳을 바꿨다') : null); })() : null,
           i.decisions.length || i.rejections.length || i.cause ? h('div', { class: 'dec' }, i.cause ? h('div', null, `원인: ${i.cause}`) : null, i.decisions.map((d) => h('div', null, `결정: ${d}`)), i.rejections.map((d) => h('div', null, `기각: ${d}`))) : null))) : [h('div', { style: 'font-size:12px;color:var(--dim2);line-height:1.6' }, '아직 이력이 없다. 이 화면의 소스를 바꾼 커밋과 승인 기록이 여기에 쌓인다.')]));
     };
     draw();

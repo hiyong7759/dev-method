@@ -80,7 +80,7 @@ export function screenView(root, { model, name, tab, at, go, toMap, toApp }) {
     tabsEl.classList.remove('hidden'); shead.classList.remove('hidden'); banners.classList.remove('hidden');
     const view = { overview, components, memo: memoTab, approval, history }[c.tab](c);
     tbody.append(view);
-    hint.textContent = { overview: '실제로 동작하는 화면이다. 오른쪽 "다루는 정보"에 올리면 화면에서 그 정보가 보이는 자리가 강조된다.', components: '점선 번호표는 오른쪽 컴포넌트 카드의 번호와 같다. 카드에 올리면 그 영역이 강조된다.', memo: '화면 위를 끌어서 아무 영역이나 고른다. 컴포넌트가 아닌 빈 곳도 고를 수 있다.', approval: '실제로 동작하는 화면이다. 눌러 보면서 오른쪽 확인 목록을 따라 테스트한다.', history: '이 화면의 소스를 바꾼 커밋(결정·기각·요청 포함)과 승인 기록이다.' }[c.tab];
+    hint.textContent = { overview: '실제로 동작하는 화면이다. 오른쪽 "다루는 정보"에 올리면 화면에서 그 정보가 보이는 자리가 강조된다.', components: '점선 번호표는 오른쪽 컴포넌트 카드의 번호와 같다. 카드에 올리면 그 영역이 강조된다.', memo: '화면 위를 끌어서 아무 영역이나 고른다. 컴포넌트가 아닌 빈 곳도 고를 수 있다.', approval: '실제로 동작하는 화면이다. 눌러 보면서 오른쪽 확인 목록을 따라 테스트한다.', history: '항목을 누르면 그 변경이 닿은 컴포넌트가 화면에 강조되고, 닿은 정보가 아래에 나온다.' }[c.tab];
   }
   function showDrawer() {
     [shead, banners, tabsEl].forEach((n) => n.classList.add('hidden'));
@@ -108,6 +108,35 @@ export function screenView(root, { model, name, tab, at, go, toMap, toApp }) {
     await copyText(r.text); toast('복사했습니다. 에이전트에 붙여 넣으세요'); c.refresh();
   };
   c.startMemoFor = (s) => { c.draft = s ? { type: 'component', spec: s.id, title: s.title, file: `${s.file}:${s.line}` } : { type: 'screen' }; c.draftText = ''; if (c.tab !== 'components' || !s) c.tab = s ? 'components' : 'memo'; if (!s) c.draft = { type: 'screen', route: c.route() }; render(); };
+
+  // ── 화면 캡처: 화면과 같은 주소 안이라 보던 상태 그대로 찍는다 ──
+  async function lib() {
+    const win = iframe.contentWindow, doc = iframe.contentDocument;
+    if (win.htmlToImage) return win.htmlToImage;
+    await new Promise((ok, err) => { const sc = doc.createElement('script'); sc.src = '/__spec/vendor/html-to-image.js'; sc.onload = ok; sc.onerror = () => err(new Error('캡처 도구를 불러오지 못했다')); doc.head.append(sc); });
+    return win.htmlToImage;
+  }
+  // rect: 페이지 좌표 {x,y,w,h}. 없으면 지금 보이는 화면 전체. 가로 720px 안으로 줄여 PNG 데이터 주소로 돌려준다
+  c.capture = async (rect) => {
+    try {
+      const L = await lib(), doc = iframe.contentDocument, win = iframe.contentWindow;
+      const W = Math.max(doc.documentElement.scrollWidth, win.innerWidth), H = Math.max(doc.documentElement.scrollHeight, win.innerHeight);
+      const bg = getComputedStyle(doc.body).backgroundColor;
+      const full = await L.toPng(doc.documentElement, { width: W, height: H, pixelRatio: 1, cacheBust: true, backgroundColor: bg && bg !== 'rgba(0, 0, 0, 0)' ? bg : '#ffffff' });
+      const img = new Image(); await new Promise((ok, err) => { img.onload = ok; img.onerror = err; img.src = full; });
+      const r = rect ? { x: Math.max(0, rect.x), y: Math.max(0, rect.y), w: rect.w, h: rect.h } : { x: win.scrollX, y: win.scrollY, w: win.innerWidth, h: win.innerHeight };
+      r.w = Math.min(r.w, W - r.x); r.h = Math.min(r.h, H - r.y);
+      const k = Math.min(1, 720 / r.w), cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(r.w * k)); cv.height = Math.max(1, Math.round(r.h * k));
+      cv.getContext('2d').drawImage(img, r.x, r.y, r.w, r.h, 0, 0, cv.width, cv.height);
+      return cv.toDataURL('image/png');
+    } catch (e) { console.warn('캡처 실패', e); return ''; }
+  };
+  c.uploadShot = async (data, prefix) => {
+    if (!data) return '';
+    const name = `${prefix}-${Date.now()}.png`;
+    await post('/__spec/shot', { name, data }); return name;
+  };
 
   // ── 화면 위 표시(번호표, 강조) ──
   const frameDoc = () => { try { return iframe.contentDocument; } catch { return null; } };
@@ -186,6 +215,7 @@ export function screenView(root, { model, name, tab, at, go, toMap, toApp }) {
       const t = target(r);
       selEl?.remove(); selEl = null;
       c.regionMode = false; dragl.classList.add('hidden');
+      c.capture(t.rect).then((d) => { t.shotData = d; if (c.draft === t || c.ap.region === t) c.render(); });
       if (c.regionForError) { c.ap.region = t; c.ap.target = 'region'; c.ap.problem = true; c.tab = 'approval'; }
       else { c.draft = t; c.draftText = ''; c.tab = 'memo'; }
       go(c.name, c.tab); render();

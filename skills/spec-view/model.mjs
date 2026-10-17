@@ -6,6 +6,7 @@ import { extractSpecs } from './extract.mjs';
 import { analyzeTs } from './analyze-ts.mjs';
 import { allStatus, projectRoot, LABEL } from './status.mjs';
 import { loadMemos, STATE_LABEL } from './memo.mjs';
+import { detectNav } from './nav.mjs';
 
 const clean = (d) => (d || '').replace(/\s*@\w+[^\n]*/g, '').trim();
 const UI_EXT = /\.(tsx|jsx|vue|svelte)$/;
@@ -43,12 +44,24 @@ function cachedAnalysis(root) {
   return value;
 }
 
+const navCache = new Map();
+function cachedNav(scanRoot, root, out) {
+  const sig = signature(root);
+  const hit = navCache.get(scanRoot);
+  if (hit && hit.sig === sig) return hit.value;
+  const value = detectNav(scanRoot, root, out);
+  navCache.set(scanRoot, { sig, value });
+  return value;
+}
+
 export function buildModel(scanRoot) {
   const out = extractSpecs(scanRoot);
   const root = projectRoot(scanRoot);
   const rel = (f) => path.relative(scanRoot, path.join(root, f)); // 분석 경로(프로젝트 루트 기준) → 소스 폴더 기준
   const status = allStatus(scanRoot, out);
   const memos = loadMemos(scanRoot).memos;
+  const nav = cachedNav(scanRoot, root, out);
+  out.warnings.push(...nav.warnings);
 
   // ── 정보 ─────────────────────────────────────────────
   let analysis = { infos: [] };
@@ -56,7 +69,7 @@ export function buildModel(scanRoot) {
   try { analysis = cachedAnalysis(root); } catch (e) { analysisError = String(e.message); }
   const infos = analysis.infos
     .filter((i) => i.props.length && !NONINFO.test(i.doc || ''))
-    .map((i) => ({ name: i.name, file: i.file, line: i.line, unused: i.unused, doc: i.doc.replace(/@\w+[^\n]*/g, '').trim(), props: i.props }));
+    .map((i) => ({ name: i.name, file: i.file, fileSrc: path.relative(scanRoot, path.join(root, i.file)), line: i.line, unused: i.unused, doc: i.doc.replace(/@\w+[^\n]*/g, '').trim(), props: i.props }));
   const infoByName = new Map(infos.map((i) => [i.name, i]));
 
   // 정보 관계: <이름>Id 필드 = 그 정보를 가리킨다(소유 관계). 필드 주석의 @ref 대상.필드 = 약한 연결
@@ -83,18 +96,21 @@ export function buildModel(scanRoot) {
     i.flow = { shown: new Set(), input: new Set(), modify: new Set(), judge: new Set() };
     for (const p of i.props) {
       const roles = { shown: new Set(), input: new Set(), modify: new Set(), judge: new Set() };
+      p.evidence = [];
       for (const ref of p.refs || []) {
         const ui = UI_EXT.test(ref.file);
         const owners = screenOfFile(ref.file);
         const sp = nearestSpec(out.specs, rel(ref.file), ref.line);
         if (!ref.write) {
-          if (ui) owners.forEach((n) => { roles.shown.add(n); addField(n, i, p, 'shown', sp); });
-          else if (!/\/(mock|seed|fixtures?)\//.test(ref.file)) roles.judge.add(sp?.title || path.basename(ref.file));
+          if (ui) { owners.forEach((n) => { roles.shown.add(n); addField(n, i, p, 'shown', sp); }); if (owners.length) p.evidence.push({ role: 'shown', who: owners.join('·'), file: rel(ref.file), line: ref.line, kind: ref.kind }); }
+          else if (!/\/(mock|seed|fixtures?)\//.test(ref.file)) { const who = sp?.title || path.basename(ref.file); roles.judge.add(who); p.evidence.push({ role: 'judge', who, file: rel(ref.file), line: ref.line, kind: ref.kind }); }
         } else if (ui) {
           const k = ref.kind === 'create' ? 'input' : 'modify';
           owners.forEach((n) => { roles[k].add(n); addField(n, i, p, k, sp); });
+          if (owners.length) p.evidence.push({ role: k, who: owners.join('·'), file: rel(ref.file), line: ref.line, kind: ref.kind });
         }
       }
+      { const seenEv = new Set(); p.evidence = p.evidence.filter((e) => { const k = `${e.role}|${e.file}|${e.line}`; if (seenEv.has(k)) return false; seenEv.add(k); return true; }); }
       p.roles = Object.fromEntries(Object.entries(roles).map(([k, v]) => [k, [...v]]));
       for (const k of Object.keys(roles)) roles[k].forEach((v) => i.flow[k].add(v));
     }
@@ -128,7 +144,7 @@ export function buildModel(scanRoot) {
     const warns = out.warnings.filter((w) => s.files.some((f) => w.includes(`(${f}:`)));
     const st = status[s.name];
     return {
-      ...s, stage: stage[s.name], incoming: incoming[s.name], status: st,
+      ...s, to: s.to.map((t) => ({ ...t, verified: nav.edges.some((e) => e.from === s.name && e.to === t.target) || t.target === s.name })), stage: stage[s.name], incoming: incoming[s.name], status: st,
       specIds: specs.map((x) => x.id), fields, infoCount: new Set(fields.map((f) => f.info)).size,
       memoCount: mine.length, memoPending: mine.filter((m) => m.state === 'pending').length,
       missing, warnings: warns,
@@ -141,9 +157,9 @@ export function buildModel(scanRoot) {
   for (const i of infos) if (i.flow.shown.size && !i.flow.input.size && !i.flow.modify.size) notes.push({ info: i.name, text: `${i.name}은 ${[...i.flow.shown].join('·')}에서 보여주지만 어느 화면에서도 입력하지 않는다` });
 
   const infoOut = infos.map((i) => ({
-    name: i.name, file: i.file, line: i.line, doc: i.doc, unused: i.unused,
+    name: i.name, file: i.file, fileSrc: i.fileSrc, line: i.line, doc: i.doc, unused: i.unused,
     flow: Object.fromEntries(Object.entries(i.flow).map(([k, v]) => [k, [...v]])),
-    props: i.props.map((p) => ({ name: p.name, type: p.type, optional: p.optional, doc: clean(p.doc), line: p.line, status: p.status, roles: p.roles })),
+    props: i.props.map((p) => ({ name: p.name, type: p.type, optional: p.optional, doc: clean(p.doc), line: p.line, status: p.status, roles: p.roles, evidence: (p.evidence || []).slice(0, 12) })),
     flagged: i.props.filter((p) => !clean(p.doc) || p.status !== 'rw').length,
     unfilled: i.props.filter((p) => !p.doc).length,
   }));

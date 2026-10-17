@@ -50,6 +50,7 @@ export function exportText(scanRoot, { screen, scriptDir }) {
   for (const m of list) {
     lines.push(`메모 #${m.id} · 화면 ${m.screen} · ${where(m)}${m.kind ? ` · ${m.kind}` : ''}`, `  "${m.text}"`);
     if (m.target?.route) lines.push(`  (열린 주소 ${m.target.route})`);
+    if (m.target?.shot) lines.push(`  스크린샷: ${path.join(specDir(scanRoot), 'shots', m.target.shot)}`);
     lines.push('');
   }
   lines.push('처리 방법:', `  - 답: node ${scriptDir}/memo.mjs reply <번호> --text "코드에서 확인한 내용" [--commit <해시>] --src ${src}`, `  - 고친 뒤: node ${scriptDir}/memo.mjs applied <번호> --commit <해시> --change "바뀐 내용 한 줄" --src ${src}`, '  - 고친 뒤 "테스트 요청"으로 기록하고, 커밋에 "요청: 메모 #번호 — 요약"을 쓴다');

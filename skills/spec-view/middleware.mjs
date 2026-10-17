@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractSpecs } from './extract.mjs';
 import { buildModel } from './model.mjs';
-import { allStatus, setStatus, setCheck } from './status.mjs';
+import { allStatus, setStatus, setCheck, specDir } from './status.mjs';
 import { addMemo, confirmMemo, markCopied, exportText, loadMemos } from './memo.mjs';
 import { screenHistory } from './history.mjs';
 
@@ -37,6 +37,12 @@ export function specHandler(scanRoot) {
         if (!f.startsWith(path.join(HERE, 'viewer') + path.sep) || !fs.existsSync(f)) { res.statusCode = 404; return res.end('없음'); }
         return send(res, f);
       }
+      if (url === '/__spec/vendor/html-to-image.js') return send(res, path.join(HERE, 'node_modules', 'html-to-image', 'dist', 'html-to-image.js'));
+      if (url.startsWith('/__spec/shots/')) {
+        const f = path.join(specDir(scanRoot), 'shots', path.basename(url));
+        if (!fs.existsSync(f)) { res.statusCode = 404; return res.end('없음'); }
+        res.setHeader('content-type', 'image/png'); res.setHeader('cache-control', 'no-store'); return res.end(fs.readFileSync(f));
+      }
       if (url === '/__spec/model.json') return json(res, buildModel(scanRoot));
       if (url === '/__spec/history.json') {
         const out = extractSpecs(scanRoot);
@@ -47,7 +53,14 @@ export function specHandler(scanRoot) {
       if (req.method === 'POST') {
         const b = await body(req);
         // 승인·수정 필요·승인 취소는 사용자가 설계서 보기에서만 남긴다 (에이전트용 status 명령은 이 값들을 거부한다)
-        if (url === '/__spec/status.json') return json(res, setStatus(scanRoot, b.screen, b.status, { by: 'user', note: String(b.note || '') }));
+        if (url === '/__spec/status.json') return json(res, setStatus(scanRoot, b.screen, b.status, { by: 'user', note: String(b.note || ''), shot: /^[\w.-]+\.png$/.test(b.shot || '') ? b.shot : '' }));
+        if (url === '/__spec/shot') {
+          // 화면 캡처 저장 (설계서 보기가 브라우저에서 찍은 PNG). 이름은 안전한 문자만
+          if (!/^[\w.-]+\.png$/.test(b.name || '') || !String(b.data || '').startsWith('data:image/png;base64,')) throw new Error('캡처 이름이나 형식이 맞지 않는다');
+          const dir = path.join(specDir(scanRoot), 'shots'); fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(path.join(dir, b.name), Buffer.from(b.data.split(',')[1], 'base64'));
+          return json(res, { name: b.name });
+        }
         if (url === '/__spec/check') return json(res, setCheck(scanRoot, b.screen, b.index, b.done));
         if (url === '/__spec/memo') return json(res, addMemo(scanRoot, b));
         if (url === '/__spec/memo/confirm') return json(res, confirmMemo(scanRoot, b.id));

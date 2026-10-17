@@ -3,7 +3,7 @@
 # 훅은 프로젝트에 복사해 쓰므로 원본을 고치면 설치본이 낡는다. 설치한 프로젝트를 installed-projects.txt에 적어 두고 check/sync로 맞춘다.
 #   ./install.sh links            ~/.claude/skills에 스킬 심볼릭 링크 만들기 (새 기기)
 #   ./install.sh hooks <프로젝트>  훅 복사, git pre-commit 연결, 설치 목록에 추가
-#   ./install.sh spec <프로젝트> [소스폴더]  spec-view 경고 0 커밋 검사 연결(.spec/config.json, git pre-commit)
+#   ./install.sh spec <프로젝트> [소스폴더] [앱주소] [포트]  spec-view 설정(.spec/config.json)과 경고 0 커밋 검사(git pre-commit) 연결
 #   ./install.sh check            설치 목록의 프로젝트가 원본과 같은지 보기 (바꾸지 않음)
 #   ./install.sh sync             설치본을 원본으로 덮어쓰기 (프로젝트 저장소에 변경으로 남으니 커밋은 따로)
 set -e
@@ -37,12 +37,12 @@ hooks)
 spec)
   P=$(cd "$2" && pwd) || exit 1
   mkdir -p "$P/.spec"
-  [ -f "$P/.spec/config.json" ] || printf '{ "src": "%s" }\n' "${3:-src}" > "$P/.spec/config.json"
+  [ -f "$P/.spec/config.json" ] || printf '{ "src": "%s", "app": "%s", "port": %s }\n' "${3:-src}" "${4:-http://localhost:5173}" "${5:-5190}" > "$P/.spec/config.json"
   HOOK="$P/.git/hooks/pre-commit"
   LINE='node '"$ROOT"'/skills/spec-view/precommit.mjs "$(git rev-parse --show-toplevel)" || exit 1'
   if [ ! -f "$HOOK" ]; then printf '#!/bin/bash\n%s\n' "$LINE" > "$HOOK"; chmod +x "$HOOK"
   elif ! grep -qF precommit.mjs "$HOOK"; then echo "$LINE" >> "$HOOK"; fi
-  echo "연결: $P (소스 폴더 $(sed -n 's/.*"src": "\(.*\)".*/\1/p' "$P/.spec/config.json"))"
+  echo "연결: $P"; echo "설정: $(tr -d '\n' < "$P/.spec/config.json")"
   ;;
 check|sync)
   [ -f "$LIST" ] || { echo "설치 목록 없음"; exit 0; }

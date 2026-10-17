@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // 존재 이유: 에이전트가 "테스트 요청"을 내기 전에 끝낼 때 확인(경고 0, 서버, 화면 열림, 설계서 보기 열림, 컴포넌트 위치)을 말이 아니라 실행으로 거치게 하려고.
-// 사용: node finish.mjs --src src --url http://localhost:5173 --routes /trips,/trips/x/days/2 [--root 프로젝트 루트(기본 현재 폴더)] [--out 폴더]
+// 사용: node finish.mjs --routes /trips,/trips/x/days/2 [--src src] [--url 설계서 보기 서버 주소] [--root 프로젝트 루트(기본 현재 폴더)] [--out 폴더]
+// 설정: .spec/config.json의 src·port를 기본값으로 쓴다. --url은 serve.mjs 주소(기본 http://localhost:<port>)이지 앱 개발 서버 주소가 아니다
 // 모두 통과해야 종료 코드 0. 하나라도 실패하면 상태는 "개발 중"이고 테스트 요청을 내지 않는다.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -11,19 +12,21 @@ import { matchScreen } from './viewer/util.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
-const src = arg('--src', 'src');
 const root = path.resolve(arg('--root', '.')); // tsconfig.json이 있는 프로젝트 루트(analyze-ts가 필요)
-const base = arg('--url', 'http://localhost:5173').replace(/\/$/, '');
+let cfg = {};
+try { cfg = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'config.json'), 'utf8')); } catch { /* 설정 없음 */ }
+const src = arg('--src', cfg.src || 'src');
+const base = arg('--url', `http://localhost:${cfg.port || 5190}`).replace(/\/$/, '');
 const routes = arg('--routes', '/').split(',');
 const out = arg('--out', fs.mkdtempSync(path.join(os.tmpdir(), 'spec-finish-')));
 fs.mkdirSync(out, { recursive: true });
 
 const results = [];
 const step = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`${ok ? '통과' : '실패'}  ${name}${detail ? ' — ' + detail : ''}`); };
-const run = (script) => { const r = spawnSync(process.execPath, [path.join(here, script), script === 'analyze-ts.mjs' ? root : src, '--check'], { encoding: 'utf8' }); return { ok: r.status === 0, text: (r.stdout + r.stderr).trim() }; };
+const run = (script) => { const r = spawnSync(process.execPath, [path.join(here, script), script === 'extract.mjs' ? src : root, ...(script === 'nav.mjs' ? ['--src', src] : []), '--check'], { encoding: 'utf8' }); return { ok: r.status === 0, text: (r.stdout + r.stderr).trim() }; };
 
 // 1. 경고 0
-for (const [label, script] of [['메타정보 경고 0 (extract)', 'extract.mjs'], ['정보 존재 이유 경고 0 (analyze-ts)', 'analyze-ts.mjs']]) {
+for (const [label, script] of [['메타정보 경고 0 (extract)', 'extract.mjs'], ['정보 존재 이유 경고 0 (analyze-ts)', 'analyze-ts.mjs'], ['이동 선언(@to)이 코드와 같다 (nav)', 'nav.mjs']]) {
   const r = run(script);
   step(label, r.ok, r.ok ? '' : r.text.split('\n').filter((l) => l.startsWith('경고')).slice(0, 5).join(' / '));
 }
@@ -31,7 +34,7 @@ for (const [label, script] of [['메타정보 경고 0 (extract)', 'extract.mjs'
 // 2. 서버와 설계서 보기 모델
 let model = null;
 try { model = await (await fetch(base + '/__spec/model.json')).json(); } catch {}
-step('개발 서버와 설계서 보기가 응답한다', !!model, model ? `${base} · 화면 ${model.screens.length}개` : `${base}/__spec/model.json 에 응답이 없다. 에이전트가 개발 서버를 직접 띄운 뒤 다시 실행한다 (vite 플러그인 연결도 확인)`);
+step('설계서 보기 서버가 응답한다', !!model, model ? `${base} · 화면 ${model.screens.length}개` : `${base}/__spec/model.json 에 응답이 없다. 앱 개발 서버와 serve.mjs(node <스킬 폴더>/serve.mjs --project .)를 에이전트가 직접 띄운 뒤 다시 실행한다`);
 
 // 3. 브라우저로 화면과 설계서 보기 열기
 if (model) {

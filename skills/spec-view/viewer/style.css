@@ -255,3 +255,5 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 
 .inode.unused{border-style:dashed}
 .inode .un{padding:0 12px 8px;font-size:11px;color:var(--amber)}
+.ev.sel .tit{color:var(--accent)}
+.ev:hover .tit{text-decoration:underline}

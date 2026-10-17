@@ -4,7 +4,9 @@ import { h, ROLES, ROLE_LABEL } from './util.js';
 const place = (list) => (list.length ? list.join(' · ') : null);
 
 // 정보 상세 — 존재 이유, 관계, 정보의 흐름(입력·보여줌·수정·판단), 필드
+const KIND = { create: '새 객체를 만들어 씀', update: '있던 값을 고침(대입 또는 ...펼침)', read: '읽음', write: '씀' };
 export function infoDrawer(model, name, { focusField, onClose, openInfo, openScreen }) {
+  const open = new Set(focusField ? [focusField] : []);
   const info = model.infos.find((i) => i.name === name);
   const el = h('div', { class: 'side-in', style: 'display:flex;flex-direction:column;min-height:0;flex:1' });
   if (!info) { el.append(h('div', { class: 'empty-note' }, `정보 ${name}을 찾지 못했다`)); return el; }
@@ -32,11 +34,14 @@ export function infoDrawer(model, name, { focusField, onClose, openInfo, openScr
         h('div', { class: 'fld' }, info.props.map((p) => {
           const rolesOf = ROLES.filter((r) => p.roles[r].length);
           const flag = !p.doc ? '정리 후보 · 존재 이유 미작성' : (p.status !== 'rw' ? (p.status === 'none' ? '쓰는 곳 없음' : p.status === 'read-only' ? '쓰는 곳(입력) 없음' : '읽는 곳 없음') : '');
-          return h('div', { class: `row${focusField === p.name ? ' focus' : ''}` },
+          const row = h('div', { class: `row${focusField === p.name ? ' focus' : ''}`, style: 'cursor:pointer', onclick: () => { open.has(p.name) ? open.delete(p.name) : open.add(p.name); evBox.style.display = open.has(p.name) ? '' : 'none'; } });
+          const evBox = h('div', { style: `display:${open.has(p.name) ? '' : 'none'};margin-top:8px;padding:8px 10px;border-radius:6px;background:#14161f;font-size:11.5px;line-height:1.7` }, h('div', { style: 'color:var(--dim);margin-bottom:2px' }, '역할을 이렇게 읽었다 (근거)'), p.evidence && p.evidence.length ? p.evidence.map((e) => h('div', null, h('span', { class: `role ${e.role}` }, ROLE_LABEL[e.role]), `${e.who} · `, h('span', { class: 'mono' }, `${e.file}:${e.line}`), ` · ${KIND[e.kind] || e.kind}`)) : h('div', { style: 'color:var(--dim2)' }, '화면·모듈에서 쓰는 곳을 찾지 못했다'));
+          row.append(...[
             flag ? h('span', { class: 'flag' }, flag) : null,
             h('b', null, p.name), focusField === p.name ? h('span', { style: 'color:var(--accent);font-size:12px' }, ' · 지금 보던 필드') : null,
             h('div', { class: `d${p.doc ? '' : ' empty'}` }, p.doc || '존재 이유 미작성'),
-            rolesOf.length ? h('div', { style: 'margin-top:6px' }, rolesOf.map((r) => h('span', { class: `role ${r}` }, `${ROLE_LABEL[r]} ${p.roles[r].length}`))) : null);
+            rolesOf.length ? h('div', { style: 'margin-top:6px' }, rolesOf.map((r) => h('span', { class: `role ${r}` }, `${ROLE_LABEL[r]} ${p.roles[r].length}`))) : null, evBox].filter(Boolean));
+          return row;
         })))));
   return el;
 }
