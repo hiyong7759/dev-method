@@ -9,7 +9,7 @@ export function screenView(root, { model, name, tab, at, go }) {
   let alive = true, raf = 0;
   const c = {
     model, name, tab: tab || 'overview', at,
-    focus: null, drawer: null, hl: new Set(), active: null, fieldRole: null, hFilter: '전체',
+    focus: null, drawer: null, hOpen: new Set(), hl: new Set(), active: null, fieldRole: null, hFilter: '전체',
     draft: null, draftText: '', ap: { problem: false }, regionMode: false, showNumbers: true,
     sc: () => c.model.screens.find((s) => s.name === c.name),
     route: () => { try { return iframe.contentWindow.location.pathname; } catch { return c.sc().sample || c.sc().route; } },
@@ -148,7 +148,18 @@ export function screenView(root, { model, name, tab, at, go }) {
   // 요소가 지금 실제 화면에 있는지, 있으면 그 자리로 스크롤
   c.isOnScreen = (id) => { const sp = ordered().find((x) => x.id === id); const doc = frameDoc(); if (!sp || sp.kind !== 'dom' || !sp.anchor || !doc) return false; try { return !!doc.querySelector(sp.anchor.slice(4)); } catch { return false; } };
   c.focusSpec = (id) => { const sp = ordered().find((x) => x.id === id); if (!sp?.anchor) return; try { frameDoc()?.querySelector(sp.anchor.slice(4))?.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* 잘못된 선택자 */ } };
-  c.setFlash = (ids) => { c.hl = new Set(ids); c.flash = ids.length > 0; const first = ids.find((id) => c.isOnScreen(id)); if (first) c.focusSpec(first); };
+  // 'ok' 테두리로 보여 줄 수 있다 / 'big' 화면 대부분이라 테두리가 의미 없다 / 'none' 지금 화면에 없다 / 'logic' 화면에 안 보이는 로직
+  c.spanState = (id) => {
+    const sp = ordered().find((x) => x.id === id);
+    if (!sp) return 'none'; if (sp.kind !== 'dom') return 'logic';
+    const r = rects().find((x) => x.s.id === id); if (!r) return 'none';
+    return ((r.r.right - r.r.left) * (r.r.bottom - r.r.top)) / Math.max(1, iframe.clientWidth * iframe.clientHeight) > 0.45 ? 'big' : 'ok';
+  };
+  c.setFlash = (ids) => {
+    const ok = ids.filter((id) => c.spanState(id) === 'ok');
+    c.hl = new Set(ok); c.flash = ok.length > 0;
+    if (ok[0]) c.focusSpec(ok[0]);
+  };
 
   // ── 화면 위 표시(번호표, 강조) ──
   const frameDoc = () => { try { return iframe.contentDocument; } catch { return null; } };

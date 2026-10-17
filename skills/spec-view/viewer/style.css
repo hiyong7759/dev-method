@@ -323,3 +323,8 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 @media (prefers-reduced-motion:no-preference){.mbox.flash{animation:flashGlow 1.3s ease-in-out infinite}}
 .mbox.flash .mbadge{background:#ffd166;color:#2a2108;border-color:var(--stage)}
 .mlabel{position:absolute;left:0;top:-30px;white-space:nowrap;padding:3px 10px;border-radius:6px;background:#ffd166;color:#2a2108;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+
+/* 바뀐 내용(코드 줄) */
+.dline{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;line-height:1.55;padding:1px 8px;white-space:pre-wrap;overflow-wrap:anywhere}
+.dline.m{background:var(--red-bg);color:#ffb3b3}
+.dline.p{background:var(--green-bg);color:#a8e8cc}

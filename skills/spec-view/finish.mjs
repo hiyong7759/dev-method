@@ -22,6 +22,7 @@ const out = arg('--out', fs.mkdtempSync(path.join(os.tmpdir(), 'spec-finish-')))
 fs.mkdirSync(out, { recursive: true });
 
 const results = [];
+const snaps = {}; // 화면 이름 → 저장한 화면 스냅샷 파일 (모두 통과하면 status.mjs set test-requested가 기록에 붙인다)
 const step = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`${ok ? '통과' : '실패'}  ${name}${detail ? ' — ' + detail : ''}`); };
 const run = (script) => { const r = spawnSync(process.execPath, [path.join(here, script), script === 'extract.mjs' ? src : root, ...(script === 'nav.mjs' ? ['--src', src] : []), '--check'], { encoding: 'utf8' }); return { ok: r.status === 0, text: (r.stdout + r.stderr).trim() }; };
 
@@ -68,13 +69,21 @@ if (model) {
         page.on('console', (m) => { if (m.type() === 'error' && !/favicon\.ico/.test(m.location().url)) errors.push(m.text()); });
         const tag = route.replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '') || 'root';
         try {
-          await page.goto(`${base}/__spec/#/screen/${encodeURIComponent(sc.name)}?tab=components&at=${encodeURIComponent(route)}`, { waitUntil: 'networkidle' });
+          await page.goto(`${base}/__spec/#/screen/${encodeURIComponent(sc.name)}?tab=overview&at=${encodeURIComponent(route)}`, { waitUntil: 'networkidle' });
           await page.waitForSelector('.shead .nm', { timeout: 5000 }).catch(() => {});
           await page.waitForTimeout(900);
           const shown = await page.locator('.shead .nm').innerText().catch(() => '');
           step(`${route} 화면 설계서 "${sc.name}"가 열린다`, shown === sc.name, shown ? '' : '화면 설계서가 열리지 않았다');
           const body = (await page.frameLocator('iframe').locator('body').innerText().catch(() => '')).trim();
           step(`${route} 실제 화면이 열리고 오류가 없다`, errors.length === 0 && body.length > 0, errors.length ? errors.slice(0, 2).join(' / ') : body.length ? '' : '화면 본문이 비어 있다');
+          // 변경 전·후 비교용 화면 스냅샷: 설계서 표시가 없는 실제 화면만 저장한다
+          try {
+            const dir = path.join(root, '.spec', 'shots'); fs.mkdirSync(dir, { recursive: true });
+            const name = `ver-${tag}-${Date.now()}.png`;
+            await page.locator('.stage').screenshot({ path: path.join(dir, name) });
+            snaps[sc.name] = name;
+          } catch { /* 스냅샷 실패는 검사 실패가 아니다 */ }
+          await page.locator('.tabs button', { hasText: '컴포넌트' }).click(); await page.waitForTimeout(700);
           const domCards = await page.locator('.comp .kind', { hasText: 'dom' }).count();
           const boxes = await page.locator('.mbox').count();
           step(`${route} 컴포넌트의 @anchor가 실제 화면에서 모두 찾힌다`, boxes === domCards, `화면 요소 ${domCards}개 중 ${boxes}개 찾음${boxes < domCards ? ' — @anchor 선택자를 고친다' : ''}`);
@@ -88,6 +97,7 @@ if (model) {
 }
 
 const ok = results.every((r) => r.ok);
+if (ok && Object.keys(snaps).length) { fs.mkdirSync(path.join(root, '.spec'), { recursive: true }); fs.writeFileSync(path.join(root, '.spec', 'pending-shots.json'), JSON.stringify(snaps)); }
 console.log(`\n스크린샷: ${out}`);
-console.log(ok ? '결과: 통과 — 스크린샷을 눈으로 본 뒤 "테스트 요청"을 쓴다' : '결과: 실패 — 상태는 "개발 중". 테스트 요청을 내지 않는다');
+console.log(ok ? '결과: 통과 — 스크린샷을 눈으로 본 뒤 "테스트 요청"을 쓴다(저장한 화면 스냅샷이 테스트 요청 기록에 붙는다)' : '결과: 실패 — 상태는 "개발 중". 테스트 요청을 내지 않는다');
 process.exit(ok ? 0 : 1);

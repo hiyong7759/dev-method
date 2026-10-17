@@ -42,6 +42,7 @@ spec)
   LINE='node '"$ROOT"'/skills/spec-view/precommit.mjs "$(git rev-parse --show-toplevel)" || exit 1'
   if [ ! -f "$HOOK" ]; then printf '#!/bin/bash\n%s\n' "$LINE" > "$HOOK"; chmod +x "$HOOK"
   elif ! grep -qF precommit.mjs "$HOOK"; then echo "$LINE" >> "$HOOK"; fi
+  [ -f "$P/.spec/.gitignore" ] || printf 'pending-shots.json\npids.json\n*.log\n' > "$P/.spec/.gitignore"
   touch "$ROOT/spec-projects.txt"; grep -qxF "$P" "$ROOT/spec-projects.txt" || echo "$P" >> "$ROOT/spec-projects.txt"
   echo "연결: $P"; echo "설정: $(tr -d '\n' < "$P/.spec/config.json")"
   ;;

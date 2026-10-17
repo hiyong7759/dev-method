@@ -40,7 +40,8 @@ export function screenStatus(scanRoot, sc, store = load(scanRoot)) {
 }
 export const allStatus = (scanRoot, out = extractSpecs(scanRoot)) => { const st = load(scanRoot); return Object.fromEntries(out.screens.map((sc) => [sc.name, screenStatus(scanRoot, sc, st)])); };
 
-export function setStatus(scanRoot, name, status, { by, note = '', shot = '' }) {
+export function setStatus(scanRoot, name, status, { by, note = '', shot: shotIn = '' }) {
+  let shot = shotIn;
   if (by === 'agent' && !AGENT_STATES.includes(status)) throw new Error(`에이전트는 ${AGENT_STATES.join(', ')}만 남길 수 있다. ${status}는 사용자가 설계서 보기에서만 남긴다`);
   if (by === 'user' && !USER_STATES.includes(status)) throw new Error(`사용자 기록은 ${USER_STATES.join(', ')}만 가능하다`);
   const out = extractSpecs(scanRoot);
@@ -48,6 +49,11 @@ export function setStatus(scanRoot, name, status, { by, note = '', shot = '' }) 
   const files = sc.files.map((f) => path.join(scanRoot, f));
   const store = load(scanRoot);
   const prev = store.screens[sc.name] || { history: [] };
+  // finish.mjs가 통과하면서 저장한 이 화면의 스냅샷(변경 전·후 비교에 쓴다). 한 번 붙이면 지운다
+  if (by === 'agent' && status === 'test-requested' && !shot) {
+    const pf = path.join(specDir(scanRoot), 'pending-shots.json');
+    try { const pend = JSON.parse(fs.readFileSync(pf, 'utf8')); if (pend[sc.name]) { shot = pend[sc.name]; delete pend[sc.name]; fs.writeFileSync(pf, JSON.stringify(pend)); } } catch { /* 없음 */ }
+  }
   const rec = { status, by, at: new Date().toISOString(), commit: sh('git rev-parse --short HEAD', scanRoot), dirty: !!sh('git status --porcelain', scanRoot), hash: hashOf(files), note, shot };
   store.screens[sc.name] = { ...rec, checks: status === 'test-requested' ? {} : (prev.checks || {}), history: [...(prev.history || []), { status, by, at: rec.at, commit: rec.commit, note, shot }] };
   save(scanRoot, store);

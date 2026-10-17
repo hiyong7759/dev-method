@@ -217,25 +217,54 @@ export function history(c) {
       chips.replaceChildren(...kinds.map((k) => h('button', { class: `pill${c.hFilter === k ? ' sel' : ''}`, style: 'min-height:30px;font-size:12px', onclick: () => { c.hFilter = k; draw(); } }, `${k} · ${count(k)}`)));
       const shown = items.filter((i) => c.hFilter === '전체' || i.kind === c.hFilter);
       const touched = (i) => ({ specs: c.model.specs.filter((x) => (i.touchedSpecs || []).includes(x.id)), infos: i.touchedInfos || [] });
-      const pick = (i) => { const on = c.hSel === i.hash + i.at; c.hSel = on ? null : i.hash + i.at; c.setFlash(on ? [] : touched(i).specs.map((x) => x.id)); draw(); };
+      const pick = (i) => { const on = c.hSel === i.hash + i.at; c.hSel = on ? null : i.hash + i.at; c.hOpen = new Set(); c.setFlash(on ? [] : (i.touchedSpecs || [])); draw(); };
+      const KINDS = { spec: '화면 요소', logic: '로직', info: '정보', other: '그 밖' };
+      const stateNote = { ok: '화면에 표시', big: '화면 대부분을 차지해 표시 생략', none: '지금 화면에 없음', logic: '화면에 안 보이는 로직' };
+      const placeRow = (pl) => {
+        const logic = pl.kind === 'spec' && c.model.specs.find((x) => x.id === pl.id)?.kind === 'logic';
+        const kind = logic ? 'logic' : pl.kind;
+        const st = pl.kind === 'spec' ? c.spanState(pl.id) : null;
+        const open = c.hOpen.has(pl.key);
+        return h('div', { style: 'border:1px solid var(--line);border-radius:8px;background:var(--bg2);overflow:hidden' },
+          h('button', { style: 'display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:6px 10px;border:0;background:none;text-align:left', onclick: (ev) => {
+            ev.stopPropagation(); open ? c.hOpen.delete(pl.key) : c.hOpen.add(pl.key);
+            if (pl.kind === 'spec' && !open) { const only = st === 'ok' ? [pl.id] : []; c.setFlash(only); }
+            draw(); } },
+            h('span', { class: 'kindtag k3', style: 'margin:0;flex:none' }, KINDS[kind]), h('b', { style: 'font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis' }, pl.title),
+            h('span', { class: 'mono', style: 'margin-left:auto;flex:none;font-size:11px' }, h('span', { style: 'color:var(--green)' }, `+${pl.added}`), ' ', h('span', { style: 'color:var(--red)' }, `−${pl.removed}`)), h('span', { style: 'flex:none;color:var(--dim)' }, open ? '▾' : '▸')),
+          st ? h('div', { class: 'mmeta', style: `padding:0 10px 8px;color:${st === 'ok' ? 'var(--amber)' : 'var(--dim)'}` }, stateNote[st]) : null,
+          open ? h('div', { style: 'padding:0 10px 10px;display:flex;flex-direction:column;gap:8px' },
+            pl.hunks.map((hk) => h('div', null, h('div', { class: 'mmeta mono', style: 'margin-bottom:3px' }, `${pl.file}:${hk.line}`),
+              hk.removed.map((x) => h('div', { class: 'dline m' }, `− ${x}`)), hk.added.map((x) => h('div', { class: 'dline p' }, `+ ${x}`)))),
+            pl.kind === 'info' ? h('button', { class: 'smallbtn', style: 'align-self:flex-start', onclick: (ev) => { ev.stopPropagation(); c.openInfo(pl.info, pl.prop || undefined); } }, '정보 상세 열기 ›') : null) : null);
+      };
+      // 화면이 어떻게 달라졌는지: 이 변경 직전·직후에 저장된 화면(테스트 요청·승인 때 저장)을 나란히
+      const snapCell = (x, cap, missing) => h('div', { style: 'min-width:0' }, h('div', { class: 'mmeta', style: 'margin-bottom:4px' }, cap),
+        x ? h('a', { href: `/__spec/shots/${x.shot}`, target: '_blank', title: '누르면 크게' }, h('img', { src: `/__spec/shots/${x.shot}`, style: 'width:100%;border-radius:6px;border:1px solid var(--line);background:#fff;display:block', onerror: (e) => e.target.replaceWith('화면 파일 없음') }))
+          : h('div', { style: 'display:flex;align-items:center;justify-content:center;min-height:90px;border:1px dashed var(--line);border-radius:6px;font-size:12px;color:var(--dim2);text-align:center;padding:8px' }, missing));
+      const snapBlock = (i) => (i.before || i.after) ? h('div', null, h('div', { style: 'font-weight:700;margin-bottom:8px' }, '화면이 이렇게 달라졌다'),
+        h('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px' },
+          snapCell(i.before, i.before ? `변경 전 · ${fmt(i.before.at)} ${i.before.label} 때` : '변경 전', '이전에 저장된 화면 없음'),
+          snapCell(i.after, i.after ? `변경 후 · ${fmt(i.after.at)} ${i.after.label} 때` : '변경 후', '아직 저장 안 됨 — 다음 테스트 요청 때 저장된다')),
+        h('div', { class: 'mmeta', style: 'margin-top:6px' }, '저장된 두 시점 사이의 화면이라, 다른 변경이 함께 섞여 있을 수 있다'))
+        : h('div', { style: 'font-size:12px;color:var(--dim);line-height:1.55' }, '이 시점의 화면 기록이 없다. 테스트 요청과 승인 때마다 화면이 저장되어, 앞으로는 변경 전·후 화면이 여기에 나온다');
+      const detailBlock = (i) => {
+        if (i.type === 'status') return i.shot ? h('div', { class: 'dec', style: 'border:1px solid var(--accent-deep)' }, h('div', { style: 'font-weight:700;margin-bottom:6px' }, `${i.kind} 때 화면`), h('a', { href: `/__spec/shots/${i.shot}`, target: '_blank' }, h('img', { src: `/__spec/shots/${i.shot}`, style: 'width:100%;border-radius:6px;background:#fff;display:block' }))) : null;
+        const places = i.places || [];
+        const small = (i.touchedSpecs || []).filter((id) => c.spanState(id) === 'ok');
+        return h('div', { class: 'dec', style: 'border:1px solid var(--accent-deep);display:flex;flex-direction:column;gap:12px' },
+          snapBlock(i),
+          h('div', { style: 'font-weight:700' }, `이 변경이 바꾼 곳 · ${places.length}`),
+          places.length ? places.slice(0, 8).map(placeRow) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '이 화면의 파일에서 바뀐 줄을 찾지 못했다(이름 변경이나 파일 이동일 수 있다)'),
+          places.length > 8 ? h('div', { class: 'mmeta' }, `외 ${places.length - 8}곳`) : null,
+          small.length ? h('div', { class: 'mmeta', style: 'color:var(--amber)' }, `왼쪽 화면에 노란 테두리로 표시했다 (${small.length}곳)`) : (places.length ? h('div', { class: 'mmeta' }, '화면에 테두리로 보여 줄 작은 요소가 없다. 위 목록의 바뀐 내용으로 확인한다') : null));
+      };
       holder.replaceChildren(...(shown.length ? shown.map((i) => h('div', { class: `ev${c.hSel === i.hash + i.at ? ' sel' : ''}`, style: 'cursor:pointer', onclick: () => pick(i) },
         h('div', { class: `dot${i.kind === '오류 수정' ? ' err' : i.kind === '승인' ? ' ap' : i.kind === '수정 필요' ? ' err' : i.kind === '테스트 요청' ? ' ap' : ''}` }),
         h('div', { class: 'body' },
           h('div', { class: 'tit' }, h('span', { class: `kindtag ${i.kind === '오류 수정' || i.kind === '수정 필요' ? 'k2' : i.kind === '변경' ? 'k1' : 'k3'}` }, i.kind), i.title || (i.kind === '승인' ? `${sc.name} 승인 (${i.author})` : i.kind)),
           h('div', { class: 'meta mono' }, `${i.hash || '—'} · ${fmt(i.at)}${i.request ? ` · 요청: ${i.request.split('—')[0].trim()}` : ''}${i.files ? ` · 파일 ${i.files}` : ''}`),
-          c.hSel === i.hash + i.at ? (() => {
-            const t = touched(i); const fieldChips = t.infos.flatMap((x) => (x.fields.length ? x.fields.map((f) => ({ info: x.name, prop: f })) : [{ info: x.name, prop: null }]));
-            const more = (n) => (n > 6 ? h('span', { class: 'mmeta' }, `외 ${n - 6}개`) : null);
-            const domSpecs = t.specs.filter((x) => x.kind !== 'logic');
-            const found = domSpecs.filter((x) => c.isOnScreen(x.id)), missing = domSpecs.filter((x) => !c.isOnScreen(x.id));
-            return h('div', { class: 'dec', style: 'border:1px solid var(--accent-deep)' },
-              h('div', { style: 'font-weight:700;margin-bottom:8px' }, '이 변경이 바꾼 것'),
-              t.specs.length ? h('div', { style: 'margin-bottom:8px' },
-                h('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap' }, h('span', { class: 'mmeta', style: 'flex:none;width:56px' }, '화면 요소'),
-                  t.specs.slice(0, 6).map((x) => (x.kind === 'logic' ? h('span', { class: 'tag', style: 'border-color:#6a5a99', title: '화면에 보이지 않는 안쪽 로직' }, `${x.title} · 로직`) : c.isOnScreen(x.id) ? h('button', { class: 'tag', style: 'cursor:pointer;border-color:#ffd166', title: '누르면 화면의 그 자리로 이동', onclick: (ev) => { ev.stopPropagation(); c.focusSpec(x.id); } }, `${x.title} ↗`) : h('span', { class: 'tag', style: 'opacity:.6;border-style:dashed' }, `${x.title} · 지금 화면에 없음`))), more(t.specs.length)),
-                (domSpecs.length ? h('div', { class: 'mmeta', style: 'margin:6px 0 0 62px' }, found.length ? `왼쪽 화면에 노란 테두리로 표시했다${missing.length ? ` (${missing.length}개는 지금 화면에 없다)` : ''}` : '지금 화면에서 찾을 수 없다(이 화면에서 빠졌거나 이름이 바뀐 요소)') : h('div', { class: 'mmeta', style: 'margin:6px 0 0 62px' }, '화면에 보이지 않는 안쪽 로직이라 왼쪽 화면에는 표시가 없다'))) : null,
-              fieldChips.length ? h('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap' }, h('span', { class: 'mmeta', style: 'flex:none;width:56px' }, '정보'), fieldChips.slice(0, 6).map((f) => h('button', { class: 'tag', style: 'cursor:pointer', onclick: (ev) => { ev.stopPropagation(); c.openInfo(f.info, f.prop || undefined); } }, f.prop ? `${f.info}.${f.prop}` : f.info)), more(fieldChips.length)) : null,
-              !t.specs.length && !fieldChips.length ? h('div', { style: 'font-size:12px;color:var(--dim)' }, '화면 요소와 정보 정의는 그대로다. 안쪽 동작이나 모양만 바뀌었다.') : null); })() : null,
+          c.hSel === i.hash + i.at ? detailBlock(i) : null,
           i.decisions.length || i.rejections.length || i.cause ? h('div', { class: 'dec' }, i.cause ? h('div', null, `원인: ${i.cause}`) : null, i.decisions.map((d) => h('div', null, `결정: ${d}`)), i.rejections.map((d) => h('div', null, `기각: ${d}`))) : null))) : [h('div', { style: 'font-size:12px;color:var(--dim2);line-height:1.6' }, '아직 이력이 없다. 이 화면의 소스를 바꾼 커밋과 승인 기록이 여기에 쌓인다.')]));
     };
     draw();
