@@ -69,9 +69,9 @@ export function infoMap(root, model, { selected, onSelect, drawer }) {
     return (level[n] = parents.length ? 1 + Math.max(...parents.map((p) => lv(p, [...seen, n]))) : 0);
   };
   infos.forEach((i) => lv(i.name));
-  const W = 230, GAPX = 90, GAPY = 90;
+  const W = 212, GAPX = 30, GAPY = 44;
   // 화면 폭에 맞춰 한 줄에 놓을 수 있는 만큼만 놓고, 넘치면 아래 줄로 접는다(옆으로 밀려 안 보이는 일이 없게)
-  const availW = (root.clientWidth || window.innerWidth) - (drawer ? 420 : 0) - 40;
+  const availW = (root.clientWidth || window.innerWidth) - 420 - 40; // 오른쪽 패널은 항상 열려 있어 폭을 미리 뺀다(고르면 상자가 움직이는 일이 없게)
   const cols = Math.max(1, Math.floor((availW - 30 + GAPX) / (W + GAPX)));
   const byLevel = {};
   infos.forEach((i) => (byLevel[level[i.name]] = byLevel[level[i.name]] || []).push(i));
@@ -83,7 +83,7 @@ export function infoMap(root, model, { selected, onSelect, drawer }) {
     for (let k = 0; k < list.length; k += cols) rowsList.push(list.slice(k, k + cols));
   });
   const pos = {}; let maxX = 0, y = 30;
-  const nodeH = (i) => 44 + 8 + Math.min(5, i.props.length) * 19 + (i.props.length > 5 ? 19 : 0) + 8 + 38;
+  const nodeH = () => 74; // 상자는 이름·한 줄 설명·개수만 보여 모두 같은 크기(필드는 오른쪽 패널에서)
   const widest = Math.max(...rowsList.map((r) => r.length));
   const innerW = widest * (W + GAPX) - GAPX;
   rowsList.forEach((row) => {
@@ -97,15 +97,15 @@ export function infoMap(root, model, { selected, onSelect, drawer }) {
   const erd = h('div', { class: 'erd' });
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg'); svg.setAttribute('width', canvasW); svg.setAttribute('height', canvasH);
-  const line = (d, weak, hl) => { const p = document.createElementNS(svgNS, 'path'); p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', hl ? '#9db4ff' : '#7a6f60'); p.setAttribute('stroke-width', hl ? 3 : 2); if (weak) p.setAttribute('stroke-dasharray', '5 4'); svg.append(p); };
-  const text = (x, t, yy, hl) => { const e = document.createElementNS(svgNS, 'text'); e.setAttribute('x', x); e.setAttribute('y', yy); e.setAttribute('fill', hl ? '#9db4ff' : '#cfc6b8'); e.setAttribute('font-size', 12); e.setAttribute('font-family', 'ui-monospace,Menlo,monospace'); e.textContent = t; svg.append(e); };
+  const line = (d, weak, hl) => { const p = document.createElementNS(svgNS, 'path'); p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', hl ? '#9db4ff' : '#7a6f60'); p.setAttribute('stroke-width', hl ? 3 : 2); if (weak) p.setAttribute('stroke-dasharray', '5 4'); if (selected && !hl) p.setAttribute('opacity', '.15'); svg.append(p); };
+  const text = (x, t, yy, hl) => { const e = document.createElementNS(svgNS, 'text'); e.setAttribute('x', x); e.setAttribute('y', yy); e.setAttribute('fill', hl ? '#9db4ff' : '#cfc6b8'); e.setAttribute('font-size', 12); e.setAttribute('font-family', 'ui-monospace,Menlo,monospace'); if (selected && !hl) e.setAttribute('opacity', '.15'); e.textContent = t; svg.append(e); };
   for (const r of model.relations) {
     const a = pos[r.to], b = pos[r.from]; if (!a || !b) continue;
     const hl = selected && (r.from === selected || r.to === selected);
     if (Math.abs(a.y - b.y) < 4) { // 같은 줄: 옆에서 옆으로
       const [l, rr] = a.x < b.x ? [a, b] : [b, a];
-      const yy = l.y + 60; line(`M${l.x + W} ${yy} L${rr.x} ${yy}`, r.weak, hl);
-      text(l.x + W + 8, '1', yy - 6, hl); text(rr.x - 14, r.many, yy - 6, hl); text((l.x + W + rr.x) / 2 - 20, r.field, yy + 16, hl);
+      const yy = l.y + 42; line(`M${l.x + W} ${yy} L${rr.x} ${yy}`, r.weak, hl);
+      if (rr.x - l.x - W > 100) { text(l.x + W + 8, '1', yy - 6, hl); text(rr.x - 14, r.many, yy - 6, hl); text((l.x + W + rr.x) / 2 - 20, r.field, yy + 16, hl); }
     } else {
       const [top, bot] = a.y < b.y ? [a, b] : [b, a];
       const x1 = top.x + W / 2, y1 = top.y + top.h, x2 = bot.x + W / 2, y2 = bot.y;
@@ -118,13 +118,9 @@ export function infoMap(root, model, { selected, onSelect, drawer }) {
   erd.append(svg);
   for (const i of infos) {
     const p = pos[i.name];
-    const keyFields = [...i.props.filter((x) => x.name === 'id'), ...i.props.filter((x) => /Id$/.test(x.name) && x.name !== 'id'), ...i.props.filter((x) => x.name !== 'id' && !/Id$/.test(x.name))].slice(0, 5);
-    const fk = new Set(model.relations.filter((r) => r.from === i.name && !r.weak).map((r) => r.field));
-    const node = h('div', { class: `inode${i.unused ? ' unused' : ''}${selected === i.name ? ' sel' : ''}${selected && selected !== i.name ? ' dim' : ''}`, style: `left:${p.x}px;top:${p.y}px`, onclick: () => onSelect(i.name) },
-      h('div', { class: 'h' }, h('b', null, i.name), i.doc ? h('span', null, i.doc.split(/[.。]/)[0].slice(0, 14)) : null),
-      h('div', { class: 'f' }, keyFields.map((f) => h('div', null, f.name, ' ', f.name === 'id' ? h('em', null, 'PK') : fk.has(f.name) ? h('em', null, 'FK') : null, !f.doc ? h('span', { class: 'fl' }, ' 확인') : null)),
-        i.props.length > 5 ? h('div', null, h('em', null, `외 ${i.props.length - 5}개`)) : null),
-      i.unused ? h('div', { class: 'un' }, '쓰는 곳 없음 — 정리 후보') : null,
+    const doc1 = i.doc ? i.doc.split(/[.。]/)[0] : '';
+    const node = h('div', { class: `inode${i.unused ? ' unused' : ''}${selected === i.name ? ' sel' : ''}${selected && selected !== i.name ? ' dim' : ''}`, style: `left:${p.x}px;top:${p.y}px;height:${p.h}px`, title: `${i.name}${doc1 ? ' — ' + doc1 : ''}`, onclick: () => onSelect(i.name) },
+      h('div', { class: 'h' }, h('b', null, i.name), h('span', null, i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1)),
       h('div', { class: 'c' }, ROLES.map((r) => h('span', { class: `cnt-chip ${r}${i.flow[r].length ? '' : ' zero'}` }, `${ROLE_LABEL[r]} ${i.flow[r].length}`))));
     erd.append(node);
   }
@@ -135,4 +131,26 @@ export function infoMap(root, model, { selected, onSelect, drawer }) {
     h('span', null, '관계선'), h('span', { class: 'mono' }, '──'), h('span', null, '소유 (실제 연결)'), h('span', { class: 'mono' }, '┄┄'), h('span', null, '약한 연결 (값으로만 가리킴)'),
     h('span', { style: 'margin-left:12px' }, '표시'), ROLES.map((r) => h('span', { class: `cnt-chip ${r}`, style: 'font-size:12px;padding:2px 10px' }, ROLE_LABEL[r])), h('span', { style: 'color:var(--dim)' }, '= 그 일을 하는 곳의 수')));
   root.append(h('div', { class: 'erd-wrap' }, erd, drawer ? h('aside', { class: 'side', style: 'width:420px' }, drawer) : null));
+}
+
+// 정보 흐름 오른쪽 패널의 기본 내용(정보를 고르기 전): 읽는 법과 전체 요약
+export function infoOverview(model, { openInfo }) {
+  const infos = model.infos;
+  const placesOf = (i) => new Set(ROLES.flatMap((r) => i.flow[r])).size;
+  const link = (i, note) => h('div', { class: 'rel' }, h('span', { class: 'n', onclick: () => openInfo(i.name) }, i.name), h('span', { style: 'color:var(--dim);font-size:12px' }, note));
+  const unused = infos.filter((i) => i.unused);
+  const flagged = infos.filter((i) => i.flagged).sort((a, b) => b.flagged - a.flagged);
+  const busy = infos.slice().sort((a, b) => placesOf(b) - placesOf(a)).filter((i) => placesOf(i) > 0).slice(0, 5);
+  const strong = model.relations.filter((r) => !r.weak).length;
+  const sec = (title, body) => h('div', { class: 'sec' }, h('h4', null, title), body);
+  return h('div', { class: 'side-in', style: 'display:flex;flex-direction:column;min-height:0;flex:1' },
+    h('div', { class: 'drawer-head' }, h('div', null, h('b', null, '정보 흐름 한눈에'))),
+    h('div', { class: 'tbody' },
+      h('div', { class: 'reason' }, h('div', { class: 'k' }, '이 화면을 읽는 법'),
+        h('div', { class: 'v' }, '상자 하나가 앱이 다루는 정보 하나입니다. 선은 정보끼리 이어진 관계이고, 실선은 실제 연결, 점선은 값으로만 가리키는 약한 연결입니다. 상자의 숫자는 입력·보여줌·수정·판단을 하는 곳의 수입니다.'),
+        h('div', { class: 'w' }, '상자를 누르면 필드와 쓰이는 화면이 이 자리에 나옵니다. 같은 상자를 다시 누르면 이 요약으로 돌아옵니다.')),
+      sec('전체', h('div', { style: 'font-size:13px;line-height:1.8' }, `정보 ${infos.length}개 · 필드 ${infos.reduce((n, i) => n + i.props.length, 0)}개`, h('br'), `관계 ${model.relations.length}개 (실제 연결 ${strong} · 약한 연결 ${model.relations.length - strong})`)),
+      sec('여러 곳에서 쓰는 정보', busy.length ? busy.map((i) => link(i, `쓰는 곳 ${placesOf(i)}`)) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '아직 없다')),
+      sec('정리 후보 — 쓰는 곳이 없다', unused.length ? unused.map((i) => link(i, '쓰는 곳 없음')) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '없다')),
+      sec('확인이 필요한 필드가 있는 정보', flagged.length ? flagged.map((i) => link(i, `확인 ${i.flagged}`)) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '없다'))));
 }

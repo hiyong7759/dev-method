@@ -2,7 +2,7 @@
 // 상단 내비게이션 하나로 모든 화면과 정보에 간다. 개발 모드 전용. 소스에서 계산한 모델을 읽어 그리고, 쓰기는 .spec의 승인·메모·확인 목록뿐이다.
 import { h, get, statusChip } from './util.js';
 import { mapView } from './map.js';
-import { infoMap, infoDrawer } from './info.js';
+import { infoMap, infoDrawer, infoOverview } from './info.js';
 import { screenView } from './screen.js';
 
 const root = document.getElementById('app');
@@ -78,7 +78,7 @@ function render() {
     const sel = r.arg || '';
     infoMap(body, model, {
       selected: sel, onSelect: (n) => nav(hash('info', n === sel ? '' : n)),
-      drawer: sel ? infoDrawer(model, sel, { onClose: () => nav(hash('info')), openInfo: (n) => nav(hash('info', n)), openScreen: (n) => nav(hash('screen', n)) }) : null,
+      drawer: sel ? infoDrawer(model, sel, { onClose: () => nav(hash('info')), openInfo: (n) => nav(hash('info', n)), openScreen: (n) => nav(hash('screen', n)) }) : infoOverview(model, { openInfo: (n) => nav(hash('info', n)) }),
     });
   } else {
     mapView(body, { model, domain: r.params.get('domain') || '', setDomain: (d) => nav(hash('map', '', { domain: d })), openScreen: (n) => nav(hash('screen', n)) });
