@@ -58,7 +58,7 @@ if (model) {
         await page.close();
       }
       for (const route of routes) {
-        const sc = matchScreen(model, route);
+        const sc = matchScreen(model, route.split(/[?#]/)[0]); // 쿼리(?editTripId=…)는 @route 비교에서 뺀다
         step(`${route} 이 주소가 @screen의 @route와 맞는다`, !!sc, sc ? `화면 "${sc.name}"` : '맞는 @screen @route가 없다 — 설계서 보기가 이 화면을 찾지 못한다');
         if (!sc) continue;
         const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
