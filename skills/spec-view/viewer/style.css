@@ -266,3 +266,27 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .mitem{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px;padding:0 10px;border:0;border-radius:8px;background:none;text-align:left;font-size:14px}
 .mitem:hover{background:var(--card)}
 .mitem.cur{background:var(--accent-bg);box-shadow:inset 0 0 0 1px var(--accent-deep)}
+
+/* 화면 이동(들어옴·나감) */
+.mv-group{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.mv-head{display:flex;align-items:center;gap:8px}
+.mv-badge{font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;border:1px solid}
+.mv-badge.in{color:var(--green);border-color:#3d7a67;background:var(--green-bg)}
+.mv-badge.out{color:var(--accent);border-color:var(--accent-deep);background:var(--accent-bg)}
+.mv-hint{font-size:12px;color:var(--dim)}
+.mv-n{margin-left:auto;font-size:12px;color:var(--dim)}
+.mv-card{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);border-left-width:3px;background:var(--card)}
+.mv-card.in{border-left-color:var(--green)}
+.mv-card.out{border-left-color:var(--accent)}
+.mv-top{display:flex;align-items:center;gap:8px}
+.mv-arrow{font-size:15px;color:var(--dim)}
+.mv-screen{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border:1px solid var(--line);border-radius:14px;background:var(--bg2);font-weight:700;font-size:13px}
+.mv-screen:hover{border-color:var(--accent)}
+.mv-go{color:var(--dim)}
+.mv-warn{margin-left:auto;font-size:11px;color:var(--amber);border:1px solid #5a4a22;border-radius:9px;padding:1px 8px}
+.mv-act{font-size:13px;line-height:1.45;color:#e4ddd2}
+.mv-vals{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mv-vk{font-size:11px;color:var(--dim)}
+.mv-val{font-size:11px;padding:1px 8px;border-radius:5px;background:#14161f;border:1px solid var(--line);color:var(--accent)}
+.mv-none{font-size:12px;color:var(--dim2);padding:8px 2px}
+.mv-none.warn{color:var(--amber)}

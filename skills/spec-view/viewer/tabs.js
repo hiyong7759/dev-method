@@ -12,11 +12,19 @@ export function overview(c) {
     h('div', { class: 'w mono' }, `${sc.file}:${sc.line}`)));
   el.append(h('div', { class: 'sec' }, h('h4', null, '사용자가 하는 일'),
     sc.does.length ? h('div', { class: 'chips' }, sc.does.map((d) => h('span', { class: 'tag', title: d.check }, d.title))) : h('div', { style: 'font-size:12px;color:var(--dim2)' }, '없음 — 화면의 @does를 쓰면 승인 때 확인 목록이 된다')));
-  const way = (list, key) => list.map((w) => [h('span', { class: 'k' }, ''), h('div', null, h('a', { onclick: () => c.go(w[key]) }, `${w[key]} › `), `${w.action || ''}${w.pass ? ` · 넘김 ${w.pass}` : ''}`)]);
-  el.append(h('div', { class: 'sec' }, h('h4', null, '오가는 길'),
-    h('div', { class: 'way' },
-      sc.incoming.length ? sc.incoming.map((w, i) => [h('span', { class: 'k' }, i ? '' : '오는'), h('div', null, h('a', { onclick: () => c.go(w.from) }, `${w.from} › `), `${w.action || ''}${w.pass ? ` · 받음 ${w.pass}` : ''}`)]) : [h('span', { class: 'k' }, '오는'), h('div', { style: 'color:var(--dim2)' }, '들어오는 길이 없다 (시작 화면)')],
-      sc.to.length ? sc.to.map((w, i) => [h('span', { class: 'k' }, i ? '' : '가는'), h('div', null, h('a', { onclick: () => c.go(w.target) }, `${w.target} › `), `${w.action || ''}${w.pass ? ` · 넘김 ${w.pass}` : ''}`, w.verified ? null : h('span', { style: 'color:var(--amber)' }, ' · 코드에서 못 찾음'))]) : [h('span', { class: 'k' }, '가는'), h('div', { style: 'color:var(--amber)' }, '나가는 길 없음 — @to로 적는다')])));
+  // 이동: 들어옴(이 화면으로 오는 것)과 나감(이 화면에서 가는 것)을 카드로 나눠 보인다. 값은 배지로
+  const valuesOf = (v) => (v || '').split(/[,·]/).map((x) => x.trim()).filter((x) => x && x !== '(없음)');
+  const moveCard = (dir, w, other) => h('div', { class: `mv-card ${dir}` },
+    h('div', { class: 'mv-top' }, h('span', { class: 'mv-arrow' }, dir === 'in' ? '⇥' : '↦'), h('button', { class: 'mv-screen', onclick: () => c.go(other) }, other, h('span', { class: 'mv-go' }, '›')),
+      dir === 'out' && w.verified === false ? h('span', { class: 'mv-warn' }, '코드에서 못 찾음') : null),
+    w.action ? h('div', { class: 'mv-act' }, w.action) : null,
+    valuesOf(w.pass).length ? h('div', { class: 'mv-vals' }, h('span', { class: 'mv-vk' }, dir === 'in' ? '받는 값' : '넘기는 값'), valuesOf(w.pass).map((v) => h('span', { class: 'mv-val mono' }, v))) : null);
+  const group = (dir, label, hint, list, other) => h('div', { class: `mv-group ${dir}` },
+    h('div', { class: 'mv-head' }, h('span', { class: `mv-badge ${dir}` }, dir === 'in' ? '⇥ 들어옴' : '나감 ↦'), h('span', { class: 'mv-hint' }, hint), h('span', { class: 'mv-n' }, list.length)),
+    list.length ? list.map((w) => moveCard(dir, w, other(w))) : h('div', { class: `mv-none${dir === 'out' && c.model.screens.length > 1 ? ' warn' : ''}` }, dir === 'in' ? '들어오는 이동이 없다 (시작 화면)' : '나가는 이동이 없다 — @to로 적는다'));
+  el.append(h('div', { class: 'sec' }, h('h4', null, '화면 이동', h('small', null, '들어오고 나가는 길')),
+    group('in', '들어옴', '이 화면으로 오는 이동', sc.incoming, (w) => w.from),
+    group('out', '나감', '이 화면에서 가는 이동', sc.to, (w) => w.target)));
   // 다루는 정보: 필드마다 역할 칩. 누르면 정보 상세, 올리면 화면에서 그 정보가 보이는 자리가 강조된다
   const fields = sc.fields;
   const counts = Object.fromEntries(ROLES.map((r) => [r, fields.filter((f) => f.roles.includes(r)).length]));
