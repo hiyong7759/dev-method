@@ -174,7 +174,7 @@ export function analyzeTs(root, opts = {}) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const r = analyzeTs(process.argv[2] || '.');
   console.log(`정보 ${r.infos.length}개, 영역 ${r.areas.length}개, ${r.ms}ms`);
-  // --check: 존재 이유(주석)가 빈 정보·필드를 경고로 낸다 (spec-view.md "필수 메타정보")
+  // --check: 존재 이유(주석)가 빈 정보·필드를 경고로 낸다 (spec-view 스킬 rules/meta.md "필수 메타정보")
   if (process.argv.includes('--check')) {
     let n = 0;
     for (const i of r.infos) {
