@@ -90,6 +90,8 @@ export function extractSpecs(root) {
           anchor: e.anchor || '', kind: kindOf(e.anchor), ...where,
         });
         if (!e.why) out.warnings.push(`@spec ${e.id}에 @why가 없다 (${rel}:${e.line})`);
+        // 화면에 안 보이는 로직은 제목이 유일한 식별 단서 — 한 단어나 id 그대로면 무엇을 맡는지 알 수 없다
+        if (!e.anchor && (e.title === e.id || e.title.replace(/\s/g, '').length < 4)) out.warnings.push(`@spec ${e.id}의 제목 "${e.title}"이 짧거나 id와 같다 — 무엇을 맡는지 보이게 쓴다 (${rel}:${e.line})`);
       }
     }
   }
@@ -100,6 +102,10 @@ export function extractSpecs(root) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const root = path.resolve(process.argv[2] || '.');
-  console.log(JSON.stringify(extractSpecs(root), null, 2));
+  const args = process.argv.slice(2);
+  const check = args.includes('--check');
+  const root = path.resolve(args.find((a) => !a.startsWith('--')) || '.');
+  const out = extractSpecs(root);
+  if (check) { out.warnings.forEach((w) => console.log(`경고: ${w}`)); console.log(`@spec ${out.specs.length}개, 경고 ${out.warnings.length}건`); process.exit(out.warnings.length ? 1 : 0); }
+  else console.log(JSON.stringify(out, null, 2));
 }

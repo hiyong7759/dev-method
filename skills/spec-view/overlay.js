@@ -7,7 +7,7 @@
   if (window.__specView) return;
   window.__specView = true;
 
-  const HEADER_H = 76, PANEL_W = 360;
+  const HEADER_H = 76, PANEL_W = 360, FOOT_H = 76;
   const STORE_KEY = 'spec-view.open';
   const ACCENT = '#9db4ff', ACCENT_DEEP = '#5b6fb8';
   const KIND_COLOR = { dom: '#9db4ff', '3d': '#7fd8bd', logic: '#c9b0ff' };
@@ -22,7 +22,8 @@
     .fab,.header,.panel{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,sans-serif}
     .mono{font-family:ui-monospace,'JetBrains Mono',Menlo,monospace}
     button{font:inherit;cursor:pointer}
-    .fab{position:fixed;right:20px;bottom:20px;z-index:2147483001;display:flex;align-items:center;gap:10px;min-height:44px;padding:0 16px 0 14px;border:1px solid #3a362f;border-radius:22px;background:#1c1a17;color:#efe9e0;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(28,26,23,.28)}
+    .foot{position:fixed;left:100%;bottom:0;width:${PANEL_W}px;height:${FOOT_H}px;z-index:2147483000;display:flex;align-items:center;padding:0 20px;background:#22201d;border-top:1px solid #3a362f;border-left:1px solid #3a362f;color:#a89f92;font-size:12px}
+    .fab{position:fixed;right:20px;bottom:16px;z-index:2147483001;display:flex;align-items:center;gap:10px;min-height:44px;padding:0 16px 0 14px;border:1px solid #3a362f;border-radius:22px;background:#1c1a17;color:#efe9e0;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(28,26,23,.28)}
         .header{position:fixed;left:0;top:-${HEADER_H}px;width:100vw;height:${HEADER_H}px;z-index:2147483000;display:flex;align-items:center;gap:20px;padding:0 20px;background:#1c1a17;border-bottom:1px solid #3a362f;color:#efe9e0}
     .header .dev{font-size:11px;padding:3px 8px;border-radius:4px;background:#9db4ff;color:#14161f}
     .htext{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -35,7 +36,7 @@
     .fab.on{right:calc(20px - ${PANEL_W}px);border-color:#5b6fb8;background:#232a45}
     .fab.on .sw{background:#9db4ff}
     .fab.on .sw i{left:18px;background:#14161f}
-    .panel{position:fixed;left:100%;top:0;width:${PANEL_W}px;height:100%;z-index:2147483000;overflow-y:auto;padding:16px 16px 84px;display:flex;flex-direction:column;gap:12px;background:#22201d;border-left:1px solid #3a362f;color:#efe9e0}
+    .panel{position:fixed;left:100%;top:0;width:${PANEL_W}px;height:calc(100% - ${FOOT_H}px);z-index:2147483000;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:#22201d;border-left:1px solid #3a362f;color:#efe9e0}
     .phead{display:flex;align-items:baseline;justify-content:space-between;padding:0 2px 2px;font-size:13px;font-weight:700}
     .phead span.mono{font-size:11px;font-weight:400;color:#a89f92}
     .card{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:10px;border:1px solid #3a362f;background:#2b2824;transition:opacity .12s}
@@ -50,7 +51,14 @@
     .row .k{flex:0 0 36px;font-size:12px;color:#a89f92;padding-top:2px}
     .row .v{color:#e4ddd2;min-width:0;overflow-wrap:anywhere}
     .row .v.empty{color:#8f867a;font-style:italic}
-    .where{font-size:11px;color:#8f867a;overflow-wrap:anywhere}
+    .where{font-size:12px;color:#b8afa2;overflow-wrap:anywhere;margin-top:-4px}
+    .zone{display:flex;align-items:baseline;justify-content:space-between;margin-top:6px;padding:0 2px;font-size:12px;font-weight:700;color:#d9d1c6;letter-spacing:.02em}
+    .zone span.mono{font-weight:400;font-size:11px;color:#a89f92}
+    .sum{display:flex;gap:8px;flex:none}
+    .chip{display:flex;align-items:baseline;gap:6px;min-height:36px;padding:0 12px;border:1px solid #3a362f;border-radius:18px;background:#2b2824;color:#efe9e0;font-size:13px;align-items:center}
+    .chip b{font-size:15px}
+    .chip.warnc b{color:#e0b25a}
+    .chip.sel{border-color:#9db4ff;background:#262c4a}
     .warn{font-size:12px;line-height:1.5;color:#e0b25a;padding:10px 12px;border:1px solid #5a4a22;border-radius:8px}
     .marks{position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:2147482000}
     .box{position:absolute;border-radius:6px;outline:2px dashed #5b6fb8;outline-offset:2px;transition:opacity .12s}
@@ -64,14 +72,16 @@
   <header class="header hide">
     <span class="dev mono">DEV</span>
     <div class="htext"><div class="hrow"><span class="at mono">@screen</span><span class="hname"></span></div><div class="hwhy"></div></div>
+    <div class="sum"></div>
   </header>
-  <aside class="panel hide" aria-label="컴포넌트 설명"></aside>`;
+  <aside class="panel hide" aria-label="컴포넌트 설명"></aside>
+  <div class="foot hide"><span>개발 모드 전용 · 읽기 전용</span></div>`;
 
   const $ = (s) => sh.querySelector(s);
-  const fab = $('.fab'), marks = $('.marks'), header = $('.header'), panel = $('.panel');
+  const fab = $('.fab'), marks = $('.marks'), header = $('.header'), panel = $('.panel'), foot = $('.foot');
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
-  let data = null, active = null, open = false, raf = 0;
+  let data = null, active = null, open = false, raf = 0, filter = 'all';
   const saved = {};
 
   function layout(on) {
@@ -90,36 +100,59 @@
     const r = el('div', 'row'); r.append(el('span', 'k', k), el('span', v ? 'v' : 'v empty', v || emptyText || '미작성')); return r;
   };
 
+  const isLogic = (s) => s.kind === 'logic';
+  const missing = (s) => !s.why || !s.basis;
+
+  function renderSummary() {
+    const sum = $('.sum'); sum.textContent = '';
+    const chip = (key, label, n, cls) => {
+      const b = el('button', `chip${cls ? ` ${cls}` : ''}${filter === key ? ' sel' : ''}`);
+      b.append(el('span', null, label), el('b', 'mono', String(n)));
+      b.addEventListener('click', () => { filter = filter === key && key !== 'all' ? 'all' : key; renderPanel(); });
+      sum.append(b);
+    };
+    chip('all', '컴포넌트', data.specs.length);
+    chip('missing', '미작성', data.specs.filter(missing).length);
+    chip('warn', '확인 필요', data.warnings.length, 'warnc');
+  }
+
   function renderPanel() {
     panel.textContent = '';
-    const head = el('div', 'phead'); head.append(el('span', null, '컴포넌트'), el('span', 'mono', `@spec · ${data.specs.length}개`));
-    panel.append(head);
-    data.specs.forEach((s, i) => {
-      const color = KIND_COLOR[s.kind] || '#c9b0ff';
-      const card = el('article', 'card'); card.dataset.id = s.id;
-      const top = el('div', 'ctop');
-      top.append(el('span', `num mono${s.kind === 'logic' ? ' logic' : ''}`, String(i + 1)), el('span', 'ctitle', s.title));
-      const kind = el('span', 'kind mono', KIND_LABEL[s.kind] || s.kind); kind.style.color = color; kind.style.borderColor = color;
-      top.append(kind);
-      card.append(top, row('이유', s.why), row('근거', s.basis));
-      if (s.contract) card.append(row('약속', s.contract));
-      card.append(el('div', 'where mono', `${s.file}:${s.line}`));
-      card.addEventListener('mouseenter', () => setActive(s.id));
-      card.addEventListener('mouseleave', () => setActive(null));
-      panel.append(card);
-    });
-    if (data.warnings.length) panel.append(el('div', 'warn', `확인 필요 ${data.warnings.length}건: ${data.warnings.join(' / ')}`));
-    $('.hname').textContent = data.screen ? data.screen.name : '(@screen 없음)';
-    $('.hwhy').textContent = data.screen ? data.screen.why : '';
+    renderSummary();
+    if (filter === 'warn') {
+      panel.append(el('div', 'phead', '확인 필요'));
+      if (!data.warnings.length) panel.append(el('div', 'row', '없음'));
+      data.warnings.forEach((w) => panel.append(el('div', 'warn', w)));
+      return;
+    }
+    const zones = [['화면 요소', data.ordered.filter((s) => !isLogic(s))], ['로직 (화면에 없음)', data.ordered.filter(isLogic)]];
+    for (const [name, list] of zones) {
+      const shown = list.filter((s) => filter !== 'missing' || missing(s));
+      if (!shown.length) continue;
+      const z = el('div', 'zone'); z.append(el('span', null, name), el('span', 'mono', `${shown.length}개`)); panel.append(z);
+      shown.forEach((s) => {
+        const color = KIND_COLOR[s.kind] || '#c9b0ff';
+        const card = el('article', 'card'); card.dataset.id = s.id;
+        const top = el('div', 'ctop');
+        top.append(el('span', `num mono${isLogic(s) ? ' logic' : ''}`, String(data.num[s.id])), el('span', 'ctitle', s.title));
+        const kind = el('span', 'kind mono', KIND_LABEL[s.kind] || s.kind); kind.style.color = color; kind.style.borderColor = color;
+        top.append(kind);
+        card.append(top, el('div', 'where mono', `${s.file}:${s.line}`), row('이유', s.why), row('근거', s.basis));
+        if (s.contract) card.append(row('약속', s.contract));
+        card.addEventListener('mouseenter', () => setActive(s.id));
+        card.addEventListener('mouseleave', () => setActive(null));
+        panel.append(card);
+      });
+    }
     renderMarks();
   }
 
   function renderMarks() {
     marks.textContent = '';
-    data.specs.forEach((s, i) => {
+    data.specs.forEach((s) => {
       if (s.kind !== 'dom') return;
       const box = el('div', 'box'); box.dataset.id = s.id; box.dataset.sel = s.anchor.slice(4);
-      box.append(el('span', 'badge mono', String(i + 1)));
+      box.append(el('span', 'badge mono', String(data.num[s.id])));
       marks.append(box);
     });
     syncState(); track();
@@ -153,11 +186,15 @@
     open = on;
     try { localStorage.setItem(STORE_KEY, on ? '1' : '0'); } catch { /* 저장소가 막힌 환경 */ }
     fab.classList.toggle('on', on); fab.setAttribute('aria-pressed', String(on));
-    [marks, header, panel].forEach((n) => n.classList.toggle('hide', !on));
+    [marks, header, panel, foot].forEach((n) => n.classList.toggle('hide', !on));
     layout(on);
     if (!on) { cancelAnimationFrame(raf); return; }
     try {
       data = await (await fetch('/__spec/spec.json', { cache: 'no-store' })).json();
+      data.ordered = [...data.specs.filter((x) => !isLogic(x)), ...data.specs.filter(isLogic)];
+      data.num = Object.fromEntries(data.ordered.map((x, i) => [x.id, i + 1]));
+      $('.hname').textContent = data.screen ? data.screen.name : '(@screen 없음)';
+      $('.hwhy').textContent = data.screen ? data.screen.why : '';
       renderPanel();
     } catch (e) {
       panel.textContent = '';
