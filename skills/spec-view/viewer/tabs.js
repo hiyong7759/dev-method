@@ -38,12 +38,11 @@ export function overview(c) {
   const fields = sc.fields;
   const counts = Object.fromEntries(ROLES.map((r) => [r, fields.filter((f) => f.roles.includes(r)).length]));
   const sel = c.fieldRole;
-  el.append(h('div', { class: 'sec' }, h('h4', null, `다루는 정보 · ${fields.length}`, h('small', null, '누르면 정보 상세')),
+  el.append(h('div', { class: 'sec' }, h('h4', null, `다루는 정보 · ${fields.length}`, h('small', null, '누르면 정보 상세와 화면 위치')),
     h('div', { class: 'chips', style: 'margin-bottom:10px' }, ROLES.filter((r) => counts[r]).map((r) => h('button', { class: `role ${r}`, style: `background:${sel === r ? 'var(--accent-bg)' : 'none'};cursor:pointer;padding:3px 9px`, onclick: () => { c.fieldRole = sel === r ? null : r; c.render(); } }, `${ROLE_LABEL[r]} ${counts[r]}`))),
     fields.length ? h('div', { class: 'fi-list' }, fields.filter((f) => !sel || f.roles.includes(sel)).map((f) => h('button', {
-      class: `fi-row${c.focus && c.focus.info === f.info && c.focus.prop === f.prop ? ' on' : ''}`, title: f.doc || '존재 이유 미작성',
-      onmouseenter: () => c.setHLField(f), onmouseleave: () => c.setHLField(null),
-      onclick: () => c.openInfo(f.info, f.prop),
+      class: `fi-row${c.focus && c.focus.info === f.info && c.focus.prop === f.prop ? ' on' : ''}`, title: '누르면 정보 상세가 열리고, 화면에서 그 정보가 나오는 자리가 표시된다',
+      onclick: () => c.openField(f),
     }, h('span', { class: 'fi-name' }, h('span', { class: 'i' }, `${f.info}.`), h('b', null, f.prop)), h('span', { class: 'fi-roles' }, f.roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])))))) : h('div', { style: 'font-size:12px;color:var(--dim2)' }, '이 화면이 읽거나 쓰는 정보 필드가 없다')));
   return el;
 }

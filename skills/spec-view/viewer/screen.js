@@ -80,10 +80,17 @@ export function screenView(root, { model, name, tab, at, go }) {
     tbody.append(view);
     hint.textContent = { overview: '실제로 동작하는 화면이다. 오른쪽 "다루는 정보"에 올리면 화면에서 그 정보가 보이는 자리가 강조된다.', components: '점선 번호표는 오른쪽 카드의 번호와 같다. 카드를 누르면 그 영역이 강조되고, 화면 밖이면 보이는 자리로 이동한다.', memo: '화면 위를 끌어서 아무 영역이나 고른다. 컴포넌트가 아닌 빈 곳도 고를 수 있다.', approval: '실제로 동작하는 화면이다. 눌러 보면서 오른쪽 확인 목록을 따라 테스트한다.', history: '"상세 보기"를 누르면 그 변경이 바꾼 곳이 목록으로 나오고, 작은 화면 요소는 노란 테두리로 보여 준다.' }[c.tab];
   }
+  // 정보 상세 맨 위에 '화면에서 어떻게 표시했는지'를 알린다
+  function locNote() {
+    if (!c.hlField) return '';
+    if (fieldRects().length) return '화면에서 이 정보가 나오는 자리를 표시했다';
+    if (c.hl.size) return '이 정보가 나오는 정확한 자리를 못 찾아, 이 정보를 쓰는 컴포넌트 단위로 표시했다';
+    return '화면에서 표시할 자리를 찾지 못했다';
+  }
   function showDrawer() {
     [shead, banners, tabsEl].forEach((n) => n.classList.add('hidden'));
     tbody.replaceChildren(infoDrawer(c.model, c.drawer.info, {
-      focusField: c.drawer.prop, currentScreen: c.name, onClose: () => { c.drawer = null; c.hl = new Set(); c.render(); },
+      focusField: c.drawer.prop, currentScreen: c.name, onClose: () => { c.drawer = null; c.setHLField(null); c.hl = new Set(); c.render(); }, locNote: locNote(),
       openInfo: (n) => { c.drawer = { info: n }; c.render(); }, openScreen: (n) => { c.drawer = null; go(n, 'overview'); c.name = n; c.render(); },
     }));
     tbody.style.padding = '0'; tbody.firstChild.style.flex = '1';
@@ -94,10 +101,18 @@ export function screenView(root, { model, name, tab, at, go }) {
     regionBtn.classList.toggle('on', c.regionMode); regionBtn.textContent = c.regionMode ? '영역 메모 켬' : '영역 메모';
   }
   c.render = render;
-  c.setTab = (t) => { c.tab = t; c.drawer = null; c.active = null; c.flash = false; if (t !== 'overview') c.hl = new Set(); go(c.name, t); render(); };
+  c.setTab = (t) => { c.tab = t; c.drawer = null; c.active = null; c.flash = false; c.hlField = null; if (t !== 'overview') c.hl = new Set(); go(c.name, t); render(); };
   c.setHL = (s) => { c.hl = s; };
   // 정보 필드에 올리면: 그 정보가 화면에 나오는 자리(글자·배지 등)를 강조. 찾지 못하면(가공해서 보여 주는 값 등) 그 값을 쓰는 컴포넌트로 대신한다
   c.setHLField = (f) => { c.hlField = f; c.hl = f ? new Set(f.specs) : new Set(); };
+  // 정보 필드를 누르면: 정보 상세를 열고, 화면에서 그 정보가 나오는 자리를 표시하고, 화면 밖이면 그 자리로 스크롤한다
+  c.openField = (f) => {
+    c.flash = false; c.setHLField(f); c.drawer = { info: f.info, prop: f.prop }; render();
+    let el = null;
+    for (const d of f.doms || []) { try { el = frameDoc()?.querySelector(d.sel); } catch { el = null; } if (el) break; }
+    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    else { const first = f.specs.find((id) => c.isOnScreen(id)); if (first) c.focusSpec(first); }
+  };
   c.setActive = (id) => { c.active = id; };
   // 컴포넌트 카드를 누르면 그 영역을 강조하고, 화면 밖이면 보이는 자리로 스크롤한다(한 번 더 누르면 해제)
   c.pickComp = (id) => {
@@ -190,7 +205,8 @@ export function screenView(root, { model, name, tab, at, go }) {
         } else { const q = el.getBoundingClientRect(); if (q.width || q.height) out.push({ left: q.left, top: q.top, right: q.right, bottom: q.bottom }); }
       }
     }
-    return out;
+    const seen = new Set();
+    return out.filter((r) => { const k = [r.left, r.top, r.right, r.bottom].map(Math.round).join(','); if (seen.has(k)) return false; seen.add(k); return true; });
   }
   function track() {
     if (!alive) return;

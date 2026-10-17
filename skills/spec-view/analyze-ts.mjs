@@ -108,6 +108,17 @@ export function analyzeTs(root, opts = {}) {
     }
     return sel ? { sel, mode } : null;
   };
+  // 이 위치를 품은 이름 있는 함수(function foo / const foo = () => …). 화면 파일이 아닌 곳에서 필드를 읽는 함수를 찾는 데 쓴다
+  const fnAt = (sf, pos) => {
+    if (!sf) return null;
+    let node = sf;
+    for (let again = true; again;) { again = false; ts.forEachChild(node, (c) => { if (!again && c.getStart() <= pos && pos < c.getEnd()) { node = c; again = true; } }); }
+    for (let cur = node; cur && cur !== sf; cur = cur.parent) {
+      if (ts.isFunctionDeclaration(cur) && cur.name) return { name: cur.name.text, pos: cur.name.getStart(), file: sf.fileName };
+      if (ts.isVariableDeclaration(cur) && ts.isIdentifier(cur.name) && cur.initializer && (ts.isArrowFunction(cur.initializer) || ts.isFunctionExpression(cur.initializer))) return { name: cur.name.text, pos: cur.name.getStart(), file: sf.fileName };
+    }
+    return null;
+  };
   const ownerLabel = (node) => {
     for (let p = node.parent; p; p = p.parent) {
       if ((ts.isFunctionDeclaration(p) || ts.isInterfaceDeclaration(p) || ts.isTypeAliasDeclaration(p) || ts.isClassDeclaration(p)) && p.name) return p.name.text;
@@ -166,7 +177,7 @@ export function analyzeTs(root, opts = {}) {
           doc: docOf(n, sf), typeRefs: new Set(), typeAreas: {},
           props: members.filter((m) => ts.isPropertySignature(m) && nameOf(m)).map((m) => ({
             name: nameOf(m), optional: !!m.questionToken, type: (m.type ? m.type.getText() : '').slice(0, 80),
-            line: sf.getLineAndCharacterOfPosition(m.getStart()).line + 1, doc: docOf(m, sf), pos: m.name.getStart(), reads: {}, writes: {}, refs: [], seen: new Set(),
+            line: sf.getLineAndCharacterOfPosition(m.getStart()).line + 1, doc: docOf(m, sf), pos: m.name.getStart(), reads: {}, writes: {}, refs: [], seen: new Set(), fnDone: null,
           })),
         };
         infos.set(id, info);
@@ -188,6 +199,21 @@ export function analyzeTs(root, opts = {}) {
         // 어느 파일에서, 읽기인지 쓰기인지(쓰기는 새로 만드는 입력인지 기존 값을 고치는 수정인지)
         const rsf = program.getSourceFile(e.fileName);
         p.refs.push({ file: rel(e.fileName), line: rsf ? rsf.getLineAndCharacterOfPosition(e.textSpan.start).line + 1 : 0, write: !!e.isWriteAccess, kind: e.isWriteAccess ? writeKind(rsf, e.textSpan.start) : 'read', dom: domHint(rsf, e.textSpan.start) });
+        // 화면이 아닌 파일의 함수가 읽는 값이면(예: 날짜로 기간 문구를 만드는 함수), 화면이 그 함수를 JSX 안에서 호출하는 자리를 '보여주는 자리'로 더한다
+        if (!e.isWriteAccess && rsf && !/\.(tsx|jsx)$/.test(e.fileName)) {
+          const fn = fnAt(rsf, e.textSpan.start);
+          if (fn) {
+            const fk = `${fn.file}:${fn.pos}`; if (!p.fnDone) p.fnDone = new Set();
+            if (!p.fnDone.has(fk)) {
+              p.fnDone.add(fk);
+              for (const r2 of ls.findReferences(fn.file, fn.pos) || []) for (const e2 of r2.references) {
+                if (e2.isDefinition || !/\.(tsx|jsx)$/.test(e2.fileName) || SKIP.test(rel(e2.fileName))) continue;
+                const sf2 = program.getSourceFile(e2.fileName); const dom2 = domHint(sf2, e2.textSpan.start);
+                if (dom2) p.refs.push({ file: rel(e2.fileName), line: sf2.getLineAndCharacterOfPosition(e2.textSpan.start).line + 1, write: false, kind: 'via', via: fn.name, dom: dom2 });
+              }
+            }
+          }
+        }
       });
     }
   }

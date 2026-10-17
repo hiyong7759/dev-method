@@ -320,7 +320,6 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 /* 히스토리에서 고른 변경이 바꾼 요소: 눈에 띄게 */
 @keyframes flashGlow{0%,100%{box-shadow:0 0 0 0 rgba(255,209,102,.7)}50%{box-shadow:0 0 0 10px rgba(255,209,102,0)}}
 .mbox.flash{outline:4px solid #ffd166;outline-offset:3px;background:rgba(255,209,102,.24);opacity:1}
-@media (prefers-reduced-motion:no-preference){.mbox.flash{animation:flashGlow 1.3s ease-in-out infinite}}
 .mbox.flash .mbadge{background:#ffd166;color:#2a2108;border-color:var(--stage)}
 .mlabel{position:absolute;left:0;top:-30px;white-space:nowrap;padding:3px 10px;border-radius:6px;background:#ffd166;color:#2a2108;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 
@@ -343,4 +342,3 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 /* 정보가 화면에 나오는 자리 강조 */
 @keyframes fieldGlow{0%,100%{box-shadow:0 0 0 0 rgba(91,111,184,.55)}50%{box-shadow:0 0 0 8px rgba(91,111,184,0)}}
 .fbox{position:absolute;border-radius:6px;outline:3px solid var(--accent-deep);outline-offset:1px;background:rgba(157,180,255,.28)}
-@media (prefers-reduced-motion:no-preference){.fbox{animation:fieldGlow 1.4s ease-in-out infinite}}
