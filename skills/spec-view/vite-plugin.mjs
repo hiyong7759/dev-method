@@ -2,7 +2,7 @@
 // 존재 이유: 개발 서버(apply: 'serve')에서만 동작하게 해 운영 빌드에 설계서 보기가 섞이지 않게 하려고.
 // scan: 주석을 모을 폴더(기본은 vite 루트). 소스가 vite 루트 밖에도 있으면 그 위 폴더를 준다.
 import path from 'node:path';
-import { specHandler, OVERLAY_TAG } from './middleware.mjs';
+import { specHandler, FAB_TAG } from './middleware.mjs';
 
 export default function specView({ scan } = {}) {
   let root = process.cwd();
@@ -14,8 +14,8 @@ export default function specView({ scan } = {}) {
       server.middlewares.use(specHandler(scan ? path.resolve(scan) : root));
     },
     transformIndexHtml() {
-      return [{ tag: 'script', attrs: { type: 'module', src: '/__spec/overlay.js' }, injectTo: 'body' }];
+      return [{ tag: 'script', attrs: { type: 'module', src: '/__spec/fab.js' }, injectTo: 'body' }];
     },
   };
 }
-export { OVERLAY_TAG };
+export { FAB_TAG };

@@ -60,6 +60,18 @@ export function analyzeTs(root, opts = {}) {
     }
     return parts.join('\n').trim();
   };
+  // 쓰기 참조가 입력(새 값을 만듦)인지 수정(있던 값을 바꿈)인지: 객체 리터럴에 ...펼침이 없으면 입력, 펼침이 있거나 대입이면 수정
+  const writeKind = (sf, pos) => {
+    if (!sf) return 'write';
+    let node = sf;
+    for (let again = true; again;) { again = false; ts.forEachChild(node, (c) => { if (!again && c.getStart() <= pos && pos < c.getEnd()) { node = c; again = true; } }); }
+    const par = node.parent;
+    if (par && (ts.isPropertyAssignment(par) || ts.isShorthandPropertyAssignment(par)) && ts.isObjectLiteralExpression(par.parent)) {
+      return par.parent.properties.some((x) => ts.isSpreadAssignment(x)) ? 'update' : 'create';
+    }
+    if (par && ts.isPropertyAccessExpression(par) && par.parent && ts.isBinaryExpression(par.parent) && par.parent.left === par) return 'update';
+    return 'write';
+  };
   const ownerLabel = (node) => {
     for (let p = node.parent; p; p = p.parent) {
       if ((ts.isFunctionDeclaration(p) || ts.isInterfaceDeclaration(p) || ts.isTypeAliasDeclaration(p) || ts.isClassDeclaration(p)) && p.name) return p.name.text;
@@ -118,7 +130,7 @@ export function analyzeTs(root, opts = {}) {
           doc: docOf(n, sf), typeRefs: new Set(), typeAreas: {},
           props: members.filter((m) => ts.isPropertySignature(m) && nameOf(m)).map((m) => ({
             name: nameOf(m), optional: !!m.questionToken, type: (m.type ? m.type.getText() : '').slice(0, 80),
-            line: sf.getLineAndCharacterOfPosition(m.getStart()).line + 1, doc: docOf(m, sf), pos: m.name.getStart(), reads: {}, writes: {}, seen: new Set(),
+            line: sf.getLineAndCharacterOfPosition(m.getStart()).line + 1, doc: docOf(m, sf), pos: m.name.getStart(), reads: {}, writes: {}, refs: [], seen: new Set(),
           })),
         };
         infos.set(id, info);
@@ -137,6 +149,9 @@ export function analyzeTs(root, opts = {}) {
       for (const p of info.props) collect(p.pos, (e) => {
         const k = `${e.fileName}:${e.textSpan.start}`; if (p.seen.has(k)) return; p.seen.add(k);
         const b = e.isWriteAccess ? p.writes : p.reads; const a = areaOf(e.fileName); b[a] = (b[a] || 0) + 1;
+        // 어느 파일에서, 읽기인지 쓰기인지(쓰기는 새로 만드는 입력인지 기존 값을 고치는 수정인지)
+        const rsf = program.getSourceFile(e.fileName);
+        p.refs.push({ file: rel(e.fileName), line: rsf ? rsf.getLineAndCharacterOfPosition(e.textSpan.start).line + 1 : 0, write: !!e.isWriteAccess, kind: e.isWriteAccess ? writeKind(rsf, e.textSpan.start) : 'read' });
       });
     }
   }
@@ -159,7 +174,7 @@ export function analyzeTs(root, opts = {}) {
         ev.strs = (strings.get(p.name) || []).slice(0, 6);
       }
       const maybe = status !== 'rw' && (ev.dupTotal > 0 || (strings.get(p.name) || []).length > 0);
-      return { name: p.name, optional: p.optional, type: p.type, line: p.line, doc: p.doc, reads: p.reads, writes: p.writes, status, maybe, evidence: ev };
+      return { name: p.name, optional: p.optional, type: p.type, line: p.line, doc: p.doc, reads: p.reads, writes: p.writes, refs: p.refs.slice(0, 300), status, maybe, evidence: ev };
     });
     out.push({
       id: info.id, name: info.name, kind: info.kind, file: info.file, line: info.line, doc: info.doc,
@@ -179,7 +194,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     let n = 0;
     // 아무것도 못 읽었는데 통과하면 검사한 것이 아니다 (tsconfig.json이 있는 프로젝트 루트를 줘야 한다)
     if (!r.infos.length) { console.log('경고: 정보를 하나도 읽지 못했다 — tsconfig.json이 있는 프로젝트 루트를 인자로 준다'); n++; }
-    for (const i of r.infos) {
+    // @nonInfo가 달린 타입(이동 약속 등 정보가 아닌 것)은 존재 이유 검사에서 뺀다
+    for (const i of r.infos.filter((x) => !/@nonInfo\b/.test(x.doc || ''))) {
       if (!i.doc) { console.log(`경고: 정보 ${i.name}에 존재 이유가 없다 (${i.file}:${i.line})`); n++; }
       for (const p of i.props) if (!p.doc) { console.log(`경고: ${i.name}.${p.name}에 존재 이유가 없다 (${i.file}:${p.line})`); n++; }
     }

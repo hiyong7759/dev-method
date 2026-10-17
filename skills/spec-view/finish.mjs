@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// 존재 이유: 에이전트가 "테스트 요청"을 내기 전에 끝낼 때 확인(경고 0, 서버, 화면 열림, 설계서 보기 열림)을 말이 아니라 실행으로 거치게 하려고.
-// 사용: node finish.mjs --src src --url http://localhost:5173 --routes /,/trips/1 [--root 프로젝트 루트(기본 현재 폴더)] [--out 폴더]
+// 존재 이유: 에이전트가 "테스트 요청"을 내기 전에 끝낼 때 확인(경고 0, 서버, 화면 열림, 설계서 보기 열림, 컴포넌트 위치)을 말이 아니라 실행으로 거치게 하려고.
+// 사용: node finish.mjs --src src --url http://localhost:5173 --routes /trips,/trips/x/days/2 [--root 프로젝트 루트(기본 현재 폴더)] [--out 폴더]
 // 모두 통과해야 종료 코드 0. 하나라도 실패하면 상태는 "개발 중"이고 테스트 요청을 내지 않는다.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { matchScreen } from './viewer/util.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
@@ -27,13 +28,13 @@ for (const [label, script] of [['메타정보 경고 0 (extract)', 'extract.mjs'
   step(label, r.ok, r.ok ? '' : r.text.split('\n').filter((l) => l.startsWith('경고')).slice(0, 5).join(' / '));
 }
 
-// 2. 서버
-let serverUp = false;
-try { serverUp = (await fetch(base + '/')).ok; } catch {}
-step('개발 서버가 떠 있다', serverUp, serverUp ? base : `${base} 에 응답이 없다. 에이전트가 개발 서버를 직접 띄운 뒤 다시 실행한다`);
+// 2. 서버와 설계서 보기 모델
+let model = null;
+try { model = await (await fetch(base + '/__spec/model.json')).json(); } catch {}
+step('개발 서버와 설계서 보기가 응답한다', !!model, model ? `${base} · 화면 ${model.screens.length}개` : `${base}/__spec/model.json 에 응답이 없다. 에이전트가 개발 서버를 직접 띄운 뒤 다시 실행한다 (vite 플러그인 연결도 확인)`);
 
 // 3. 브라우저로 화면과 설계서 보기 열기
-if (serverUp) {
+if (model) {
   let chromium;
   try { ({ chromium } = await import('playwright-core')); } catch { step('브라우저 제어 설치', false, `${here} 에서 npm install`); }
   if (chromium) {
@@ -52,14 +53,22 @@ if (serverUp) {
           const body = (await page.locator('body').innerText()).trim();
           step(`${route} 화면이 열리고 오류가 없다`, errors.length === 0 && body.length > 0, errors.length ? errors.slice(0, 2).join(' / ') : body.length ? '' : '본문이 비어 있다');
           await page.screenshot({ path: path.join(out, `${tag}-screen.png`) });
+          const sc = matchScreen(model, route);
+          step(`${route} 이 주소가 @screen의 @route와 맞는다`, !!sc, sc ? `화면 "${sc.name}"` : '맞는 @screen @route가 없다 — 설계서 보기가 이 화면을 찾지 못한다');
           const fab = page.locator('.fab');
           const hasFab = (await fab.count()) > 0;
           step(`${route} 설계서 보기 토글이 보인다`, hasFab);
-          if (hasFab) {
+          if (hasFab && sc) {
             await fab.first().click();
-            await page.waitForTimeout(400);
-            const cards = await page.locator('.card').count();
-            step(`${route} 설계서 보기를 켜면 카드가 나온다`, cards > 0, `카드 ${cards}개`);
+            await page.waitForURL(/__spec/, { timeout: 5000 }).catch(() => {});
+            await page.waitForSelector('.shead .nm', { timeout: 5000 }).catch(() => {});
+            const shown = await page.locator('.shead .nm').innerText().catch(() => '');
+            step(`${route} 토글을 켜면 화면 설계서 "${sc.name}"가 열린다`, shown === sc.name, shown ? `열린 화면 "${shown}"` : '화면 설계서가 열리지 않았다');
+            await page.locator('.tabs button', { hasText: '컴포넌트' }).click();
+            await page.waitForTimeout(700);
+            const domCards = await page.locator('.comp .kind', { hasText: 'dom' }).count();
+            const boxes = await page.locator('.mbox').count();
+            step(`${route} 컴포넌트의 @anchor가 실제 화면에서 모두 찾힌다`, boxes === domCards, `화면 요소 ${domCards}개 중 ${boxes}개 찾음${boxes < domCards ? ' — @anchor 선택자를 고친다' : ''}`);
             await page.screenshot({ path: path.join(out, `${tag}-spec.png`) });
           }
         } catch (e) { step(`${route} 열기`, false, String(e.message).split('\n')[0]); }

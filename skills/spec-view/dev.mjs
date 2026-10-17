@@ -4,7 +4,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { specHandler, OVERLAY_TAG } from './middleware.mjs';
+import { specHandler, FAB_TAG } from './middleware.mjs';
 
 const root = path.resolve(process.argv[2] || '.');
 const port = Number(process.argv[3] || 5200);
@@ -19,7 +19,7 @@ http.createServer((req, res) => {
     if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.statusCode = 404; res.end('없음'); return; }
     const ext = path.extname(file);
     res.setHeader('content-type', TYPES[ext] || 'application/octet-stream');
-    if (ext === '.html') res.end(fs.readFileSync(file, 'utf8').replace('</body>', `${OVERLAY_TAG}</body>`));
+    if (ext === '.html') res.end(fs.readFileSync(file, 'utf8').replace('</body>', `${FAB_TAG}</body>`));
     else res.end(fs.readFileSync(file));
   });
 }).listen(port, () => console.log(`설계서 보기 개발 서버: http://localhost:${port}  (폴더 ${root})`));

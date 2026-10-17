@@ -1,40 +1,64 @@
-// 개발 서버에 설계서 보기를 붙이는 접속 부분 — 서버 종류(vite, 순수 node)와 무관하게 같은 두 경로를 낸다.
-//   /__spec/spec.json : 요청 때마다 소스 주석을 다시 읽어 만든 설계 목록 (소스가 원본이라 저장물이 없다)
-//   /__spec/overlay.js : 화면 위에 얹는 보기
-// 개발 서버에서만 쓴다: 운영 빌드에는 이 파일도 오버레이도 들어가지 않는다.
+// 개발 서버에 설계서 보기를 붙이는 접속 부분 — 서버 종류(vite, 순수 node)와 무관하게 같은 경로를 낸다.
+//   /__spec/            설계서 보기 화면(화면 흐름·정보 흐름·화면 설계서)
+//   /__spec/fab.js      앱 화면 아래 구석의 "설계서 보기" 토글(누르면 위 화면으로 간다)
+//   /__spec/model.json  요청 때마다 소스에서 다시 만든 모델 (저장물 없음)
+//   /__spec/*           상태·확인 목록·메모·히스토리·처리 요청 글 (쓰기는 프로젝트 .spec 폴더만)
+// 개발 서버에서만 쓴다: 운영 빌드에는 이 파일도 화면도 들어가지 않는다.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractSpecs } from './extract.mjs';
-import { currentStatus, setStatus } from './status.mjs';
+import { buildModel } from './model.mjs';
+import { allStatus, setStatus, setCheck } from './status.mjs';
+import { addMemo, confirmMemo, markCopied, exportText, loadMemos } from './memo.mjs';
+import { screenHistory } from './history.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const OVERLAY_TAG = '<script type="module" src="/__spec/overlay.js"></script>';
+export const FAB_TAG = '<script type="module" src="/__spec/fab.js"></script>';
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
 
 export function specHandler(scanRoot) {
-  return (req, res, next) => {
-    const url = (req.url || '').split('?')[0];
-    if (url === '/__spec/spec.json') {
-      res.setHeader('content-type', 'application/json; charset=utf-8');
-      res.setHeader('cache-control', 'no-store');
-      const out = extractSpecs(scanRoot);
-      res.end(JSON.stringify({ ...out, status: currentStatus(scanRoot, out) }));
-    } else if (url === '/__spec/status.json') {
-      res.setHeader('content-type', 'application/json; charset=utf-8');
-      res.setHeader('cache-control', 'no-store');
+  const json = (res, obj, code = 200) => { res.statusCode = code; res.setHeader('content-type', 'application/json; charset=utf-8'); res.setHeader('cache-control', 'no-store'); res.end(JSON.stringify(obj)); };
+  const body = (req) => new Promise((ok) => { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => { try { ok(JSON.parse(b || '{}')); } catch { ok({}); } }); });
+  const send = (res, file) => {
+    const ext = path.extname(file);
+    res.setHeader('content-type', `${TYPES[ext] || 'application/octet-stream'}; charset=utf-8`); res.setHeader('cache-control', 'no-store');
+    res.end(fs.readFileSync(file));
+  };
+  return async (req, res, next) => {
+    const u = new URL(req.url || '/', 'http://x');
+    const url = u.pathname;
+    if (!url.startsWith('/__spec')) return next();
+    try {
+      if (url === '/__spec' || url === '/__spec/') return send(res, path.join(HERE, 'viewer', 'index.html'));
+      if (url === '/__spec/fab.js') return send(res, path.join(HERE, 'viewer', 'fab.js'));
+      if (url.startsWith('/__spec/ui/')) {
+        const f = path.resolve(HERE, 'viewer', url.slice('/__spec/ui/'.length));
+        if (!f.startsWith(path.join(HERE, 'viewer') + path.sep) || !fs.existsSync(f)) { res.statusCode = 404; return res.end('없음'); }
+        return send(res, f);
+      }
+      if (url === '/__spec/model.json') return json(res, buildModel(scanRoot));
+      if (url === '/__spec/history.json') {
+        const out = extractSpecs(scanRoot);
+        const sc = out.screens.find((s) => s.name === u.searchParams.get('screen'));
+        if (!sc) return json(res, { items: [] });
+        return json(res, { items: screenHistory(scanRoot, sc, allStatus(scanRoot, out)[sc.name]) });
+      }
       if (req.method === 'POST') {
-        // 승인·수정 필요는 사용자가 설계서 보기에서만 남긴다 (에이전트용 명령은 이 둘을 거부한다)
-        let body = '';
-        req.on('data', (c) => { body += c; });
-        req.on('end', () => {
-          try { const { status, note } = JSON.parse(body || '{}'); res.end(JSON.stringify(setStatus(scanRoot, status, { by: 'user', note: String(note || '') }))); }
-          catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })); }
-        });
-      } else res.end(JSON.stringify(currentStatus(scanRoot)));
-    } else if (url === '/__spec/overlay.js') {
-      res.setHeader('content-type', 'text/javascript; charset=utf-8');
-      res.setHeader('cache-control', 'no-store');
-      res.end(fs.readFileSync(path.join(HERE, 'overlay.js')));
-    } else next();
+        const b = await body(req);
+        // 승인·수정 필요·승인 취소는 사용자가 설계서 보기에서만 남긴다 (에이전트용 status 명령은 이 값들을 거부한다)
+        if (url === '/__spec/status.json') return json(res, setStatus(scanRoot, b.screen, b.status, { by: 'user', note: String(b.note || '') }));
+        if (url === '/__spec/check') return json(res, setCheck(scanRoot, b.screen, b.index, b.done));
+        if (url === '/__spec/memo') return json(res, addMemo(scanRoot, b));
+        if (url === '/__spec/memo/confirm') return json(res, confirmMemo(scanRoot, b.id));
+        if (url === '/__spec/export') {
+          const text = exportText(scanRoot, { screen: b.screen, scriptDir: HERE });
+          const ids = loadMemos(scanRoot).memos.filter((m) => m.state === 'pending' && (!b.screen || m.screen === b.screen)).map((m) => m.id);
+          if (b.mark) markCopied(scanRoot, ids);
+          return json(res, { text, ids });
+        }
+      }
+      res.statusCode = 404; res.end('없음');
+    } catch (e) { json(res, { error: e.message }, 400); }
   };
 }

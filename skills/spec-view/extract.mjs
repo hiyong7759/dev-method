@@ -1,14 +1,15 @@
 // 소스 주석의 설계 태그(@screen, @spec …)를 모아 한 덩어리 JSON으로 만든다.
 // 존재 이유: 설계서를 따로 쓰지 않고 소스 주석을 유일한 원본으로 두되, 사람이 화면에서 읽을 수 있게 하려고.
 // 언어에 묶이지 않게 주석 형식 세 가지(/* */, <!-- -->, 연속된 // 또는 # 줄)만 읽는다.
-// 태그 규칙: 한 주석 덩어리에 @screen 또는 @spec 하나가 개체를 열고, 뒤따르는 @why @basis @contract @anchor가 그 개체의 칸이 된다.
+// 태그 규칙: 한 주석 덩어리에 @screen 또는 @spec 하나가 개체를 열고, 뒤따르는 태그(@why @basis @contract @anchor …)가 그 개체의 칸이 된다.
+//   화면은 @route @sample @domain @does @to, 컴포넌트는 @on도 쓴다 (parseBlock 위 설명)
 //   @anchor: dom:<CSS 선택자> | 3d:<오브젝트 이름> | (없음 = 화면과 연결 안 된 로직)
 import fs from 'node:fs';
 import path from 'node:path';
+import { screenFiles } from './files.mjs';
 
 const EXTS = new Set(['.js', '.mjs', '.ts', '.jsx', '.tsx', '.html', '.vue', '.svelte', '.css', '.py']);
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', '.venv', 'runs']);
-const FIELDS = ['why', 'basis', 'contract', 'anchor'];
 
 // 주석 덩어리 = 줄 번호와 장식 문자를 벗긴 본문 줄들
 function commentBlocks(text) {
@@ -36,10 +37,15 @@ function commentBlocks(text) {
 }
 
 // 한 덩어리를 개체 하나로. 태그가 없으면 null
+// 한 번만 쓰는 칸(why, basis, contract, anchor, route, sample, domain)과 여러 번 쓰는 칸(does, to, on)이 있다
+//   @does 사용자가 하는 일 | 확인 기준        @to 대상 화면 | 행동 | 넘기는 값        @on 이벤트: 효과
+const FIELDS = ['why', 'basis', 'contract', 'anchor', 'route', 'sample', 'domain', 'start'];
+const LISTS = ['does', 'to', 'on'];
 function parseBlock(block) {
-  const entity = { kind: null, id: null, title: null, line: block.line };
+  const entity = { kind: null, id: null, title: null, line: block.line, does: [], to: [], on: [] };
   let cur = null;
   let seen = false;
+  const pushList = (tag, val) => entity[tag].push(val);
   for (const line of block.lines) {
     const t = line.match(/^@(\w+)\s*(.*)$/);
     if (t) {
@@ -50,11 +56,16 @@ function parseBlock(block) {
         const [id, ...rest] = val.split(/\s+/);
         entity.id = id; entity.title = rest.join(' ') || id;
       } else if (FIELDS.includes(tag)) { entity[tag] = val; cur = tag; }
+      else if (LISTS.includes(tag)) { pushList(tag, val); cur = { list: tag }; }
       else cur = null;
-    } else if (cur && line) entity[cur] = `${entity[cur]} ${line}`.trim();
+    } else if (cur && line) {
+      if (typeof cur === 'string') entity[cur] = `${entity[cur]} ${line}`.trim();
+      else { const l = entity[cur.list]; l[l.length - 1] = `${l[l.length - 1]} ${line}`.trim(); }
+    }
   }
   return seen && entity.kind ? entity : null;
 }
+const splitBar = (v, n) => { const a = v.split('|').map((x) => x.trim()); while (a.length < n) a.push(''); return a; };
 
 function* walk(dir) {
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -68,8 +79,9 @@ function* walk(dir) {
 const kindOf = (anchor) => (!anchor ? 'logic' : anchor.split(':')[0]);
 
 export function extractSpecs(root) {
-  const out = { screen: null, specs: [], warnings: [], generatedAt: new Date().toISOString() };
+  const out = { screens: [], screen: null, specs: [], warnings: [], generatedAt: new Date().toISOString() };
   const ids = new Map();
+  const names = new Map();
   for (const file of walk(root)) {
     const rel = path.relative(root, file);
     let text;
@@ -80,13 +92,22 @@ export function extractSpecs(root) {
       if (!e) continue;
       const where = { file: rel, line: e.line };
       if (e.kind === 'screen') {
-        if (out.screen) out.warnings.push(`@screen이 둘 이상: ${out.screen.file}:${out.screen.line}, ${rel}:${e.line}`);
-        else out.screen = { name: e.title, why: e.why || '', basis: e.basis || '', ...where };
+        if (names.has(e.title)) { out.warnings.push(`@screen ${e.title} 중복: ${names.get(e.title)}, ${rel}:${e.line}`); continue; }
+        names.set(e.title, `${rel}:${e.line}`);
+        out.screens.push({
+          name: e.title, why: e.why || '', basis: e.basis || '', route: e.route || '', sample: e.sample || '', domain: e.domain || '', start: e.start !== undefined,
+          does: e.does.map((d) => { const [title, check] = splitBar(d, 2); return { title, check }; }),
+          to: e.to.map((d) => { const [target, action, pass] = splitBar(d, 3); return { target, action, pass }; }),
+          ...where,
+        });
+        if (!e.why) out.warnings.push(`@screen ${e.title}에 @why가 없다 (${rel}:${e.line})`);
+        if (!e.route) out.warnings.push(`@screen ${e.title}에 @route가 없다 — 실제 화면을 끼워 넣으려면 주소가 필요하다 (${rel}:${e.line})`);
       } else {
         if (ids.has(e.id)) { out.warnings.push(`@spec ${e.id} 중복: ${ids.get(e.id)}, ${rel}:${e.line}`); continue; }
         ids.set(e.id, `${rel}:${e.line}`);
         out.specs.push({
           id: e.id, title: e.title, why: e.why || '', basis: e.basis || '', contract: e.contract || '',
+          ons: e.on.map((o) => { const i = o.indexOf(':'); return i < 0 ? { event: o.trim(), effect: '' } : { event: o.slice(0, i).trim(), effect: o.slice(i + 1).trim() }; }),
           anchor: e.anchor || '', kind: kindOf(e.anchor), ...where,
         });
         if (!e.why) out.warnings.push(`@spec ${e.id}에 @why가 없다 (${rel}:${e.line})`);
@@ -97,7 +118,19 @@ export function extractSpecs(root) {
   }
   // 파일 경로 순으로 고정해 번호가 매번 같게
   out.specs.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
-  if (!out.screen) out.warnings.push('@screen이 없다');
+  out.screens.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+  // 이동 대상이 실제 화면인지, 컴포넌트가 어느 화면에 속하는지(화면 파일에서 상대 import로 닿는 파일에 있는지)
+  const known = new Set(out.screens.map((s) => s.name));
+  for (const sc of out.screens) {
+    sc.files = screenFiles(path.join(root, sc.file)).map((f) => path.relative(root, f));
+    for (const t of sc.to) if (!known.has(t.target)) out.warnings.push(`@screen ${sc.name}의 @to 대상 "${t.target}"이 없는 화면이다 (${sc.file}:${sc.line})`);
+  }
+  for (const sp of out.specs) {
+    sp.screens = out.screens.filter((sc) => sc.files.includes(sp.file)).map((sc) => sc.name);
+    if (sp.kind === 'dom' && !sp.screens.length) out.warnings.push(`@spec ${sp.id}는 어느 @screen에도 속하지 않는다 — 화면 파일에서 import로 닿아야 한다 (${sp.file}:${sp.line})`);
+  }
+  out.screen = out.screens[0] || null;
+  if (!out.screens.length) out.warnings.push('@screen이 없다');
   return out;
 }
 
