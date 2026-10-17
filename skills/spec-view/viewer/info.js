@@ -69,19 +69,30 @@ export function infoMap(root, model, { selected, onSelect, drawer }) {
     return (level[n] = parents.length ? 1 + Math.max(...parents.map((p) => lv(p, [...seen, n]))) : 0);
   };
   infos.forEach((i) => lv(i.name));
-  const rows = {};
-  infos.forEach((i) => (rows[level[i.name]] = rows[level[i.name]] || []).push(i));
   const W = 230, GAPX = 90, GAPY = 90;
-  const pos = {}; let maxX = 0, y = 30;
-  const rowH = {};
-  const nodeH = (i) => 44 + 8 + Math.min(5, i.props.length) * 19 + (i.props.length > 5 ? 19 : 0) + 8 + 38;
-  Object.keys(rows).sort((a, b) => a - b).forEach((l) => {
-    rowH[l] = Math.max(...rows[l].map(nodeH));
-    rows[l].forEach((i, k) => { pos[i.name] = { x: 30 + k * (W + GAPX), y, h: nodeH(i) }; maxX = Math.max(maxX, 30 + k * (W + GAPX) + W); });
-    y += rowH[l] + GAPY;
+  // 화면 폭에 맞춰 한 줄에 놓을 수 있는 만큼만 놓고, 넘치면 아래 줄로 접는다(옆으로 밀려 안 보이는 일이 없게)
+  const availW = (root.clientWidth || window.innerWidth) - (drawer ? 420 : 0) - 40;
+  const cols = Math.max(1, Math.floor((availW - 30 + GAPX) / (W + GAPX)));
+  const byLevel = {};
+  infos.forEach((i) => (byLevel[level[i.name]] = byLevel[level[i.name]] || []).push(i));
+  // 같은 줄 안에서는 서로 관계있는 것이 가까이 오게(관계 많은 순)
+  const degree = (n) => model.relations.filter((r) => r.from === n || r.to === n).length;
+  const rowsList = [];
+  Object.keys(byLevel).sort((a, b) => a - b).forEach((l) => {
+    const list = byLevel[l].slice().sort((x, y2) => degree(y2.name) - degree(x.name));
+    for (let k = 0; k < list.length; k += cols) rowsList.push(list.slice(k, k + cols));
   });
-  // 가운데 정렬
-  Object.keys(rows).forEach((l) => { const w = rows[l].length * (W + GAPX) - GAPX; const off = Math.max(0, (maxX - 30 - w) / 2); rows[l].forEach((i) => { pos[i.name].x += off; }); });
+  const pos = {}; let maxX = 0, y = 30;
+  const nodeH = (i) => 44 + 8 + Math.min(5, i.props.length) * 19 + (i.props.length > 5 ? 19 : 0) + 8 + 38;
+  const widest = Math.max(...rowsList.map((r) => r.length));
+  const innerW = widest * (W + GAPX) - GAPX;
+  rowsList.forEach((row) => {
+    const rowH = Math.max(...row.map(nodeH));
+    const off = (innerW - (row.length * (W + GAPX) - GAPX)) / 2; // 줄마다 가운데 정렬
+    row.forEach((i, k) => { pos[i.name] = { x: 30 + off + k * (W + GAPX), y, h: nodeH(i) }; });
+    maxX = Math.max(maxX, 30 + innerW);
+    y += rowH + GAPY;
+  });
   const canvasW = maxX + 60, canvasH = y;
   const erd = h('div', { class: 'erd' });
   const svgNS = 'http://www.w3.org/2000/svg';
