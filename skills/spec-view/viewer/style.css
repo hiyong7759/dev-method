@@ -267,26 +267,32 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .mitem:hover{background:var(--card)}
 .mitem.cur{background:var(--accent-bg);box-shadow:inset 0 0 0 1px var(--accent-deep)}
 
-/* 화면 이동(들어옴·나감) */
-.mv-group{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.mv-head{display:flex;align-items:center;gap:8px}
-.mv-badge{font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;border:1px solid}
-.mv-badge.in{color:var(--green);border-color:#3d7a67;background:var(--green-bg)}
-.mv-badge.out{color:var(--accent);border-color:var(--accent-deep);background:var(--accent-bg)}
-.mv-hint{font-size:12px;color:var(--dim)}
-.mv-n{margin-left:auto;font-size:12px;color:var(--dim)}
-.mv-card{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);border-left-width:3px;background:var(--card)}
-.mv-card.in{border-left-color:var(--green)}
-.mv-card.out{border-left-color:var(--accent)}
-.mv-top{display:flex;align-items:center;gap:8px}
-.mv-arrow{font-size:15px;color:var(--dim)}
-.mv-screen{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border:1px solid var(--line);border-radius:14px;background:var(--bg2);font-weight:700;font-size:13px}
-.mv-screen:hover{border-color:var(--accent)}
-.mv-go{color:var(--dim)}
-.mv-warn{margin-left:auto;font-size:11px;color:var(--amber);border:1px solid #5a4a22;border-radius:9px;padding:1px 8px}
-.mv-act{font-size:13px;line-height:1.45;color:#e4ddd2}
-.mv-vals{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.mv-vk{font-size:11px;color:var(--dim)}
-.mv-val{font-size:11px;padding:1px 8px;border-radius:5px;background:#14161f;border:1px solid var(--line);color:var(--accent)}
-.mv-none{font-size:12px;color:var(--dim2);padding:8px 2px}
+/* 화면 이동: 가운데 이 화면, 왼쪽 들어옴, 오른쪽 나감 */
+.mv-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:start}
+.mv-col{display:flex;flex-direction:column;gap:6px;min-width:0}
+.mv-colhead{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding-bottom:4px;border-bottom:2px solid}
+.mv-colhead span{font-weight:400;color:var(--dim)}
+.mv-colhead.in{color:var(--green);border-color:#3d7a67}
+.mv-colhead.out{color:var(--accent);border-color:var(--accent-deep);justify-content:flex-end}
+.mv-center{align-self:center;padding:8px 10px;border-radius:14px;background:var(--card);border:1px dashed var(--dim2);font-size:12px;font-weight:700;color:var(--text);white-space:nowrap}
+.mv-pill{display:flex;align-items:center;gap:6px;min-height:30px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-size:12.5px;font-weight:700;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mv-pill.in{border-left:3px solid var(--green);justify-content:space-between}
+.mv-pill.out{border-right:3px solid var(--accent)}
+.mv-pill i{font-style:normal;color:var(--dim);font-weight:400}
+.mv-pill em{font-style:normal;color:var(--amber);margin-left:auto}
+.mv-pill:hover{border-color:var(--accent-deep)}
+.mv-pill.sel{background:var(--accent-bg);border-color:var(--accent)}
+.mv-none{font-size:12px;color:var(--dim2);padding:4px 2px}
 .mv-none.warn{color:var(--amber)}
+.mv-col.out .mv-none{text-align:right}
+.mv-detail{margin-top:10px;display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+.mv-detail.in{border-top:3px solid var(--green)}
+.mv-detail.out{border-top:3px solid var(--accent)}
+.mv-dl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mv-ar{color:var(--dim)}
+.mv-screen{padding:2px 10px;border-radius:12px;border:1px solid var(--line);background:var(--bg2);font-size:12.5px;font-weight:700}
+.mv-row{display:flex;gap:10px;font-size:13px;line-height:1.45;align-items:baseline}
+.mv-vk{flex:none;width:58px;font-size:11px;color:var(--dim)}
+.mv-vals{display:flex;gap:6px;flex-wrap:wrap}
+.mv-val{font-size:11px;padding:1px 8px;border-radius:5px;background:#14161f;border:1px solid var(--line);color:var(--accent)}
+.mv-warn{font-size:12px;color:var(--amber)}

@@ -12,19 +12,28 @@ export function overview(c) {
     h('div', { class: 'w mono' }, `${sc.file}:${sc.line}`)));
   el.append(h('div', { class: 'sec' }, h('h4', null, '사용자가 하는 일'),
     sc.does.length ? h('div', { class: 'chips' }, sc.does.map((d) => h('span', { class: 'tag', title: d.check }, d.title))) : h('div', { style: 'font-size:12px;color:var(--dim2)' }, '없음 — 화면의 @does를 쓰면 승인 때 확인 목록이 된다')));
-  // 이동: 들어옴(이 화면으로 오는 것)과 나감(이 화면에서 가는 것)을 카드로 나눠 보인다. 값은 배지로
+  // 화면 이동: 가운데가 이 화면, 왼쪽은 들어옴, 오른쪽은 나감. 배지를 누르면 이벤트(행동)와 넘기는 값이 아래에 나온다
   const valuesOf = (v) => (v || '').split(/[,·]/).map((x) => x.trim()).filter((x) => x && x !== '(없음)');
-  const moveCard = (dir, w, other) => h('div', { class: `mv-card ${dir}` },
-    h('div', { class: 'mv-top' }, h('span', { class: 'mv-arrow' }, dir === 'in' ? '⇥' : '↦'), h('button', { class: 'mv-screen', onclick: () => c.go(other) }, other, h('span', { class: 'mv-go' }, '›')),
-      dir === 'out' && w.verified === false ? h('span', { class: 'mv-warn' }, '코드에서 못 찾음') : null),
-    w.action ? h('div', { class: 'mv-act' }, w.action) : null,
-    valuesOf(w.pass).length ? h('div', { class: 'mv-vals' }, h('span', { class: 'mv-vk' }, dir === 'in' ? '받는 값' : '넘기는 값'), valuesOf(w.pass).map((v) => h('span', { class: 'mv-val mono' }, v))) : null);
-  const group = (dir, label, hint, list, other) => h('div', { class: `mv-group ${dir}` },
-    h('div', { class: 'mv-head' }, h('span', { class: `mv-badge ${dir}` }, dir === 'in' ? '⇥ 들어옴' : '나감 ↦'), h('span', { class: 'mv-hint' }, hint), h('span', { class: 'mv-n' }, list.length)),
-    list.length ? list.map((w) => moveCard(dir, w, other(w))) : h('div', { class: `mv-none${dir === 'out' && c.model.screens.length > 1 ? ' warn' : ''}` }, dir === 'in' ? '들어오는 이동이 없다 (시작 화면)' : '나가는 이동이 없다 — @to로 적는다'));
-  el.append(h('div', { class: 'sec' }, h('h4', null, '화면 이동', h('small', null, '들어오고 나가는 길')),
-    group('in', '들어옴', '이 화면으로 오는 이동', sc.incoming, (w) => w.from),
-    group('out', '나감', '이 화면에서 가는 이동', sc.to, (w) => w.target)));
+  const detail = h('div', { class: 'mv-detail hidden' });
+  let picked = null;
+  const showDetail = (dir, w, other, btn) => {
+    el.querySelectorAll('.mv-pill.sel').forEach((n) => n.classList.remove('sel'));
+    if (picked === btn) { picked = null; detail.classList.add('hidden'); return; }
+    picked = btn; btn.classList.add('sel');
+    const vals = valuesOf(w.pass);
+    detail.className = `mv-detail ${dir}`;
+    detail.replaceChildren(...[
+      h('div', { class: 'mv-dl' }, h('span', { class: 'mv-screen' }, dir === 'in' ? other : sc.name), h('span', { class: 'mv-ar' }, '→'), h('span', { class: 'mv-screen' }, dir === 'in' ? sc.name : other)),
+      h('div', { class: 'mv-row' }, h('span', { class: 'mv-vk' }, '이벤트'), h('span', null, w.action || '적지 않음')),
+      h('div', { class: 'mv-row' }, h('span', { class: 'mv-vk' }, dir === 'in' ? '받는 값' : '넘기는 값'), vals.length ? h('span', { class: 'mv-vals' }, vals.map((v) => h('span', { class: 'mv-val mono' }, v))) : h('span', { style: 'color:var(--dim2)' }, '없음')),
+      dir === 'out' && w.verified === false ? h('div', { class: 'mv-warn' }, '코드에서 이 이동을 찾지 못했다') : null,
+      h('button', { class: 'smallbtn', style: 'align-self:flex-start', onclick: () => c.go(other) }, `${other} 열기 ›`)].filter(Boolean));
+  };
+  const pill = (dir, w, other) => { const b = h('button', { class: `mv-pill ${dir}`, title: w.action || '', onclick: () => showDetail(dir, w, other, b) }, dir === 'in' ? [other, h('i', null, '→')] : [h('i', null, '→'), other, dir === 'out' && w.verified === false ? h('em', { title: '코드에서 못 찾음' }, '!') : null]); return b; };
+  const col = (dir, list, other) => h('div', { class: `mv-col ${dir}` }, h('div', { class: `mv-colhead ${dir}` }, dir === 'in' ? '들어옴' : '나감', h('span', null, list.length)),
+    list.length ? list.map((w) => pill(dir, w, other(w))) : h('div', { class: `mv-none${dir === 'out' && c.model.screens.length > 1 ? ' warn' : ''}` }, dir === 'in' ? '시작 화면' : '나가는 이동 없음'));
+  el.append(h('div', { class: 'sec' }, h('h4', null, '화면 이동', h('small', null, '누르면 이벤트와 값')),
+    h('div', { class: 'mv-grid' }, col('in', sc.incoming, (w) => w.from), h('div', { class: 'mv-center' }, '이 화면'), col('out', sc.to, (w) => w.target)), detail));
   // 다루는 정보: 필드마다 역할 칩. 누르면 정보 상세, 올리면 화면에서 그 정보가 보이는 자리가 강조된다
   const fields = sc.fields;
   const counts = Object.fromEntries(ROLES.map((r) => [r, fields.filter((f) => f.roles.includes(r)).length]));
