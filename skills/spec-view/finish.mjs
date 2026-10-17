@@ -98,7 +98,8 @@ if (model) {
           } catch { /* 스냅샷 실패는 검사 실패가 아니다 */ }
           await page.locator('.tabs button', { hasText: '컴포넌트' }).click(); await page.waitForTimeout(700);
           const mine = model.specs.filter((x) => x.screens.includes(sc.name) && x.kind === 'dom' && x.anchor);
-          const frame = page.frames().find((f) => f !== page.mainFrame());
+          let frame = page.frames().find((f) => f !== page.mainFrame());
+          const specUrl = page.url();
           const isThere = (f, list) => f.evaluate((sels) => sels.map((q) => { try { return !!document.querySelector(q); } catch { return false; } }), list.map((x) => x.anchor.slice(4)));
           let there = frame ? await isThere(frame, mine) : mine.map(() => false);
           let missing = mine.filter((_, i) => !there[i]);
@@ -107,27 +108,33 @@ if (model) {
           // 처음 화면에 없는 것은 눌러야 나타나는 것일 수 있다: 눌러 볼 수 있는 것을 하나씩(최대 두 번 연달아) 눌러 보며 찾는다
           if (missing.length && frame) {
             const url = frame.url(); const t0 = Date.now(); let probes = 0;
-            const reset = async () => { await frame.goto(url, { waitUntil: 'load' }); await page.waitForTimeout(350); };
-            const apply = async (steps) => { await reset(); for (const st of steps) { await frame.evaluate(CLICK, { fn: runStep.toString(), st }); await page.waitForTimeout(300); } };
+            // 뒤로 가기 같은 버튼은 눌러 보면 화면 밖으로 나가 프레임이 끊긴다 — 그러면 설계서 보기를 다시 열어 이어 간다
+            const reset = async () => {
+              try { await frame.goto(url, { waitUntil: 'load' }); } catch { await page.goto(specUrl, { waitUntil: 'networkidle' }); await page.waitForTimeout(900); frame = page.frames().find((f) => f !== page.mainFrame()); }
+              await page.waitForTimeout(350);
+            };
+            const safe = async (fn) => { try { await fn(); return true; } catch { return false; } };
+            const apply = async (steps) => { await reset(); for (const st of steps) { if (!(await safe(() => frame.evaluate(CLICK, { fn: runStep.toString(), st })))) return false; await page.waitForTimeout(300); } return true; };
             const check = async (steps) => {
+              if (!(await safe(async () => frame.url()))) return;
               if (new URL(frame.url()).pathname !== new URL(url).pathname) return; // 다른 화면으로 가 버리면 이 화면에서 나타난 것이 아니다
-              const now = await isThere(frame, missing);
+              let now; try { now = await isThere(frame, missing); } catch { return; }
               missing.forEach((m, i) => { if (now[i]) revealed[m.id] = steps; });
               missing = missing.filter((m) => !revealed[m.id]);
             };
             // 소스에 @open(여는 순서)이 적힌 것은 그 순서대로 먼저 열어 본다
-            for (const m of [...missing].filter((x) => x.open && x.open.length)) { await apply(m.open); await check(m.open); }
+            for (const m of [...missing].filter((x) => x.open && x.open.length)) { if (await apply(m.open)) await check(m.open); }
             await reset();
             const first = await frame.evaluate(DESCRIBE);
             const key = (d) => `${d.tag}|${d.text}|${d.nth}`; const base = new Set(first.map(key));
             for (const d of first) {
               if (!missing.length || probes > 70 || Date.now() - t0 > 30000) break;
-              probes++; await apply([d]); await check([d]);
+              probes++; if (!(await apply([d]))) continue; await check([d]);
               if (!missing.length) break;
-              const next = (await frame.evaluate(DESCRIBE)).filter((x) => !base.has(key(x))).slice(0, 12); // 누르고 나서 새로 생긴 것(두 번째 눌러 볼 것)
+              const next = (await frame.evaluate(DESCRIBE).catch(() => [])).filter((x) => !base.has(key(x))).slice(0, 12); // 누르고 나서 새로 생긴 것(두 번째 눌러 볼 것)
               for (const d2 of next) {
                 if (!missing.length || probes > 70 || Date.now() - t0 > 30000) break;
-                probes++; await apply([d, d2]); await check([d, d2]);
+                probes++; if (!(await apply([d, d2]))) continue; await check([d, d2]);
               }
             }
             await reset();
