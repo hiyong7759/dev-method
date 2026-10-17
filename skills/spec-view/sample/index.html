@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>할 일 샘플</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; background: #f3ebe1; font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; color: #4a3b2f; }
+    #board { position: fixed; inset: 0; display: grid; place-items: center; }
+    #card { width: 360px; padding: 18px; border-radius: 14px; background: #fffcf7; box-shadow: 0 4px 18px rgba(80,50,20,.12); }
+    #todo-form { display: flex; gap: 6px; margin-bottom: 12px; }
+    #todo-form input { flex: 1; padding: 8px; border: 1px solid #d8c9b8; border-radius: 8px; }
+    #todo-form button { border: 0; border-radius: 8px; padding: 8px 12px; background: #e9a25f; color: #3a2410; }
+    #todo-list { margin: 0; padding-left: 18px; line-height: 1.8; min-height: 72px; }
+    #todo-count { margin-top: 10px; font-size: 12px; color: #8a7563; }
+  </style>
+</head>
+<body>
+  <!--
+    @screen 할 일 샘플
+    @why 설계서 보기 도구를 시험하려고 만든 가장 작은 화면. 할 일을 적고 개수를 본다.
+  -->
+  <div id="board">
+    <div id="card">
+      <!--
+        @spec form 입력 칸
+        @why 할 일을 한 줄로 바로 적게 해, 적는 일이 부담이 되지 않게 한다.
+        @basis 예시 화면이라 근거 없음
+        @anchor dom:#todo-form
+      -->
+      <form id="todo-form"><input id="todo-input" placeholder="할 일" /><button>추가</button></form>
+      <!--
+        @spec list 목록
+        @why 적은 것을 최신순으로 보여줘 방금 한 입력이 맞게 들어갔는지 바로 확인하게 한다.
+        @anchor dom:#todo-list
+      -->
+      <ol id="todo-list"></ol>
+      <div id="todo-count"></div>
+    </div>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
