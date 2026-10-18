@@ -139,16 +139,6 @@ function stepper(st) {
   const step = (i, label) => h('div', { class: `step ${cls[i]}` }, h('i', null, mark[i]), label);
   return h('div', { class: 'stepper' }, step(0, '개발 중'), h('div', { class: 'stline' }), step(1, '테스트 요청'), h('div', { class: 'stline' }), step(2, s === 'approved-changed' ? '승인 후 변경됨' : '승인'));
 }
-// 에이전트가 쓴 테스트 요청 메시지를 이 화면에 맞게 바꿔 보여 준다: 이미 옆에 실제 화면이 있으므로 "주소를 열어라"는 문장은 빼고 이 화면 기준 안내로 대신한다(글 자체는 기록 그대로 둔다)
-const LOCAL_URL = /https?:\/\/(localhost|127\.0\.0\.1)[:\/\d]*/;
-export function noteForHere(note) {
-  if (!note) return '테스트를 요청했습니다. 아래 순서로 눌러 보고 확인해 주세요.';
-  const parts = note.split(/(?<=[.。!?])\s+|\n+/).map((x) => x.trim()).filter(Boolean);
-  const kept = parts.filter((x) => !LOCAL_URL.test(x));
-  if (kept.length === parts.length) return note;
-  return [...kept, '왼쪽 실제 화면에서 아래 확인 목록대로 눌러 보세요.'].join(' ');
-}
-
 export function approval(c) {
   const sc = c.sc(), st = sc.status;
   const el = h('div', { style: 'display:contents' });
@@ -182,7 +172,6 @@ export function approval(c) {
   if (st.status === 'dev') {
     el.append(h('div', { class: 'hbox' }, '아직 개발 중입니다. 에이전트가 자체 점검(경고 0, 화면 열림, 설계서 보기 열림)을 마치고 "테스트 요청"을 남기면, 이곳에 확인 목록과 승인이 열립니다.'));
   } else if (st.status === 'test-requested') {
-    el.append(h('div', { class: 'msg' }, h('div', { class: 'meta' }, `에이전트 · ${fmt(st.at)} · 소스 버전 ${st.commit || '—'}`), noteForHere(st.note)));
     el.append(checklist());
     el.append(h('div', { class: 'btns' }, h('button', { class: 'smallbtn bad', style: 'min-height:38px;padding:0 18px', onclick: () => { c.ap = { problem: true }; c.render(); } }, '문제 있음'),
       h('button', { class: `smallbtn ${allDone ? 'good' : ''}`, style: 'min-height:38px;padding:0 18px', disabled: allDone ? null : true, onclick: approve }, allDone ? '승인' : '승인 (모두 확인하면 켜짐)')));
