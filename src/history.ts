@@ -2,7 +2,7 @@
 // 존재 이유: 이력을 따로 쓰지 않고 커밋 메시지(결정·기각 포함)를 유일한 원본으로 두려고.
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { projectRoot } from './status.mjs';
+import { projectRoot } from './status.js';
 
 const SEP = '\x1e', FIELD = '\x1f';
 // 커밋이 바꾼 곳(새 파일 기준 줄 범위)과 바뀐 내용(지운 줄·새 줄)을 파일별로 읽는다

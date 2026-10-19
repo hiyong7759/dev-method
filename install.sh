@@ -39,9 +39,11 @@ spec)
   mkdir -p "$P/.spec"
   [ -f "$P/.spec/config.json" ] || printf '{ "src": "%s", "app": "%s", "port": %s, "start": "npm run dev" }\n' "${3:-src}" "${4:-http://localhost:5173}" "${5:-5290}" > "$P/.spec/config.json"
   HOOK="$P/.git/hooks/pre-commit"
-  LINE='node '"$ROOT"'/skills/spec-view/precommit.mjs "$(git rev-parse --show-toplevel)" || exit 1'
+  LINE='node '"$ROOT"'/skills/spec-view/spec.mjs precommit "$(git rev-parse --show-toplevel)" || exit 1'
   if [ ! -f "$HOOK" ]; then printf '#!/bin/bash\n%s\n' "$LINE" > "$HOOK"; chmod +x "$HOOK"
-  elif ! grep -qF precommit.mjs "$HOOK"; then echo "$LINE" >> "$HOOK"; fi
+  elif grep -qF 'spec.mjs precommit' "$HOOK"; then :
+  elif grep -qF 'spec-view/precommit.mjs' "$HOOK"; then grep -vF 'spec-view/precommit.mjs' "$HOOK" > "$HOOK.new" && echo "$LINE" >> "$HOOK.new" && mv "$HOOK.new" "$HOOK" && chmod +x "$HOOK"
+  else echo "$LINE" >> "$HOOK"; fi
   [ -f "$P/.spec/.gitignore" ] || printf 'pending-shots.json\npids.json\n*.log\n' > "$P/.spec/.gitignore"
   touch "$ROOT/spec-projects.txt"; grep -qxF "$P" "$ROOT/spec-projects.txt" || echo "$P" >> "$ROOT/spec-projects.txt"
   echo "연결: $P"; echo "설정: $(tr -d '\n' < "$P/.spec/config.json")"

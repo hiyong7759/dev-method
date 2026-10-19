@@ -1,0 +1,19 @@
+#!/usr/bin/env node
+// 설계서 보기 도구의 입구. 사용: node <이 폴더>/spec.mjs <명령> [옵션]
+// 존재 이유: 도구 소스는 저장소 맨 위 src/에 TypeScript로 있고, 스킬 폴더는 안내만 담는다. 에이전트와 커밋 검사는 늘 이 한 파일로 도구를 부른다.
+// 스킬은 링크로 불려도 이 파일의 진짜 위치(저장소 안)에서 시작하므로 ../../src를 찾을 수 있다. TypeScript는 tsx가 읽어서 Node 20에서도 돈다.
+import { register } from 'tsx/esm/api';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const COMMANDS = ['extract', 'analyze-ts', 'nav', 'finish', 'status', 'memo', 'request', 'open', 'serve', 'precommit'];
+const [command, ...rest] = process.argv.slice(2);
+if (!COMMANDS.includes(command)) {
+  console.error(`사용: node spec.mjs <명령> [옵션]\n명령: ${COMMANDS.join(', ')}`);
+  process.exit(command ? 1 : 0);
+}
+const file = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', `${command}.ts`);
+// 각 명령 파일이 "내가 직접 실행됐나"를 process.argv[1]로 판단하므로, 그 파일이 직접 실행된 것처럼 맞춰 준다
+process.argv = [process.argv[0], file, ...rest];
+register();
+await import(file);

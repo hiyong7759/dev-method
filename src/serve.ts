@@ -9,8 +9,8 @@ import http from 'node:http';
 import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
-import { specHandler } from './middleware.mjs';
-import { extractSpecs } from './extract.mjs';
+import { specHandler } from './middleware.js';
+import { extractSpecs } from './extract.js';
 
 const argv = process.argv.slice(2);
 const opt = (k) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : undefined; };

@@ -4,16 +4,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { LAUNCHER } from './paths.js';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(process.argv[2] || '.');
 let cfg;
 try { cfg = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'config.json'), 'utf8')); } catch { process.exit(0); }
 const src = path.resolve(root, cfg.src || 'src');
 let bad = false;
-for (const script of ['extract.mjs', 'analyze-ts.mjs', 'nav.mjs']) {
-  const r = spawnSync(process.execPath, [path.join(here, script), script === 'extract.mjs' ? src : root, ...(script === 'nav.mjs' ? ['--src', src] : []), '--check'], { encoding: 'utf8' });
+for (const script of ['extract', 'analyze-ts', 'nav']) {
+  const r = spawnSync(process.execPath, [LAUNCHER, script, script === 'extract' ? src : root, ...(script === 'nav' ? ['--src', src] : []), '--check'], { encoding: 'utf8' });
   if (r.status !== 0) {
     bad = true;
     console.error(`[spec-view] ${script} 경고:`);

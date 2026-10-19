@@ -8,16 +8,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { ROOT_DIR, LAUNCHER } from './paths.js';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
 const flags = new Set(argv.filter((a) => a.startsWith('--')));
 const target = argv.find((a) => !a.startsWith('--')) || '.';
 
 function resolveProject(t) {
   if (fs.existsSync(t) && fs.statSync(t).isDirectory()) return path.resolve(t);
-  const list = path.join(here, '..', '..', 'spec-projects.txt');
+  const list = path.join(ROOT_DIR, 'spec-projects.txt');
   const paths = fs.existsSync(list) ? fs.readFileSync(list, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean) : [];
   const hit = paths.filter((p) => path.basename(p) === t);
   if (hit.length === 1) return hit[0];
@@ -62,7 +61,7 @@ const base = `http://localhost:${port}`;
 if (await isSpec(`${base}/__spec/model.json`)) console.log(`설계서 보기 서버 이미 떠 있음: ${base}`);
 else {
   if (await up(base)) { console.error(`포트 ${port}를 다른 프로그램이 쓰고 있다. ${path.join(project, '.spec', 'config.json')}의 port를 바꾼다.`); process.exit(1); }
-  pids.serve = launch(process.execPath, [path.join(here, 'serve.mjs'), '--project', project], 'serve.log', false); fs.writeFileSync(pidFile, JSON.stringify(pids));
+  pids.serve = launch(process.execPath, [LAUNCHER, 'serve', '--project', project], 'serve.log', false); fs.writeFileSync(pidFile, JSON.stringify(pids));
   if (!(await waitUp(`${base}/__spec/model.json`, 15000, isSpec))) { console.error(`설계서 보기 서버가 ${base} 에서 응답하지 않는다.\n로그: ${path.join(project, '.spec', 'serve.log')}\n---\n${fs.readFileSync(path.join(project, '.spec', 'serve.log'), 'utf8').split('\n').slice(-8).join('\n')}`); process.exit(1); }
   console.log(`설계서 보기 서버 시작: ${base}`);
 }

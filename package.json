@@ -1,0 +1,19 @@
+{
+  "name": "dev-method",
+  "private": true,
+  "type": "module",
+  "description": "개발 방법(규칙·스킬)과 spec-view 도구. 도구 소스는 src/, 스킬(안내)은 skills/. 컴퓨터의 Chrome을 쓰고 내려받지 않는다",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/viewer/tsconfig.json"
+  },
+  "dependencies": {
+    "esbuild": "^0.25.0",
+    "html-to-image": "^1.11.13",
+    "playwright-core": "^1.50.0",
+    "tsx": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "typescript": "^5.6.0"
+  }
+}

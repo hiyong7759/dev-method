@@ -6,8 +6,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
-import { extractSpecs } from './extract.mjs';
-import { screenFiles, hashOf } from './files.mjs';
+import { extractSpecs } from './extract.js';
+import { screenFiles, hashOf } from './files.js';
 
 export const AGENT_STATES = ['dev', 'test-requested'];
 export const USER_STATES = ['approved', 'needs-fix', 'dev']; // dev = 승인 취소
@@ -83,6 +83,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log(`${r.screen}: ${r.label} (기록: .spec/status.json, 커밋 ${r.commit})`);
     } else if (cmd === 'list') {
       for (const r of Object.values(allStatus(scanRoot))) console.log(`${r.screen}: ${r.label}${r.note ? ` — ${r.note}` : ''}`);
-    } else { console.log('사용: node status.mjs set <dev|test-requested> --src <소스 폴더> [--screen <이름>] [--note 한 줄]\n      node status.mjs list --src <소스 폴더>\n(approved·needs-fix는 설계서 보기에서 사용자만 남긴다)'); process.exit(1); }
+    } else { console.log('사용: node <스킬 폴더>/spec.mjs status set <dev|test-requested> --src <소스 폴더> [--screen <이름>] [--note 한 줄]\n      node <스킬 폴더>/spec.mjs status list --src <소스 폴더>\n(approved·needs-fix는 설계서 보기에서 사용자만 남긴다)'); process.exit(1); }
   } catch (e) { console.error(`오류: ${e.message}`); process.exit(1); }
 }

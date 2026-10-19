@@ -2,12 +2,12 @@
 // 존재 이유: 화면(뷰어)이 소스를 직접 해석하지 않고, 읽기 전용으로 계산된 결과만 그리게 하려고. 저장물 없이 요청 때마다 소스에서 다시 만든다(.spec의 승인·메모만 저장).
 import fs from 'node:fs';
 import path from 'node:path';
-import { extractSpecs } from './extract.mjs';
-import { analyzeTs } from './analyze-ts.mjs';
-import { allStatus, projectRoot, LABEL } from './status.mjs';
-import { loadMemos, STATE_LABEL } from './memo.mjs';
-import { loadRequests, describeRequests } from './request.mjs';
-import { detectNav } from './nav.mjs';
+import { extractSpecs } from './extract.js';
+import { analyzeTs } from './analyze-ts.js';
+import { allStatus, projectRoot, LABEL } from './status.js';
+import { loadMemos, STATE_LABEL } from './memo.js';
+import { loadRequests, describeRequests } from './request.js';
+import { detectNav } from './nav.js';
 
 const clean = (d) => (d || '').replace(/\s*@\w+[^\n]*/g, '').trim();
 const UI_EXT = /\.(tsx|jsx|vue|svelte)$/;

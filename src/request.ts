@@ -6,7 +6,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { specDir } from './status.mjs';
+import { specDir } from './status.js';
 
 // 화면에 보이는 단계 이름. 사람이 읽는 말이라 여기서만 정한다
 export const STAGE_LABEL = { design: '설계', impl: '구현', test: '테스트', done: '완료', cancelled: '취소' };
@@ -78,6 +78,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     if (pos[0] === 'add') { const r = addRequest(scanRoot, { title: opts.title, origin: opts.origin, channel: opts.channel, screens: csv(opts.screens), infos: csv(opts.infos), agent: opts.agent, source: opts.source }); console.log(`요청 #${r.id}: 등록 (설계서 보기 "관리"에서 보인다)`); }
     else if (pos[0] === 'list') { for (const r of describeRequests(loadRequests(scanRoot))) console.log(`#${r.id} [${r.stageLabel} · ${r.stepLabel}] ${r.title}`); }
-    else { console.log('사용: node request.mjs add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--agent 세션이름] --src <소스 폴더>\n      node request.mjs list --src <소스 폴더>'); process.exit(1); }
+    else { console.log('사용: node <스킬 폴더>/spec.mjs request add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--agent 세션이름] --src <소스 폴더>\n      node <스킬 폴더>/spec.mjs request list --src <소스 폴더>'); process.exit(1); }
   } catch (e) { console.error(`오류: ${e.message}`); process.exit(1); }
 }

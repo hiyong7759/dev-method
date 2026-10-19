@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 // 존재 이유: 에이전트가 "테스트 요청"을 내기 전에 끝낼 때 확인(경고 0, 서버, 화면 열림, 설계서 보기 열림, 컴포넌트 위치)을 말이 아니라 실행으로 거치게 하려고.
-// 사용: node finish.mjs --routes /trips,/trips/x/days/2 [--src src] [--url 설계서 보기 서버 주소] [--root 프로젝트 루트(기본 현재 폴더)] [--out 폴더]
+// 사용: node <스킬 폴더>/spec.mjs finish --routes /trips,/trips/x/days/2 [--src src] [--url 설계서 보기 서버 주소] [--root 프로젝트 루트(기본 현재 폴더)] [--out 폴더]
 // 설정: .spec/config.json의 src·port를 기본값으로 쓴다. --url은 serve.mjs 주소(기본 http://localhost:<port>)이지 앱 개발 서버 주소가 아니다
 // 모두 통과해야 종료 코드 0. 하나라도 실패하면 상태는 "개발 중"이고 테스트 요청을 내지 않는다.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { LAUNCHER, ROOT_DIR } from './paths.js';
 import { matchScreen } from './viewer/util.js';
 import { runStep } from './viewer/steps.js';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const root = path.resolve(arg('--root', '.')); // tsconfig.json이 있는 프로젝트 루트(analyze-ts가 필요)
 let cfg = {};
@@ -31,16 +30,16 @@ const DESCRIBE = () => {
     return { tag, text, nth: [...document.querySelectorAll(tag)].filter((x) => norm(x) === text).indexOf(e) };
   }).filter((d) => d.text);
 };
-const CLICK = ({ fn, st }) => new Function('return ' + fn)()(document, st); // 한 단계 실행은 설계서 보기와 같은 함수(viewer/steps.js)를 쓴다
+const CLICK = ({ fn, st }) => new Function('return ' + fn)()(document, st); // 한 단계 실행은 설계서 보기와 같은 함수(viewer/steps.ts)를 쓴다
 const results = [];
 const reveal = {}; // 화면 이름 → { 컴포넌트 id → 누르는 순서 } (눌러야 나타나는 컴포넌트를 검사가 직접 찾아 기록)
-const snaps = {}; // 화면 이름 → 저장한 화면 스냅샷 파일 (모두 통과하면 status.mjs set test-requested가 기록에 붙인다)
+const snaps = {}; // 화면 이름 → 저장한 화면 스냅샷 파일 (모두 통과하면 status set test-requested가 기록에 붙인다)
 // warn: 못 맞혀도 막지 않는 항목(검사의 한계 때문에 틀릴 수 있는 것). 경고로 알리고 보고에 쓰게 한다
 const step = (name, ok, detail = '', { warn = false } = {}) => { results.push({ name, ok: ok || warn, warned: !ok && warn, detail }); console.log(`${ok ? '통과' : warn ? '경고' : '실패'}  ${name}${detail ? ' — ' + detail : ''}`); };
-const run = (script) => { const r = spawnSync(process.execPath, [path.join(here, script), script === 'extract.mjs' ? src : root, ...(script === 'nav.mjs' ? ['--src', src] : []), '--check'], { encoding: 'utf8' }); return { ok: r.status === 0, text: (r.stdout + r.stderr).trim() }; };
+const run = (script) => { const r = spawnSync(process.execPath, [LAUNCHER, script, script === 'extract' ? src : root, ...(script === 'nav' ? ['--src', src] : []), '--check'], { encoding: 'utf8' }); return { ok: r.status === 0, text: (r.stdout + r.stderr).trim() }; };
 
 // 1. 경고 0
-for (const [label, script] of [['메타정보 경고 0 (extract)', 'extract.mjs'], ['정보 존재 이유 경고 0 (analyze-ts)', 'analyze-ts.mjs'], ['이동 선언(@to)이 코드와 같다 (nav)', 'nav.mjs']]) {
+for (const [label, script] of [['메타정보 경고 0 (extract)', 'extract'], ['정보 존재 이유 경고 0 (analyze-ts)', 'analyze-ts'], ['이동 선언(@to)이 코드와 같다 (nav)', 'nav']]) {
   const r = run(script);
   step(label, r.ok, r.ok ? '' : r.text.split('\n').filter((l) => l.startsWith('경고')).slice(0, 5).join(' / '));
 }
@@ -53,7 +52,7 @@ step('설계서 보기 서버가 응답한다', !!model, model ? `${base} · 화
 // 3. 브라우저로 화면과 설계서 보기 열기
 if (model) {
   let chromium;
-  try { ({ chromium } = await import('playwright-core')); } catch { step('브라우저 제어 설치', false, `${here} 에서 npm install`); }
+  try { ({ chromium } = await import('playwright-core')); } catch { step('브라우저 제어 설치', false, `${ROOT_DIR} 에서 npm install`); }
   if (chromium) {
     let browser;
     try { browser = await chromium.launch({ channel: 'chrome' }); } catch (e) { step('Chrome 실행', false, String(e.message).split('\n')[0]); }

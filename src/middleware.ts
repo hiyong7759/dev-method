@@ -5,15 +5,28 @@
 // 개발 서버에서만 쓴다: 운영 빌드에는 이 파일도 화면도 들어가지 않는다.
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { extractSpecs } from './extract.mjs';
-import { buildModel } from './model.mjs';
-import { allStatus, setStatus, setCheck, specDir } from './status.mjs';
-import { addMemo, confirmMemo, markCopied, exportText, loadMemos } from './memo.mjs';
-import { screenHistory } from './history.mjs';
+import { transformSync } from 'esbuild';
+import { ROOT_DIR, SKILL_DIR, VIEWER_DIR } from './paths.js';
+import { extractSpecs } from './extract.js';
+import { buildModel } from './model.js';
+import { allStatus, setStatus, setCheck, specDir } from './status.js';
+import { addMemo, confirmMemo, markCopied, exportText, loadMemos } from './memo.js';
+import { screenHistory } from './history.js';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+
+// 화면 코드는 TypeScript로 쓰므로, 브라우저가 .js를 달라고 하면 같은 이름의 .ts를 JavaScript로 바꿔 준다(고친 파일만 다시 바꾼다)
+const compiled = new Map<string, { mtime: number; code: string }>();
+function viewerScript(file: string): string | null {
+  const ts = file.replace(/\.js$/, '.ts');
+  if (!fs.existsSync(ts)) return null;
+  const mtime = fs.statSync(ts).mtimeMs;
+  const hit = compiled.get(ts);
+  if (hit && hit.mtime === mtime) return hit.code;
+  const code = transformSync(fs.readFileSync(ts, 'utf8'), { loader: 'ts', target: 'es2022', format: 'esm' }).code;
+  compiled.set(ts, { mtime, code });
+  return code;
+}
 
 export function specHandler(scanRoot) {
   const json = (res, obj, code = 200) => { res.statusCode = code; res.setHeader('content-type', 'application/json; charset=utf-8'); res.setHeader('cache-control', 'no-store'); res.end(JSON.stringify(obj)); };
@@ -28,13 +41,16 @@ export function specHandler(scanRoot) {
     const url = u.pathname;
     if (!url.startsWith('/__spec')) return next();
     try {
-      if (url === '/__spec' || url === '/__spec/') return send(res, path.join(HERE, 'viewer', 'index.html'));
+      if (url === '/__spec' || url === '/__spec/') return send(res, path.join(VIEWER_DIR, 'index.html'));
       if (url.startsWith('/__spec/ui/')) {
-        const f = path.resolve(HERE, 'viewer', url.slice('/__spec/ui/'.length));
-        if (!f.startsWith(path.join(HERE, 'viewer') + path.sep) || !fs.existsSync(f)) { res.statusCode = 404; return res.end('없음'); }
+        const f = path.resolve(VIEWER_DIR, url.slice('/__spec/ui/'.length));
+        if (!f.startsWith(VIEWER_DIR + path.sep)) { res.statusCode = 404; return res.end('없음'); }
+        const code = f.endsWith('.js') ? viewerScript(f) : null;
+        if (code != null) { res.setHeader('content-type', 'text/javascript; charset=utf-8'); res.setHeader('cache-control', 'no-store'); return res.end(code); }
+        if (!fs.existsSync(f)) { res.statusCode = 404; return res.end('없음'); }
         return send(res, f);
       }
-      if (url === '/__spec/vendor/html-to-image.js') return send(res, path.join(HERE, 'node_modules', 'html-to-image', 'dist', 'html-to-image.js'));
+      if (url === '/__spec/vendor/html-to-image.js') return send(res, path.join(ROOT_DIR, 'node_modules', 'html-to-image', 'dist', 'html-to-image.js'));
       if (url.startsWith('/__spec/shots/')) {
         const f = path.join(specDir(scanRoot), 'shots', path.basename(url));
         if (!fs.existsSync(f)) { res.statusCode = 404; return res.end('없음'); }
@@ -63,7 +79,7 @@ export function specHandler(scanRoot) {
         if (url === '/__spec/memo') return json(res, addMemo(scanRoot, b));
         if (url === '/__spec/memo/confirm') return json(res, confirmMemo(scanRoot, b.id));
         if (url === '/__spec/export') {
-          const text = exportText(scanRoot, { screen: b.screen, scriptDir: HERE });
+          const text = exportText(scanRoot, { screen: b.screen, scriptDir: SKILL_DIR });
           const ids = loadMemos(scanRoot).memos.filter((m) => m.state === 'pending' && (!b.screen || m.screen === b.screen)).map((m) => m.id);
           if (b.mark) markCopied(scanRoot, ids);
           return json(res, { text, ids });

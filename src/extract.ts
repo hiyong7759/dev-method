@@ -7,7 +7,7 @@
 //   @open: 처음 화면에 안 보이는 요소를 여는 순서(도구가 스스로 못 찾을 때만). 예: 입력 검색=서울 → 엔터 → 누르기 결과 보기
 import fs from 'node:fs';
 import path from 'node:path';
-import { screenFiles } from './files.mjs';
+import { screenFiles } from './files.js';
 
 const EXTS = new Set(['.js', '.mjs', '.ts', '.jsx', '.tsx', '.html', '.vue', '.svelte', '.css', '.py']);
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', '.venv', 'runs']);

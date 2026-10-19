@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { extractSpecs } from './extract.mjs';
+import { extractSpecs } from './extract.js';
 
 const rx = (pattern) => new RegExp(`^${pattern.replace(/:[^/]+/g, '[^/]+').replace(/\/$/, '')}/?$`);
 

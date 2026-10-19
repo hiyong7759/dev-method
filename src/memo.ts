@@ -4,7 +4,7 @@
 // 에이전트는 사용자가 붙여 넣은 "처리 요청"을 받았을 때만 메모를 읽는다 (export가 만드는 글).
 import fs from 'node:fs';
 import path from 'node:path';
-import { specDir, sh } from './status.mjs';
+import { specDir, sh } from './status.js';
 
 export const STATE_LABEL = { pending: '대기', answered: '응답됨', applied: '반영됨', confirmed: '확인 완료' };
 const file = (scanRoot) => path.join(specDir(scanRoot), 'memos.json');
@@ -53,7 +53,7 @@ export function exportText(scanRoot, { screen, scriptDir }) {
     if (m.target?.shot) lines.push(`  스크린샷: ${path.join(specDir(scanRoot), 'shots', m.target.shot)}`);
     lines.push('');
   }
-  lines.push('처리 방법:', `  - 답: node ${scriptDir}/memo.mjs reply <번호> --text "코드에서 확인한 내용" [--commit <해시>] --src ${src}`, `  - 고친 뒤: node ${scriptDir}/memo.mjs applied <번호> --commit <해시> --change "바뀐 내용 한 줄" --src ${src}`, '  - 고친 뒤 "테스트 요청"으로 기록하고, 커밋에 "요청: 메모 #번호 — 요약"을 쓴다');
+  lines.push('처리 방법:', `  - 답: node ${scriptDir}/spec.mjs memo reply <번호> --text "코드에서 확인한 내용" [--commit <해시>] --src ${src}`, `  - 고친 뒤: node ${scriptDir}/spec.mjs memo applied <번호> --commit <해시> --change "바뀐 내용 한 줄" --src ${src}`, '  - 고친 뒤 "테스트 요청"으로 기록하고, 커밋에 "요청: 메모 #번호 — 요약"을 쓴다');
   return lines.join('\n');
 }
 
@@ -68,6 +68,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       for (const m of loadMemos(scanRoot).memos.filter((x) => !opts.screen || x.screen === opts.screen)) console.log(`#${m.id} [${STATE_LABEL[m.state]}] ${m.screen} · ${where(m)} — ${m.text}`);
     } else if (cmd === 'reply') { replyMemo(scanRoot, id, { text: opts.text || '', commit: opts.commit || '' }); console.log(`메모 #${id}: 응답됨`); }
     else if (cmd === 'applied') { applyMemo(scanRoot, id, { commit: opts.commit || '', change: opts.change || '' }); console.log(`메모 #${id}: 반영됨 (확인 완료는 사용자만 바꾼다)`); }
-    else { console.log('사용: node memo.mjs list --src <소스 폴더> [--screen 이름]\n      node memo.mjs reply <번호> --text "…" [--commit 해시] --src <소스 폴더>\n      node memo.mjs applied <번호> --commit 해시 [--change "…"] --src <소스 폴더>'); process.exit(1); }
+    else { console.log('사용: node <스킬 폴더>/spec.mjs memo list --src <소스 폴더> [--screen 이름]\n      node <스킬 폴더>/spec.mjs memo reply <번호> --text "…" [--commit 해시] --src <소스 폴더>\n      node <스킬 폴더>/spec.mjs memo applied <번호> --commit 해시 [--change "…"] --src <소스 폴더>'); process.exit(1); }
   } catch (e) { console.error(`오류: ${e.message}`); process.exit(1); }
 }
