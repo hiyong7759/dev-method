@@ -1,0 +1,29 @@
+{
+  "id": 9,
+  "title": "겹침 표시 정리(범위를 구체적으로 적게 하거나 구현 이후 요청에만 붙이기)",
+  "source": "user",
+  "origin": {
+    "text": "겹침은 나중에 정리하고",
+    "channel": "대화",
+    "at": "2026-10-19T08:47:42.151Z"
+  },
+  "scope": {
+    "screens": [
+      "관리 영역"
+    ],
+    "infos": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-19T08:47:42.151Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
