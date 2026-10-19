@@ -17,7 +17,9 @@ const opt = (k) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 
 const project = path.resolve(opt('project') || '.');
 let cfg = {};
 try { cfg = JSON.parse(fs.readFileSync(path.join(project, '.spec', 'config.json'), 'utf8')); } catch { /* 설정 없음 */ }
-const app = new URL(opt('app') || cfg.app || 'http://localhost:5173');
+// 앱 개발 서버가 없는 프로젝트(설정의 app이 null)는 중계 없이 설계서 보기만 띄운다
+const appArg = opt('app') ?? (cfg.app === undefined ? 'http://localhost:5173' : cfg.app);
+const app = appArg ? new URL(appArg) : null;
 const port = Number(opt('port') || cfg.port || 5290);
 const scanRoot = path.resolve(project, opt('src') || cfg.src || 'src');
 if (!fs.existsSync(scanRoot)) { console.error(`소스 폴더가 없다: ${scanRoot}  (--src 또는 .spec/config.json의 src)`); process.exit(1); }
@@ -26,6 +28,7 @@ const spec = specHandler(scanRoot);
 const hop = new Set(['connection', 'keep-alive', 'transfer-encoding', 'upgrade', 'proxy-connection', 'te', 'trailer']);
 
 function proxy(req, res) {
+  if (!app) { res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); res.end('이 프로젝트에는 앱 서버가 없다. 설계서 보기는 /__spec/ 에 있다.'); return; }
   const headers = { ...req.headers, host: app.host };
   const up = http.request({ hostname: app.hostname, port: app.port || 80, path: req.url, method: req.method, headers }, (pr) => {
     const out = {};
@@ -53,6 +56,7 @@ function toViewer(req, res) {
 const server = http.createServer((req, res) => spec(req, res, () => { if (!toViewer(req, res)) proxy(req, res); }));
 // 개발 서버의 실시간 갱신(웹소켓)도 그대로 통과시킨다
 server.on('upgrade', (req, socket, head) => {
+  if (!app) { socket.destroy(); return; }
   const t = net.connect(Number(app.port || 80), app.hostname, () => {
     const h = { ...req.headers, host: app.host };
     t.write(`${req.method} ${req.url} HTTP/1.1\r\n${Object.entries(h).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n`);
@@ -61,4 +65,4 @@ server.on('upgrade', (req, socket, head) => {
   });
   t.on('error', () => socket.destroy()); socket.on('error', () => t.destroy());
 });
-server.listen(port, () => console.log(`설계서 보기: http://localhost:${port}/\n앱 중계: ${app.origin} (설계서 안에 끼워 넣어 보인다)\n소스: ${scanRoot}`));
+server.listen(port, () => console.log(`설계서 보기: http://localhost:${port}/\n앱 중계: ${app ? `${app.origin} (설계서 안에 끼워 넣어 보인다)` : '없음'}\n소스: ${scanRoot}`));

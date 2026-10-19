@@ -1,0 +1,31 @@
+{
+  "id": 4,
+  "title": "설계 승인·반려와 설계 없음 승인",
+  "source": "user",
+  "origin": {
+    "text": "설계가 없으면 설계없음을 승인하고 진행하면되는거고",
+    "channel": "대화",
+    "at": "2026-10-19T08:44:29.672Z"
+  },
+  "scope": {
+    "screens": [
+      "관리 영역"
+    ],
+    "infos": [
+      "요청"
+    ]
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-19T08:44:29.672Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

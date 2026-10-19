@@ -1,0 +1,29 @@
+{
+  "id": 7,
+  "title": "요청 번호가 없는 커밋 막기",
+  "source": "user",
+  "origin": {
+    "text": "에이전트건 사람이건 요청번호 없는 커밋은 안되게 막아야할것 같아",
+    "channel": "대화",
+    "at": "2026-10-19T08:44:29.773Z"
+  },
+  "scope": {
+    "screens": [
+      "도구 전체"
+    ],
+    "infos": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-19T08:44:29.773Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

@@ -343,3 +343,38 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 /* 정보가 화면에 나오는 자리 강조 */
 @keyframes fieldGlow{0%,100%{box-shadow:0 0 0 0 rgba(91,111,184,.55)}50%{box-shadow:0 0 0 8px rgba(91,111,184,0)}}
 .fbox{position:absolute;border-radius:6px;outline:3px solid var(--accent-deep);outline-offset:1px;background:rgba(157,180,255,.28)}
+
+/* 관리 영역 */
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;padding:3px;background:var(--bg2)}
+.seg button{padding:6px 16px;border:none;border-radius:7px;background:none;color:var(--dim);font-weight:700;font-size:13px}
+.seg button.on{background:var(--accent-bg);color:var(--accent)}
+.mg-wrap{width:100%;max-width:1160px;margin:0 auto;padding:28px 24px 48px;display:flex;flex-direction:column;gap:22px;overflow:auto}
+.mg-head h1,.mg-wrap h1{margin:0;font-size:24px}.mg-head p{margin:4px 0 0;color:var(--dim);font-size:13px}
+.mg-sec h2{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}.mg-sec h2 small{font-weight:400;color:var(--dim);font-size:12px}
+.mg-sec summary{cursor:pointer;color:var(--dim);font-size:13px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+.mg-list{display:flex;flex-direction:column;gap:10px}
+.mg-req{display:grid;grid-template-columns:54px minmax(0,1fr) 250px 200px;gap:16px;align-items:center;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+.mg-req.mine{border-color:#7a6226;background:#2a2316}
+.mg-req .rid{font-family:ui-monospace,Menlo,monospace;color:var(--dim);font-weight:700}
+.mg-req .rt{font-weight:700;font-size:15px;line-height:1.4}
+.rm{margin-top:6px;color:var(--dim);font-size:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tag{padding:2px 8px;border-radius:6px;background:var(--bg2);border:1px solid var(--line);color:var(--text);font-size:11px}
+.mg-st{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim2)}
+.mg-st span{display:flex;align-items:center;gap:4px}.mg-st i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.mg-st u{width:12px;height:1px;background:var(--line);display:inline-block}
+.mg-st .d i{background:var(--green)}.mg-st .d{color:var(--green)}.mg-st .c i{background:var(--amber)}.mg-st .c{color:var(--amber);font-weight:700}
+.ract{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid;white-space:nowrap}
+.chip.me{background:#2a2316;color:var(--amber);border-color:#7a6226}.chip.ag{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-deep)}
+.chip.ok{background:var(--green-bg);color:var(--green);border-color:#3b7a68}.chip.dim{background:var(--bg2);color:var(--dim);border-color:var(--line)}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--text);font-size:13px;font-weight:700;min-height:36px}
+.btn.pri{background:var(--accent);color:#14161f;border-color:var(--accent)}
+.mg-card{padding:16px;border-radius:12px;border:1px solid var(--line);background:var(--card);display:flex;flex-direction:column;gap:10px}
+.mg-card h3{margin:0;font-size:14px}
+.crumb{color:var(--dim);font-size:12px}.crumb a{color:var(--accent)}
+.quote{padding:12px 14px;border-radius:10px;background:var(--bg2);border-left:3px solid var(--accent-deep);line-height:1.6}
+.code{font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:5px 9px;border-radius:8px;background:#14120f;border:1px solid var(--line)}
+.warn{padding:12px 14px;border-radius:10px;border:1px solid #7a6226;background:#2a2316;font-size:13px;line-height:1.6}
+.mg-card .kv{display:grid;grid-template-columns:90px 1fr;gap:6px 10px;font-size:13px}.mg-card .kv .k{color:var(--dim)}
+.tl{display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--dim)}.tl div{display:flex;gap:10px;align-items:baseline}
+.tl i{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex:none}.tl b{color:var(--text)}

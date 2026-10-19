@@ -4,6 +4,7 @@ import { h, get, statusChip } from './util.js';
 import { mapView } from './map.js';
 import { infoMap, infoDrawer, infoOverview } from './info.js';
 import { screenView } from './screen.js';
+import { manageList, manageDetail } from './manage.js';
 
 const root = document.getElementById('app');
 let model = null, active = null, key = '', topEl = null, menu = null;
@@ -50,7 +51,13 @@ function topbar(r) {
     s.memosUndelivered ? h('span', { class: 'pill purple' }, '전달 전 메모 ', h('b', { style: 'color:var(--purple)' }, s.memosUndelivered)) : null,
     h('span', { class: 'pill warn' }, '확인 필요 ', h('b', null, r.view === 'info' ? model.infos.reduce((a, i) => a + i.flagged, 0) : s.needCheck))];
   const curModel = curScreen ? model.screens.find((x) => x.name === curScreen) : null;
-  return h('header', { class: 'top tall' }, h('span', { class: 'dev mono' }, 'DEV'), h('span', { class: 'ttl' }, model.project),
+  const seg = h('div', { class: 'seg' }, h('button', { class: r.view === 'manage' ? '' : 'on', onclick: () => nav(hash('map')) }, '현행'), h('button', { class: r.view === 'manage' ? 'on' : '', onclick: () => nav(hash('manage')) }, '관리'));
+  if (r.view === 'manage') {
+    return h('header', { class: 'top tall' }, h('span', { class: 'dev mono' }, 'DEV'), h('span', { class: 'ttl' }, model.project), seg,
+      h('div', { class: 'tabs-top' }, h('button', { class: 'sel', onclick: () => nav(hash('manage')) }, '요청')),
+      h('span', { class: 'grow' }), s.requestsMine ? h('span', { class: 'pill accent' }, '내 차례 ', h('b', { style: 'color:var(--accent)' }, s.requestsMine)) : null);
+  }
+  return h('header', { class: 'top tall' }, h('span', { class: 'dev mono' }, 'DEV'), h('span', { class: 'ttl' }, model.project), seg,
     h('div', { class: 'tabs-top' },
       h('button', { class: r.view === 'map' ? 'sel' : '', onclick: () => nav(hash('map')) }, '화면 흐름'),
       h('button', { class: r.view === 'info' && !curInfo ? 'sel' : '', onclick: () => nav(hash('info')) }, '정보 흐름'),
@@ -80,6 +87,9 @@ function render() {
       selected: sel, onSelect: (n) => nav(hash('info', n === sel ? '' : n)),
       drawer: sel ? infoDrawer(model, sel, { onClose: () => nav(hash('info')), openInfo: (n) => nav(hash('info', n)), openScreen: (n) => nav(hash('screen', n)) }) : infoOverview(model, { openInfo: (n) => nav(hash('info', n)) }),
     });
+  } else if (r.view === 'manage') {
+    if (r.arg) manageDetail(body, { model, id: r.arg, back: () => nav(hash('manage')), open: (id) => nav(hash('manage', String(id))) });
+    else manageList(body, { model, open: (id) => nav(hash('manage', String(id))) });
   } else {
     mapView(body, { model, domain: r.params.get('domain') || '', setDomain: (d) => nav(hash('map', '', { domain: d })), openScreen: (n) => nav(hash('screen', n)) });
   }

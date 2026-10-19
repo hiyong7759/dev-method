@@ -6,6 +6,7 @@ import { extractSpecs } from './extract.mjs';
 import { analyzeTs } from './analyze-ts.mjs';
 import { allStatus, projectRoot, LABEL } from './status.mjs';
 import { loadMemos, STATE_LABEL } from './memo.mjs';
+import { loadRequests, describeRequests } from './request.mjs';
 import { detectNav } from './nav.mjs';
 
 const clean = (d) => (d || '').replace(/\s*@\w+[^\n]*/g, '').trim();
@@ -168,17 +169,19 @@ export function buildModel(scanRoot) {
     unfilled: i.props.filter((p) => !p.doc).length,
   }));
 
+  const requests = describeRequests(loadRequests(scanRoot));
   const pendingCopy = memos.filter((m) => m.state === 'pending' && !m.copiedAt).length;
   return {
     project: path.basename(root), generatedAt: new Date().toISOString(),
     screens, specs: out.specs, infos: infoOut, relations, notes, warnings: out.warnings, analysisError,
     memos: memos.map((m) => ({ ...m, stateLabel: STATE_LABEL[m.state] })),
+    requests,
     summary: {
       screens: screens.length, moves, infos: infos.length, relations: relations.length,
       waiting: screens.filter((s) => ['test-requested', 'approved-changed'].includes(s.status.status)).length,
       testRequested: screens.filter((s) => s.status.status === 'test-requested').length,
       changedAfterApproval: screens.filter((s) => s.status.status === 'approved-changed').length,
-      memosUndelivered: pendingCopy, needCheck: out.warnings.length + notes.length,
+      requestsMine: requests.filter((r) => r.turn === 'user').length, memosUndelivered: pendingCopy, needCheck: out.warnings.length + notes.length,
     },
     labels: LABEL,
   };

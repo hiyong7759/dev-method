@@ -1,0 +1,29 @@
+{
+  "id": 2,
+  "title": "도구 소스를 전부 TypeScript로 바꾸고 규칙에 맞춤",
+  "source": "user",
+  "origin": {
+    "text": "규칙에 어긋나는거 다 맞춰고 타입스크립트로 전부 변경해",
+    "channel": "대화",
+    "at": "2026-10-19T08:44:29.605Z"
+  },
+  "scope": {
+    "screens": [
+      "도구 전체"
+    ],
+    "infos": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "impl",
+  "step": "working",
+  "events": [
+    {
+      "at": "2026-10-19T08:44:29.605Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

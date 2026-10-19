@@ -1,0 +1,31 @@
+{
+  "id": 5,
+  "title": "화면에서 한 결정을 맡은 에이전트 세션에 전달",
+  "source": "user",
+  "origin": {
+    "text": "훅으로 대화턴에 화면에서 사용자 요청 확인해서 요청이 확인됐고 해당 하는 세션에 전달",
+    "channel": "대화",
+    "at": "2026-10-19T08:44:29.706Z"
+  },
+  "scope": {
+    "screens": [
+      "관리 영역"
+    ],
+    "infos": [
+      "요청"
+    ]
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-19T08:44:29.706Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

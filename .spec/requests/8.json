@@ -1,0 +1,31 @@
+{
+  "id": 8,
+  "title": "정보 구조 승인 관문과 화면 메타정보 추가(권한별 안내, 오류·빈 상태)",
+  "source": "user",
+  "origin": {
+    "text": "정보 구조 관문은 요청 설계 단계에서 그것도 하는 거야",
+    "channel": "대화",
+    "at": "2026-10-19T08:44:29.807Z"
+  },
+  "scope": {
+    "screens": [
+      "도구 전체"
+    ],
+    "infos": [
+      "요청"
+    ]
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-19T08:44:29.807Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

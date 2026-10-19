@@ -1,0 +1,29 @@
+{
+  "id": 6,
+  "title": "용어집과 용어 툴팁",
+  "source": "user",
+  "origin": {
+    "text": "용어집은 그냥 에이전트가 주기적으로 식별해서 또는 작업할때 작업자가 넣으면 될것같아",
+    "channel": "대화",
+    "at": "2026-10-19T08:44:29.739Z"
+  },
+  "scope": {
+    "screens": [
+      "관리 영역"
+    ],
+    "infos": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-19T08:44:29.739Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

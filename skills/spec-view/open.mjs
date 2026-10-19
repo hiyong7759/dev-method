@@ -28,7 +28,8 @@ const project = resolveProject(target);
 const cfgFile = path.join(project, '.spec', 'config.json');
 if (!fs.existsSync(cfgFile)) { console.error(`${cfgFile} 이 없다. 먼저: <dev-method>/install.sh spec ${project} <소스폴더> <앱주소>`); process.exit(1); }
 const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
-const app = cfg.app || 'http://localhost:5173', port = cfg.port || 5290, start = cfg.start || 'npm run dev';
+// 앱 개발 서버가 없는 프로젝트는 설정의 app을 null로 둔다
+const app = cfg.app === null ? null : (cfg.app || 'http://localhost:5173'), port = cfg.port || 5290, start = cfg.start || 'npm run dev';
 const pidFile = path.join(project, '.spec', 'pids.json');
 const readPids = () => { try { return JSON.parse(fs.readFileSync(pidFile, 'utf8')); } catch { return {}; } };
 
@@ -50,7 +51,8 @@ if (flags.has('--stop')) {
 }
 
 const pids = readPids();
-if (await up(app)) console.log(`앱 서버 이미 떠 있음: ${app}`);
+if (!app) console.log('앱 서버 없음 (설정의 app이 null)');
+else if (await up(app)) console.log(`앱 서버 이미 떠 있음: ${app}`);
 else {
   pids.app = launch(start, [], 'app.log', true); fs.writeFileSync(pidFile, JSON.stringify(pids));
   if (!(await waitUp(app, 40000))) { console.error(`앱 서버가 ${app} 에서 응답하지 않는다. 시작 명령: ${start}\n로그: ${path.join(project, '.spec', 'app.log')}\n---\n${fs.readFileSync(path.join(project, '.spec', 'app.log'), 'utf8').split('\n').slice(-8).join('\n')}`); process.exit(1); }
