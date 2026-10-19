@@ -1,25 +1,27 @@
 /**
  * @spec manage-view 관리 영역 화면
  * @why 화면·정보를 보는 현행 영역과 분리해, "무엇을 왜 어떻게 바꾸는 중인가"를 한곳에서 관리하고 따라가게 한다. 요청 목록(#/manage)과 요청 상세(#/manage/<번호>)를 그린다.
- * @contract model.requests의 항목 모양(요청 파일 + request.mjs의 describeRequests가 붙이는 stepLabel, turn, overlaps)에 기대어 그린다. 그 모양이 바뀌면 이 파일도 고친다.
+ * @contract model.requests의 항목 모양(types.ts의 RequestView: 요청 파일 + describeRequests가 붙이는 stepLabel, turn, overlaps)에 기대어 그린다. 그 모양이 바뀌면 이 파일도 고친다.
  */
 import { h, fmt } from './util.js';
+import type { Kid } from './util.js';
+import type { Model, RequestStage, RequestView } from '../types.js';
 
-// 요청이 거치는 네 단계(진행 표시의 순서)
-const STAGES = [['design', '설계'], ['impl', '구현'], ['test', '테스트'], ['done', '완료']];
+/** 요청이 거치는 네 단계(진행 표시의 순서) */
+const STAGES: [RequestStage, string][] = [['design', '설계'], ['impl', '구현'], ['test', '테스트'], ['done', '완료']];
 
-// 요청이 어느 단계까지 왔는지 한눈에 보이게 한다: 지난 단계 초록, 지금 단계 노랑
-function stepper(r) {
+/** 요청이 어느 단계까지 왔는지 한눈에 보이게 한다: 지난 단계 초록, 지금 단계 노랑 */
+function stepper(r: RequestView): HTMLDivElement {
   const cur = STAGES.findIndex(([k]) => k === r.stage);
-  return h('div', { class: 'mg-st' }, STAGES.map(([k, l], i) => [i ? h('u') : null, h('span', { class: r.stage === 'done' || cur > i ? 'd' : cur === i ? 'c' : '' }, h('i'), l)]));
+  return h('div', { class: 'mg-st' }, STAGES.map(([, l], i) => [i ? h('u') : null, h('span', { class: r.stage === 'done' || cur > i ? 'd' : cur === i ? 'c' : '' }, h('i'), l)]));
 }
-// 지금 상태와 누구 차례인지를 색으로 알린다(사용자 차례는 노랑)
-const chipFor = (r) => h('span', { class: `chip ${r.turn === 'user' ? 'me' : r.turn === 'agent' ? 'ag' : r.stage === 'done' ? 'ok' : 'dim'}` }, r.stepLabel);
-// 요청이 건드리는 화면과 정보를 이름표로 보인다
-const scopeTags = (r) => [...r.scope.screens.map((s) => h('span', { class: 'tag' }, `화면 ${s}`)), ...r.scope.infos.map((s) => h('span', { class: 'tag' }, `정보 ${s}`))];
+/** 지금 상태와 누구 차례인지를 색으로 알린다(사용자 차례는 노랑) */
+const chipFor = (r: RequestView): HTMLSpanElement => h('span', { class: `chip ${r.turn === 'user' ? 'me' : r.turn === 'agent' ? 'ag' : r.stage === 'done' ? 'ok' : 'dim'}` }, r.stepLabel);
+/** 요청이 건드리는 화면과 정보를 이름표로 보인다 */
+const scopeTags = (r: RequestView): HTMLSpanElement[] => [...r.scope.screens.map((s) => h('span', { class: 'tag' }, `화면 ${s}`)), ...r.scope.infos.map((s) => h('span', { class: 'tag' }, `정보 ${s}`))];
 
-// 목록의 요청 한 줄
-function row(r, open) {
+/** 목록의 요청 한 줄 */
+function row(r: RequestView, open: (id: number) => void): HTMLDivElement {
   return h('div', { class: `mg-req${r.turn === 'user' ? ' mine' : ''}` },
     h('div', { class: 'rid' }, `#${r.id}`),
     h('div', null, h('div', { class: 'rt' }, r.title),
@@ -29,14 +31,21 @@ function row(r, open) {
     h('div', { class: 'ract' }, chipFor(r), h('button', { class: `btn${r.turn === 'user' ? ' pri' : ''}`, onclick: () => open(r.id) }, '열기')));
 }
 
-// 목록을 "누구 차례"별 묶음으로 나눠 보이는 한 칸. 비면 그리지 않는다
-function section(title, hint, list, open) {
+/** 목록을 "누구 차례"별 묶음으로 나눠 보이는 한 칸. 비면 그리지 않는다 */
+function section(title: string, hint: string, list: RequestView[], open: (id: number) => void): HTMLElement | null {
   if (!list.length) return null;
   return h('section', { class: 'mg-sec' }, h('h2', null, title, h('small', null, hint)), h('div', { class: 'mg-list' }, list.map((r) => row(r, open))));
 }
 
-// 관리의 요청 목록 화면
-export function manageList(root, { model, open }) {
+/**
+ * @screen 요청 목록
+ * @route /__spec/#/manage
+ * @domain 관리
+ * @why 현재를 바꾸는 일(요청)을 "내 차례 / 에이전트 차례 / 끝난 것"으로 나눠 한곳에서 본다.
+ * @does 요청의 진행 단계와 누구 차례인지를 본다 | 내 차례인 요청이 위에 모여 있다
+ * @does 요청을 열어 상세를 본다 | 요청 상세 화면이 열린다
+ */
+export function manageList(root: HTMLElement, { model, open }: { model: Model; open: (id: number) => void }): void {
   const all = model.requests;
   const mine = all.filter((r) => r.turn === 'user'), agent = all.filter((r) => r.turn === 'agent'), ended = all.filter((r) => !r.turn);
   const wrap = h('main', { class: 'mg-wrap' },
@@ -48,11 +57,17 @@ export function manageList(root, { model, open }) {
   root.append(wrap);
 }
 
-// 요청 하나의 상세: 원문, 범위, 겹침, 진행 기록을 한 화면에 모아 "왜 이 일이 있고 어디까지 왔나"를 따라가게 한다
-export function manageDetail(root, { model, id, back, open }) {
+/**
+ * @screen 요청 상세
+ * @route /__spec/#/manage/:id
+ * @domain 관리
+ * @why 요청 하나의 원문, 범위, 겹침, 진행 기록을 한 화면에 모아 "왜 이 일이 있고 어디까지 왔나"를 따라가게 한다.
+ * @does 겹치는 다른 요청을 열어 본다 | 그 요청의 상세가 열린다
+ */
+export function manageDetail(root: HTMLElement, { model, id, back, open }: { model: Model; id: string; back: () => void; open: (id: number) => void }): void {
   const r = model.requests.find((x) => String(x.id) === String(id));
   if (!r) { root.append(h('div', { class: 'empty-note', style: 'flex:1' }, `요청 #${id}을 찾지 못했다`)); return; }
-  const kv = (k, v) => [h('span', { class: 'k' }, k), h('span', null, v)];
+  const kv = (k: string, v: Kid): Kid[] => [h('span', { class: 'k' }, k), h('span', null, v)];
   root.append(h('main', { class: 'mg-wrap' },
     h('div', null, h('div', { class: 'crumb' }, h('a', { href: '#/manage', onclick: (e) => { e.preventDefault(); back(); } }, '요청'), ` › #${r.id}`),
       h('h1', { style: 'margin:6px 0 0' }, r.title),

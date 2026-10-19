@@ -4,7 +4,7 @@
 
 - `CORE.md` — 늘 읽히는 핵심. `~/.claude/CLAUDE.md`에서 `@/Volumes/macex/workspace/dev-method/CORE.md`로 불러온다 (이 경로의 볼륨이 붙어 있어야 읽힌다)
 - `docs/` — 필요한 순간에만 읽는 세부. CORE.md의 상황형 포인터가 가리킨다 (`method-authoring.md`: 정책을 어디에 둘지, `source-comments.md`, `commit-message.md`, `commit-multisession.md`, `delegate.md`, `long-running.md`, `memory-cleanup.md`)
-- `src/` — spec-view 도구의 소스(TypeScript). `skills/spec-view/spec.mjs`가 입구이고 `npm install` 한 번이 필요하다
+- `src/` — spec-view 도구의 소스(TypeScript). `skills/spec-view/spec.mjs`가 입구이고 `npm install` 한 번이 필요하다. 타입 검사는 `npm run typecheck`, 이 프로젝트 자신도 spec-view로 관리한다(`.spec/`)
 - `sample/` — spec-view를 시험하는 작은 예시 앱
 - `skills/` — 훅 설치본·참고 구현이 딸린 것만
   - `git-multisession` — 위험한 git 명령을 막는 Claude 훅 설치(시험 포함)

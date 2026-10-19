@@ -13,7 +13,8 @@ if (!COMMANDS.includes(command)) {
   process.exit(command ? 1 : 0);
 }
 const file = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', `${command}.ts`);
-// 각 명령 파일이 "내가 직접 실행됐나"를 process.argv[1]로 판단하므로, 그 파일이 직접 실행된 것처럼 맞춰 준다
-process.argv = [process.argv[0], file, ...rest];
 register();
-await import(file);
+// 각 명령 파일은 main(옵션 낱말들)을 내보낸다. 숫자를 돌려주면 그것이 종료 코드이고, 안 돌려주면(서버처럼 계속 도는 명령) 그대로 둔다
+const { main } = await import(file);
+const code = await main(rest);
+if (typeof code === 'number') process.exit(code);

@@ -3,14 +3,11 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2023"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"],
     "strict": true,
-    "noUncheckedIndexedAccess": false,
     "noEmit": true,
-    "skipLibCheck": true,
-    "allowImportingTsExtensions": false
+    "skipLibCheck": true
   },
-  "include": ["src/*.ts"],
-  "exclude": ["src/viewer", "node_modules", "sample"]
+  "include": ["src/**/*.ts"]
 }
