@@ -16,14 +16,20 @@
   "agent": {
     "name": ""
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-19T08:44:29.605Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-19T09:00:00.000Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "소스를 src/로 옮기고 전부 TypeScript로 전환, 타입 오류 0과 경고 0으로 테스트 요청 (커밋 573839d, d90d058)"
     }
   ]
 }
