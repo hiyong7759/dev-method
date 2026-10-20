@@ -216,10 +216,10 @@ export function buildModel(scanRoot: string): Model {
     };
   });
 
-  // ── 확인 필요(사용 흐름 아래 접어 둔 안내) ───────────────────
+  // ── 확인 필요: 기계가 판단할 수 없어 사람이 정해야 하는 것만 올린다. 코드나 주석을 고치면 해소되는 것(메타정보 빠짐, 이동 선언 어긋남 등)은
+  //    경고로 올라가 에이전트가 해소해야 커밋되므로 여기에 올리지 않는다.
   const notes: Note[] = [];
-  for (const s of screens) if (!s.to.length && screens.length > 1) notes.push({ screen: s.name, text: `${s.name} 화면에서 다른 화면으로 나가는 길이 없다 (돌아가기 포함)` });
-  for (const i of infos) if (i.flow.shown.length && !i.flow.input.length && !i.flow.modify.length) notes.push({ info: i.name, text: `${i.name}은 ${i.flow.shown.join('·')}에서 보여주지만 어느 화면에서도 입력하지 않는다` });
+  for (const i of infos) if (i.unused) notes.push({ info: i.name, text: `정보 ${i.name}은 어디에서도 쓰이지 않는다 — 지울지 남길지 정한다` });
 
   for (const i of infos) for (const p of i.props) p.evidence = p.evidence.slice(0, 12);
   const requests = describeRequests(loadRequests(scanRoot));

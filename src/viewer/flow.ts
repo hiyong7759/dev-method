@@ -134,7 +134,7 @@ export function flowView(root: HTMLElement, { model, domain, notes }: { model: M
     h('div', { class: 'drawer-head' }, h('div', null, h('b', null, '확인 필요'), h('div', { style: 'font-size:12px;color:var(--dim);margin-top:2px' }, opened.name)),
       h('button', { class: 'xbtn', onclick: () => nav(hash('flow', '', { domain })), 'aria-label': '닫기' }, '×')),
     h('div', { class: 'tbody' },
-      h('p', { style: 'margin:0 0 10px;font-size:12px;color:var(--dim);line-height:1.6' }, '코드를 읽어 규칙에 맞지 않는 곳을 자동으로 찾은 것입니다. 이 시나리오의 화면과 그 화면이 쓰는 정보에 대한 것만 모았습니다.'),
+      h('p', { style: 'margin:0 0 10px;font-size:12px;color:var(--dim);line-height:1.6' }, '기계가 판단할 수 없어 사람이 정해야 하는 것만 올라옵니다. 이 시나리오의 화면과 그 화면이 쓰는 정보에 대한 것만 모았습니다.'),
       notesOf(model, opened).map((n) => h('div', { class: 'fn' }, n.text))))) : null;
   root.append(h('div', { class: 'map-body' }, side, h('div', { class: 'map-main' },
     h('p', { class: 'map-help' }, '사용자가 앱으로 이루려는 일(사용 시나리오)을 단계 순서대로 보여 줍니다. 파란 선은 기본 흐름, 노란 선은 조건에 따라 갈라지는 길, 점선은 앞 단계로 되돌아오는 길입니다. 칸 아래 이름은 그 일이 일어나는 자리(컴포넌트)입니다.'),
