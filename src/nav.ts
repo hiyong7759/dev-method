@@ -1,7 +1,7 @@
 /**
  * @spec nav-check 화면 이동 선언과 코드 대조
  * @why 이동을 @to 태그로 손으로 적으면 코드와 어긋나도 모르므로, 코드에서 이동을 읽어 선언과 대조해 어긋남을 경고로 올린다.
- * @basis 타입 라우트 정의를 쓰는 프로젝트를 기준으로 세 가지를 읽는다: ① 라우트 도우미 호출 toPath('이름', …) — ROUTES 객체의 이름 → 주소 ② JSX의 to="/주소"(Link, Navigate 등) ③ navigate("/주소") 호출.
+ * @basis 타입 라우트 정의를 쓰는 프로젝트를 기준으로 네 가지를 읽는다: ④ 주소를 만드는 도우미 hash('보는 곳', 대상)(설정의 hashHelpers) — 화면 주소가 #/…인 앱용. ① 라우트 도우미 호출 toPath('이름', …) — ROUTES 객체의 이름 → 주소 ② JSX의 to="/주소"(Link, Navigate 등) ③ navigate("/주소") 호출.
  * @contract 읽히지 않는 이동(주소를 변수로 조립하는 등)은 라우트 도우미로 바꿔 쓰거나 이 검사의 경고로 남는다. 설정은 프로젝트 .spec/config.json의 "navigation": { "routes": "ROUTES", "helpers": ["toPath"] }다. 프로젝트에 typescript가 설치돼 있어야 읽는다.
  */
 import fs from 'node:fs';
@@ -25,6 +25,8 @@ export function detectNav(scanRoot: string, root: string, out: Extracted = extra
   const cfg = readConfig(root);
   const routesName = cfg.navigation?.routes || 'ROUTES';
   const helpers = new Set(cfg.navigation?.helpers || ['toPath']);
+  const hashHelpers = new Set(cfg.navigation?.hashHelpers || []);
+  const hashPrefix = cfg.navigation?.hashPrefix || '/';
   // 프로젝트가 쓰는 TypeScript가 오래된 버전이면 없을 수 있는 판별 함수
   const isSatisfies = (n: tsTypes.Node): boolean => !!(ts as unknown as { isSatisfiesExpression?: (n: tsTypes.Node) => boolean }).isSatisfiesExpression?.(n);
 
@@ -81,7 +83,13 @@ export function detectNav(scanRoot: string, root: string, out: Extracted = extra
       const visit = (n: tsTypes.Node): void => {
         if (ts.isCallExpression(n)) {
           const callee = ts.isIdentifier(n.expression) ? n.expression.text : ts.isPropertyAccessExpression(n.expression) ? n.expression.name.text : '';
-          if (helpers.has(callee)) { const key = strOf(n.arguments[0]); const addr = key ? table.get(key) : undefined; if (key && addr) add(addr, n, `${callee}('${key}')`); }
+          if (hashHelpers.has(callee)) {
+            // hash('보는 곳', 대상): 주소 #/보는 곳(/대상). 대상이 비어 있으면 붙이지 않는다
+            const view = strOf(n.arguments[0]);
+            const arg = n.arguments[1];
+            const has = !!arg && strOf(arg) !== '';
+            if (view) add(`${hashPrefix}#/${view}${has ? '/:x' : ''}`, n, `${callee}('${view}')`);
+          } else if (helpers.has(callee)) { const key = strOf(n.arguments[0]); const addr = key ? table.get(key) : undefined; if (key && addr) add(addr, n, `${callee}('${key}')`); }
           else if (callee === 'navigate' || callee === 'nav') { const v = strOf(n.arguments[0]); if (v && v.startsWith('/')) add(v, n, `${callee}("${v}")`); }
         } else if (ts.isJsxAttribute(n) && ts.isIdentifier(n.name) && n.name.text === 'to' && n.initializer) {
           const e = ts.isJsxExpression(n.initializer) ? n.initializer.expression : n.initializer;

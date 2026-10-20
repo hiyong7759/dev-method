@@ -10,7 +10,9 @@ import { mapView } from './map.js';
 import { infoMap, infoDrawer, infoOverview } from './info.js';
 import { screenView } from './screen.js';
 import type { ScreenViewHandle } from './screen.js';
-import { manageList, manageDetail } from './manage.js';
+import { manageList } from './manage-list.js';
+import { manageDetail } from './manage-detail.js';
+import { hash, nav as go } from './route.js';
 import type { Model } from '../types.js';
 
 /** 설계서 보기 틀의 전부가 그려지는 자리 */
@@ -24,16 +26,10 @@ const parse = (): Route => {
   const p = path.split('/').filter(Boolean).map(decodeURIComponent);
   return { view: p[0] || 'map', arg: p[1] || '', params: new URLSearchParams(qs) };
 };
-/** 가고 싶은 곳을 주소(#)로 만든다 */
-const hash = (view: string, arg = '', params: Record<string, string | undefined> = {}): string => {
-  const qs = new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => !!e[1])).toString();
-  return `#/${view}${arg ? `/${encodeURIComponent(arg)}` : ''}${qs ? `?${qs}` : ''}`;
-};
-/** 주소를 바꿔 이동한다(replace면 뒤로 가기 기록을 남기지 않는다) */
-const nav = (hh: string, replace?: boolean): void => { closeMenu(); if (replace) history.replaceState(null, '', hh); else location.hash = hh; };
-
 // 상단 메뉴(화면 ▾, 정보 ▾): 누르면 목록이 열리고, 바깥을 누르면 닫힌다
 function closeMenu(): void { menu?.remove(); menu = null; }
+/** 메뉴를 닫고 이동한다 */
+const nav = (hh: string, replace?: boolean): void => { closeMenu(); go(hh, replace); };
 function openMenu(anchor: HTMLElement, items: Kid[]): void {
   const was = menu;
   closeMenu();
@@ -105,13 +101,13 @@ function render(): void {
     const sel = r.arg || '';
     infoMap(body, m, {
       selected: sel, onSelect: (n) => nav(hash('info', n === sel ? '' : n)),
-      drawer: sel ? infoDrawer(m, sel, { onClose: () => nav(hash('info')), openInfo: (n) => nav(hash('info', n)), openScreen: (n) => nav(hash('screen', n)) }) : infoOverview(m, { openInfo: (n) => nav(hash('info', n)) }),
+      drawer: sel ? infoDrawer(m, sel, { onClose: () => nav(hash('info')), openInfo: (n) => nav(hash('info', n)) }) : infoOverview(m, { openInfo: (n) => nav(hash('info', n)) }),
     });
   } else if (r.view === 'manage') {
-    if (r.arg) manageDetail(body, { model: m, id: r.arg, back: () => nav(hash('manage')), open: (id) => nav(hash('manage', String(id))) });
-    else manageList(body, { model: m, open: (id) => nav(hash('manage', String(id))) });
+    if (r.arg) manageDetail(body, { model: m, id: r.arg });
+    else manageList(body, { model: m });
   } else {
-    mapView(body, { model: m, domain: r.params.get('domain') || '', setDomain: (d) => nav(hash('map', '', { domain: d })), openScreen: (n) => nav(hash('screen', n)) });
+    mapView(body, { model: m, domain: r.params.get('domain') || '' });
   }
 }
 

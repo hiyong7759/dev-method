@@ -126,6 +126,10 @@ export function buildModel(scanRoot: string): Model {
         const t = findTarget(m[1]);
         if (t && t.name !== i.name) relations.push({ from: i.name, to: t.name, field: p.name, fieldDoc: clean(p.doc), weak: false, many: p.optional ? '0..N' : 'N' });
       }
+      // 필드의 타입이 다른 정보를 담으면(예: screens: ModelScreen[]) 그 정보를 품은 관계다
+      for (const other of infoByName.keys()) {
+        if (other !== i.name && new RegExp(`\\b${other}\\b`).test(p.type || '') && !relations.some((x) => x.from === i.name && x.to === other && x.field === p.name)) relations.push({ from: i.name, to: other, field: p.name, fieldDoc: clean(p.doc), weak: false, many: /\[\]|Record|Map|Set/.test(p.type || '') ? 'N' : p.optional ? '0..1' : '1' });
+      }
       const r = (p.doc || '').match(/@ref\s+(\w+)\.(\w+)/);
       if (r && infoByName.has(r[1])) relations.push({ from: i.name, to: r[1], field: p.name, fieldDoc: clean(p.doc), weak: true, many: 'N', targetField: r[2] });
     }
@@ -151,8 +155,9 @@ export function buildModel(scanRoot: string): Model {
       const roles = newRoleSets();
       const evidence: Evidence[] = [];
       for (const ref of p.refs) {
-        const ui = UI_EXT.test(ref.file);
         const owners = screenOfFile(ref.file);
+        // 화면 파일(@screen이 있거나 거기서 불러오는 파일)에서 읽고 쓰는 것은 JSX가 아니어도 화면의 일로 본다
+        const ui = UI_EXT.test(ref.file) || owners.length > 0;
         const sp = nearestSpec(out.specs, rel(ref.file), ref.line);
         if (!ref.write) {
           if (ui) {

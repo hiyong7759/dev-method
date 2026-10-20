@@ -871,5 +871,9 @@ export interface ProjectConfig {
     routes?: string;
     /** 이동을 일으키는 도우미 함수 이름들 */
     helpers?: string[];
+    /** 주소(#/…)를 만드는 도우미 함수 이름들(예: hash). 첫 글자값이 보는 곳, 둘째 값이 있으면 대상이다 */
+    hashHelpers?: string[];
+    /** 도우미가 만든 주소 앞에 붙는 길(예: /__spec/) */
+    hashPrefix?: string;
   };
 }

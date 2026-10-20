@@ -1,1 +1,12 @@
-{ "src": "src", "app": null, "port": 5291, "designCanvas": "https://claude.ai/artifact/5MoFMTffYvnTHthTrWMn51" }
+{
+  "src": "src",
+  "app": null,
+  "port": 5291,
+  "designCanvas": "https://claude.ai/artifact/5MoFMTffYvnTHthTrWMn51",
+  "navigation": {
+    "hashHelpers": [
+      "hash"
+    ],
+    "hashPrefix": "/__spec/"
+  }
+}

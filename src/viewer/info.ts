@@ -4,6 +4,7 @@
  * @contract model.infos, model.relations, model.screens[].fields를 그대로 그린다. 관계도는 창 폭에 맞춰 상자를 줄바꿈해 놓으므로, 창 폭이 바뀌면 부르는 쪽(app.ts)이 다시 그려야 한다. 오른쪽 패널은 항상 열려 있다(고르기 전에는 한눈에 보기).
  */
 import { h, ROLES, ROLE_LABEL } from './util.js';
+import { hash, nav } from './route.js';
 import type { Model, ModelInfo, RefKind } from '../types.js';
 
 /** 이 화면에서의 쓰임을 정보 상세 맨 위에 따로 보인다. 앱 전체의 쓰임과 섞이지 않게 한다 */
@@ -32,12 +33,12 @@ export interface DrawerOptions {
   onClose?: () => void;
   /** 다른 정보를 연다 */
   openInfo: (name: string) => void;
-  /** 화면을 연다 */
-  openScreen: (name: string) => void;
+  /** 화면을 연다. 없으면 그 화면의 설계서 주소로 이동한다 */
+  openScreen?: (name: string) => void;
 }
 
 /** 정보 상세 — 존재 이유, 관계, 정보의 흐름(입력·보여줌·수정·판단), 필드 */
-export function infoDrawer(model: Model, name: string, { focusField, currentScreen, locNote, onClose, openInfo, openScreen }: DrawerOptions): HTMLElement {
+export function infoDrawer(model: Model, name: string, { focusField, currentScreen, locNote, onClose, openInfo, openScreen = (n) => nav(hash('screen', n)) }: DrawerOptions): HTMLElement {
   const open = new Set<string>(focusField ? [focusField] : []);
   const info = model.infos.find((i) => i.name === name);
   const el = h('div', { class: 'side-in', style: 'display:flex;flex-direction:column;min-height:0;flex:1' });
@@ -94,6 +95,7 @@ export interface InfoMapOptions {
  * @route /__spec/#/info
  * @domain 현행
  * @why 앱이 다루는 정보와 그 관계, 어느 화면이 입력·보여줌·수정·판단을 하는지를 한눈에 보게 한다. 가리키는 정보(1)를 위에, 가리키는 쪽(N)을 아래에 놓는다.
+ * @to 화면 설계서 | 오른쪽 패널의 "쓰이는 화면" 이름을 누른다 | 화면 이름
  * @does 정보 상자를 눌러 필드와 쓰이는 화면을 본다 | 오른쪽 패널에 필드와 흐름이 나온다
  * @does 같은 상자를 다시 눌러 전체 요약으로 돌아간다 | 오른쪽 패널이 한눈에 보기로 바뀐다
  */
