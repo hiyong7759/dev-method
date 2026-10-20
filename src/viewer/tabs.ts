@@ -40,7 +40,7 @@ export function overview(c: ScreenCtx): HTMLElement {
       h('div', { class: 'mv-row' }, h('span', { class: 'mv-vk' }, '이벤트'), h('span', null, w.action || '적지 않음')),
       h('div', { class: 'mv-row' }, h('span', { class: 'mv-vk' }, dir === 'in' ? '받는 값' : '넘기는 값'), vals.length ? h('span', { class: 'mv-vals' }, vals.map((v) => h('span', { class: 'mv-val mono' }, v))) : h('span', { style: 'color:var(--dim2)' }, '없음')),
       dir === 'out' && 'verified' in w && w.verified === false ? h('div', { class: 'mv-warn' }, '코드에서 이 이동을 찾지 못했다') : null,
-      h('button', { class: 'smallbtn', style: 'align-self:flex-start', onclick: () => c.go(other) }, `${other} 열기 ›`)];
+      h('button', { class: 'btn sm', style: 'align-self:flex-start', onclick: () => c.go(other) }, `${other} 열기 ›`)];
     detail.replaceChildren(...parts.filter((x): x is HTMLElement => x !== null));
   };
   const pill = (dir: 'in' | 'out', w: Way, other: string): HTMLButtonElement => {
@@ -78,10 +78,10 @@ export function components(c: ScreenCtx): HTMLElement {
       h('div', { class: 'crow' }, h('span', { class: 'k' }, '이유'), s.why ? h('span', { class: 'v' }, s.why) : h('span', { class: 'v empty' }, '미작성')),
       s.basis ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '근거'), h('span', { class: 'v' }, s.basis)) : null,
       s.contract ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '약속'), h('span', { class: 'v' }, s.contract)) : null,
-      (s.kind === 'dom' && s.reveal && !c.isOnScreen(s.id)) ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '나타남'), h('div', { class: 'v' }, `처음에는 숨어 있다 — ${s.reveal.map(stepLabel).join(' → ')} 순서로 하면 나타난다`, h('div', null, h('button', { class: 'smallbtn', style: 'margin-top:6px', onclick: async (ev) => { ev.stopPropagation(); const ok = await c.revealSpec(s.id); if (ok) { c.focusSpec(s.id); } else alert('화면을 열지 못했다. 화면 상태가 바뀌었을 수 있다'); c.render(); } }, '열어서 보기')))) : null,
+      (s.kind === 'dom' && s.reveal && !c.isOnScreen(s.id)) ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '나타남'), h('div', { class: 'v' }, `처음에는 숨어 있다 — ${s.reveal.map(stepLabel).join(' → ')} 순서로 하면 나타난다`, h('div', null, h('button', { class: 'btn sm', style: 'margin-top:6px', onclick: async (ev) => { ev.stopPropagation(); const ok = await c.revealSpec(s.id); if (ok) { c.focusSpec(s.id); } else alert('화면을 열지 못했다. 화면 상태가 바뀌었을 수 있다'); c.render(); } }, '열어서 보기')))) : null,
       s.kind !== 'logic' ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '동작'),
         s.ons.length ? h('div', { class: 'v' }, s.ons.map((o) => h('div', { style: 'margin-bottom:6px' }, h('span', { class: 'evt' }, o.event), h('div', null, o.effect)))) : h('span', { class: 'v empty' }, '@on 없음 — 표시만 하는 요소이거나 아직 적지 않았다')) : null,
-      memoForm ? memoEditor(c) : h('div', null, h('button', { class: 'smallbtn', onclick: () => c.startMemoFor(s) }, '메모 남기기')));
+      memoForm ? memoEditor(c) : h('div', null, h('button', { class: 'btn sm', onclick: () => c.startMemoFor(s) }, '메모 남기기')));
   };
   el.append(h('div', { class: 'zone' }, '화면 요소', h('small', null, `${dom.length}개`)));
   dom.forEach((s) => el.append(card(s)));
@@ -125,7 +125,7 @@ export function memoEditor(c: ScreenCtx): HTMLElement {
   return h('div', { style: 'display:flex;flex-direction:column;gap:10px' },
     d.type !== 'component' ? targetCard(c, d) : null, ta,
     h('div', { style: 'font-size:12px;color:var(--dim);line-height:1.5' }, "저장한 뒤 '처리 요청 복사'를 에이전트에 붙여 넣으면 같이 고칩니다. 붙여 넣기 전까지 메모는 대기로 남습니다."),
-    h('div', { class: 'btns', style: 'justify-content:flex-end' }, h('button', { class: 'smallbtn', onclick: () => { c.draft = null; c.draftText = ''; c.render(); } }, '취소'), h('button', { class: 'smallbtn pri', onclick: save }, '저장')));
+    h('div', { class: 'btns', style: 'justify-content:flex-end' }, h('button', { class: 'btn sm', onclick: () => { c.draft = null; c.draftText = ''; c.render(); } }, '취소'), h('button', { class: 'btn pri sm', onclick: save }, '저장')));
 }
 /** 메모 탭: 새 메모를 시작하는 버튼과 이 화면의 메모 목록 */
 export function memoTab(c: ScreenCtx): HTMLElement {
@@ -136,9 +136,9 @@ export function memoTab(c: ScreenCtx): HTMLElement {
   if (c.draft && c.draft.type !== 'component') el.append(h('div', { class: 'sec' }, h('h4', null, '새 메모 — 화면 영역'), memoEditor(c)));
   else if (c.draft) el.append(h('div', { class: 'sec' }, h('h4', null, '새 메모 — 컴포넌트'), h('div', { style: 'font-size:12px;color:var(--dim)' }, '컴포넌트 탭의 카드에서 이어서 적는다')));
   else el.append(h('div', { class: 'btns' },
-    h('button', { class: 'smallbtn pri', onclick: () => c.startRegion() }, '화면 영역 메모'),
-    h('button', { class: 'smallbtn', onclick: () => c.startMemoFor(null) }, '화면 전체 메모'),
-    h('button', { class: 'smallbtn', onclick: () => c.setTab('components') }, '컴포넌트에 남기기')));
+    h('button', { class: 'btn pri sm', onclick: () => c.startRegion() }, '화면 영역 메모'),
+    h('button', { class: 'btn sm', onclick: () => c.startMemoFor(null) }, '화면 전체 메모'),
+    h('button', { class: 'btn sm', onclick: () => c.setTab('components') }, '컴포넌트에 남기기')));
   el.append(h('div', { class: 'sec' }, h('h4', null, `이 화면의 메모 · ${mine.length}`, h('small', null, `대기 ${n('pending')} · 응답됨 ${n('answered')} · 반영됨 ${n('applied')}`))));
   if (!mine.length) el.append(h('div', { style: 'font-size:12px;color:var(--dim2);line-height:1.6' }, '아직 메모가 없다. 컴포넌트 카드의 "메모 남기기"나 화면 위 영역 선택으로 한 줄을 남기면 된다.'));
   for (const m of mine) {
@@ -149,7 +149,7 @@ export function memoTab(c: ScreenCtx): HTMLElement {
       m.target?.shot ? h('img', { src: `/__spec/shots/${m.target.shot}`, style: 'max-width:100%;max-height:140px;object-fit:contain;border-radius:6px;border:1px solid var(--line);background:#fff;align-self:flex-start', onerror: (e) => (e.target as HTMLElement).remove() }) : null,
       m.reply ? h('div', { class: 'reply' }, h('div', { class: 'meta' }, `에이전트 · ${fmt(m.reply.at)}`), m.reply.text) : null,
       m.applied ? h('div', { class: 'diff' }, h('div', { class: 'p' }, `반영: ${m.applied.change || '(내용 없음)'}`), h('div', { class: 'mmeta', style: 'margin-top:4px' }, `커밋 ${m.applied.commit || '—'}`)) : null,
-      (m.state === 'answered' || m.state === 'applied') ? h('div', { class: 'btns', style: 'justify-content:flex-end' }, h('button', { class: 'smallbtn pri', onclick: async () => { await post('/__spec/memo/confirm', { id: m.id }); await c.refresh(); } }, '확인 완료')) : null));
+      (m.state === 'answered' || m.state === 'applied') ? h('div', { class: 'btns', style: 'justify-content:flex-end' }, h('button', { class: 'btn pri sm', onclick: async () => { await post('/__spec/memo/confirm', { id: m.id }); await c.refresh(); } }, '확인 완료')) : null));
   }
   return el;
 }
@@ -186,8 +186,8 @@ export function approval(c: ScreenCtx): HTMLElement {
       radios.map(([v, l]) => h('div', { class: `rad${(ap.target || 'screen') === v ? ' on' : ''}`, onclick: () => { ap.target = v; if (v === 'region') c.startRegion({ forError: true }); c.render(); } }, h('i'), l)),
       ap.region ? h('div', { style: 'margin:8px 0' }, targetCard(c, ap.region)) : null, ta,
       h('div', { style: 'font-size:12px;color:var(--dim);margin:8px 0' }, `지금 소스 버전(${st.commit || '—'})과 함께 저장된다.`),
-      h('div', { class: 'btns', style: 'justify-content:flex-end' }, h('button', { class: 'smallbtn', onclick: () => { c.ap = { problem: false }; c.render(); } }, '취소'),
-        h('button', { class: 'smallbtn', style: 'background:var(--red);color:var(--on-red);border-color:var(--red);font-weight:700', onclick: async () => {
+      h('div', { class: 'btns', style: 'justify-content:flex-end' }, h('button', { class: 'btn sm', onclick: () => { c.ap = { problem: false }; c.render(); } }, '취소'),
+        h('button', { class: 'btn bad sm', onclick: async () => {
           if (!ap.text?.trim()) return toast('문제를 한 줄로 적어 주세요');
           const t = ap.target || 'screen';
           const target: MemoTarget = t === 'region' && ap.region ? { ...ap.region } : { type: 'screen', route: c.route() };
@@ -201,8 +201,8 @@ export function approval(c: ScreenCtx): HTMLElement {
     el.append(h('div', { class: 'hbox' }, '아직 개발 중입니다. 에이전트가 자체 점검(경고 0, 화면 열림, 설계서 보기 열림)을 마치고 "테스트 요청"을 남기면, 이곳에 확인 목록과 승인이 열립니다.'));
   } else if (st.status === 'test-requested') {
     el.append(checklist());
-    el.append(h('div', { class: 'btns' }, h('button', { class: 'smallbtn bad', style: 'min-height:38px;padding:0 18px', onclick: () => { c.ap = { problem: true }; c.render(); } }, '문제 있음'),
-      h('button', { class: `smallbtn ${allDone ? 'good' : ''}`, style: 'min-height:38px;padding:0 18px', disabled: allDone ? null : true, onclick: approve }, allDone ? '승인' : '승인 (모두 확인하면 켜짐)')));
+    el.append(h('div', { class: 'btns' }, h('button', { class: 'btn bad sm', style: 'min-height:38px;padding:0 18px', onclick: () => { c.ap = { problem: true }; c.render(); } }, '문제 있음'),
+      h('button', { class: `btn sm${allDone ? ' ok' : ''}`, disabled: allDone ? null : true, onclick: approve }, allDone ? '승인' : '승인 (모두 확인하면 켜짐)')));
     el.append(h('div', { style: 'font-size:12px;color:var(--dim);line-height:1.6' }, '문제는 "문제 있음"으로 메모에 남긴다. 승인하면 이 소스 버전이 기준이 되고, 승인한 사람과 시각이 기록된다.'));
   } else if (st.status === 'needs-fix') {
     el.append(h('div', { class: 'apcard red' }, h('h5', null, '수정 필요'), h('div', { class: 'kv' }, kv('기록한 사람', st.by === 'user' ? '사용자' : '에이전트'), kv('시각', fmt(st.at)), kv('내용', st.note || '—'))));
@@ -210,7 +210,7 @@ export function approval(c: ScreenCtx): HTMLElement {
   } else if (st.status === 'approved') {
     el.append(h('div', { class: 'apcard' }, h('h5', null, '승인됨'), h('div', { class: 'kv' }, kv('승인한 사람', '사용자'), kv('시각', fmt(st.at)), kv('소스 버전', h('b', { class: 'mono' }, st.commit || '—')), kv('기준 화면', st.shot ? h('img', { src: `/__spec/shots/${st.shot}`, style: 'max-width:100%;max-height:150px;border-radius:6px;border:1px solid var(--line);background:#fff', onerror: (e) => (e.target as HTMLElement).replaceWith('스크린샷 없음') }) : '저장 안 됨'), kv('확인한 것', sc.does.length ? `${sc.does.map((d) => d.title).join(' · ')} (${doneN}/${sc.does.length})` : '확인 목록 없음'))));
     el.append(h('div', { class: 'hbox' }, h('span', null, '이후 이 화면의 소스가 바뀌면 자동으로 '), h('b', { style: 'color:var(--amber)' }, '승인 후 변경됨'), h('span', null, '이 되고, 바뀐 곳을 보고 다시 승인한다.')));
-    el.append(h('div', { class: 'btns' }, h('button', { class: 'smallbtn', onclick: async () => { await post('/__spec/status.json', { screen: sc.name, status: 'dev', note: '승인 취소' }); await c.refresh(); } }, '승인 취소'), h('button', { class: 'smallbtn pri', onclick: () => c.setTab('history') }, '히스토리 보기 ›')));
+    el.append(h('div', { class: 'btns' }, h('button', { class: 'btn sm', onclick: async () => { await post('/__spec/status.json', { screen: sc.name, status: 'dev', note: '승인 취소' }); await c.refresh(); } }, '승인 취소'), h('button', { class: 'btn pri sm', onclick: () => c.setTab('history') }, '히스토리 보기 ›')));
   } else if (st.status === 'approved-changed') {
     const box = h('div', { class: 'apcard amber' }, h('h5', null, '승인 후 변경됨', h('span', { class: 'mmeta', style: 'float:right;font-weight:400' }, `마지막 승인 ${fmt(st.at)} · ${st.commit || '—'}`)),
       h('div', { style: 'font-size:13px;line-height:1.55;margin-bottom:10px' }, `이 화면이 쓰는 소스(화면 파일과 불러 쓰는 파일 ${st.files}개)가 승인 뒤 바뀌었다. 지금 모습을 확인하고 승인하면 이 상태가 새 기준이 된다.`));
@@ -225,7 +225,7 @@ export function approval(c: ScreenCtx): HTMLElement {
       const after = items.filter((i): i is HistoryCommit => i.type === 'commit' && i.at > st.at);
       list.replaceChildren(h('div', { style: 'font-size:13px;font-weight:700;margin-bottom:6px' }, `그 뒤 바뀐 것 · ${after.length}`), ...(after.length ? after.map((i) => h('div', { style: 'padding:8px 10px;border-radius:8px;background:var(--inset);margin-bottom:6px;font-size:12px' }, h('span', { class: `kindtag ${i.kind === '오류 수정' ? 'k2' : 'k1'}` }, i.kind), i.title, h('div', { class: 'mmeta mono', style: 'margin-top:4px' }, `${i.hash} · ${fmt(i.at)}${i.request ? ` · 요청: ${i.request.split('—')[0].trim()}` : ''}`))) : [h('div', { style: 'font-size:12px;color:var(--dim)' }, '아직 커밋되지 않은 변경입니다(작업 중인 파일).')]));
     }).catch(() => {});
-    box.append(h('div', { class: 'btns', style: 'margin-top:10px' }, h('button', { class: 'smallbtn bad', onclick: () => { c.ap = { problem: true }; c.render(); } }, '문제 있음 (메모로)'), h('button', { class: 'smallbtn good', onclick: approve }, '이대로 승인')),
+    box.append(h('div', { class: 'btns', style: 'margin-top:10px' }, h('button', { class: 'btn bad sm', onclick: () => { c.ap = { problem: true }; c.render(); } }, '문제 있음 (메모로)'), h('button', { class: 'btn ok sm', onclick: approve }, '이대로 승인')),
       h('div', { style: 'font-size:12px;color:var(--dim);margin-top:10px;line-height:1.5' }, '승인하면 날짜·승인한 사람·소스 버전이 기록되고 이 소스가 기준으로 저장된다.'));
     el.append(box);
   }
@@ -266,7 +266,7 @@ export function history(c: ScreenCtx): HTMLElement {
         open ? h('div', { style: 'padding:0 10px 10px;display:flex;flex-direction:column;gap:8px' },
           pl.hunks.map((hk) => h('div', null, h('div', { class: 'mmeta mono', style: 'margin-bottom:3px' }, `${pl.file}:${hk.line}`),
             hk.removed.map((x) => h('div', { class: 'dline m' }, `− ${x}`)), hk.added.map((x) => h('div', { class: 'dline p' }, `+ ${x}`)))),
-          pl.kind === 'info' && pl.info ? h('button', { class: 'smallbtn', style: 'align-self:flex-start', onclick: (ev) => { ev.stopPropagation(); c.openInfo(pl.info as string, pl.prop || undefined); } }, '정보 상세 열기 ›') : null) : null);
+          pl.kind === 'info' && pl.info ? h('button', { class: 'btn sm', style: 'align-self:flex-start', onclick: (ev) => { ev.stopPropagation(); c.openInfo(pl.info as string, pl.prop || undefined); } }, '정보 상세 열기 ›') : null) : null);
     };
     // 상세 보기: 어디를 어떻게 고쳤는지(개발자도 확인할 수 있는 수준)
     const detail = (i: HistoryCommit): HTMLElement => {
@@ -305,7 +305,7 @@ export function history(c: ScreenCtx): HTMLElement {
           h('div', { class: 'tit' }, i.title),
           (i.before || i.after) ? h('div', { style: 'display:flex;gap:8px' }, thumb(i.before, '변경 전'), thumb(i.after, '변경 후')) : null,
           ...reasonRows(i),
-          h('button', { class: 'smallbtn', style: 'align-self:flex-start', onclick: () => { c.hSel = open ? null : key; c.hOpen = new Set(); c.setFlash(open ? [] : (i.touchedSpecs || [])); draw(); } }, open ? '상세 닫기 ▾' : '상세 보기 ▸'),
+          h('button', { class: 'btn sm', style: 'align-self:flex-start', onclick: () => { c.hSel = open ? null : key; c.hOpen = new Set(); c.setFlash(open ? [] : (i.touchedSpecs || [])); draw(); } }, open ? '상세 닫기 ▾' : '상세 보기 ▸'),
           open ? detail(i) : null));
       }) : [h('div', { style: 'font-size:12px;color:var(--dim2);line-height:1.6' }, '아직 이력이 없다. 이 화면의 소스를 바꾼 커밋과 승인 기록이 여기에 쌓인다')]));
     };

@@ -3,7 +3,7 @@
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#faf6f0;--bg2:#f2ece3;--card:#ffffff;--line:#ded5c8;--line2:#b9ae9e;--text:#26221d;--text2:#3d372f;--dim:#6b6256;--dim2:#8a8072;--accent:#2f4fb0;--accent-deep:#8fa3e0;--accent-bg:#e6ebfb;--green:#1f7a5f;--green-deep:#7fc0aa;--green-bg:#e3f3ed;--green-text:#1f6b53;--amber:#9a6a0a;--amber-deep:#d9b866;--amber-bg:#fbf1da;--red:#c23b45;--red-deep:#e3a0a6;--red-bg:#fbe6e8;--red-text:#a02a33;--red-strong:#d13a40;--purple:#6a49c2;--purple-deep:#b7a5e6;--purple-bg:#eee8fa;--inset:#efe8dd;--on-accent:#ffffff;--on-green:#ffffff;--on-red:#ffffff;--hl:#f5b800;--on-hl:#2a2108;color-scheme:light}}
 :root[data-theme="light"]{--bg:#faf6f0;--bg2:#f2ece3;--card:#ffffff;--line:#ded5c8;--line2:#b9ae9e;--text:#26221d;--text2:#3d372f;--dim:#6b6256;--dim2:#8a8072;--accent:#2f4fb0;--accent-deep:#8fa3e0;--accent-bg:#e6ebfb;--green:#1f7a5f;--green-deep:#7fc0aa;--green-bg:#e3f3ed;--green-text:#1f6b53;--amber:#9a6a0a;--amber-deep:#d9b866;--amber-bg:#fbf1da;--red:#c23b45;--red-deep:#e3a0a6;--red-bg:#fbe6e8;--red-text:#a02a33;--red-strong:#d13a40;--purple:#6a49c2;--purple-deep:#b7a5e6;--purple-bg:#eee8fa;--inset:#efe8dd;--on-accent:#ffffff;--on-green:#ffffff;--on-red:#ffffff;--hl:#f5b800;--on-hl:#2a2108;color-scheme:light}
 *{box-sizing:border-box}
-.top *,.tabs button,.pill,.smallbtn,.chip-st,.dtag{white-space:nowrap}
+.top *,.tabs button,.pill,.btn,.chip-st,.dtag{white-space:nowrap}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,sans-serif;font-size:14px}
 button{font:inherit;color:inherit;cursor:pointer}
 .mono{font-family:ui-monospace,'JetBrains Mono',Menlo,monospace}
@@ -153,11 +153,6 @@ button{font:inherit;color:inherit;cursor:pointer}
 .evt{display:inline-block;font-size:11px;padding:1px 8px;border-radius:5px;border:1px solid var(--accent-deep);color:var(--accent);margin-bottom:3px}
 .zone{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--text2);padding:0 2px}
 .zone small{font-weight:400;color:var(--dim)}
-.smallbtn{min-height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--line);background:var(--card);font-size:12px}
-.smallbtn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
-.smallbtn.bad{border-color:var(--red);color:var(--red);background:none}
-.smallbtn.good{background:var(--green);color:var(--on-green);border-color:var(--green);font-weight:700}
-.smallbtn[disabled]{opacity:.5;cursor:not-allowed;border-style:dashed}
 .btns{display:flex;gap:8px;flex-wrap:wrap}
 .hbox{font-size:12px;line-height:1.55;color:var(--text2);padding:12px;border:1px dashed var(--line2);border-radius:10px}
 textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--inset);color:var(--text);font:inherit;font-weight:700;resize:vertical}
@@ -372,8 +367,12 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid;white-space:nowrap}
 .chip.me{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-deep)}.chip.ag{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-deep)}
 .chip.ok{background:var(--green-bg);color:var(--green);border-color:var(--green-deep)}.chip.dim{background:var(--bg2);color:var(--dim);border-color:var(--line)}
-.btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--text);font-size:13px;font-weight:700;min-height:36px}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--text);font-size:13px;font-weight:700;min-height:36px;cursor:pointer}
 .btn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.ok{background:var(--green);color:var(--on-green);border-color:var(--green)}
+.btn.bad{background:var(--red-bg);color:var(--red);border-color:var(--red-deep)}
+.btn.sm{padding:5px 10px;min-height:30px;font-size:12px}
+.btn[disabled],.btn.off{opacity:.45;cursor:not-allowed}
 .mg-card{padding:16px;border-radius:12px;border:1px solid var(--line);background:var(--card);display:flex;flex-direction:column;gap:10px}
 .mg-card h3{margin:0;font-size:14px}
 .crumb{color:var(--dim);font-size:12px}.crumb a{color:var(--accent)}
