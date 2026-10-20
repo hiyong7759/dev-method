@@ -5,7 +5,13 @@
  */
 import { h, ROLES, ROLE_LABEL } from './util.js';
 import { hash, nav } from './route.js';
-import type { Model, ModelInfo, RefKind } from '../types.js';
+import type { InfoKind, Model, ModelInfo, RefKind } from '../types.js';
+
+/** 정보 보기 구분: 전체 / 화면용 / 내부용 */
+export type InfoFilter = 'all' | InfoKind;
+const FILTER_LABEL: Record<InfoFilter, string> = { all: '전체', screen: '화면용', internal: '내부용' };
+/** 구분에 맞는 정보만 */
+export const infosOf = (model: Model, f: InfoFilter): ModelInfo[] => (f === 'all' ? model.infos : model.infos.filter((i) => i.kind === f));
 
 /** 이 화면에서의 쓰임을 정보 상세 맨 위에 따로 보인다. 앱 전체의 쓰임과 섞이지 않게 한다 */
 function thisScreen(model: Model, info: ModelInfo, screenName: string, focusField: string | undefined, locNote: string | undefined): HTMLElement {
@@ -84,6 +90,10 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
 export interface InfoMapOptions {
   /** 고른 정보 이름(없으면 빈 글) */
   selected: string;
+  /** 보는 구분(전체/화면용/내부용) */
+  filter: InfoFilter;
+  /** 구분을 바꿀 때 */
+  onFilter: (f: InfoFilter) => void;
   /** 상자를 눌렀을 때 */
   onSelect: (name: string) => void;
   /** 오른쪽 패널에 보일 내용(항상 있다) */
@@ -99,8 +109,8 @@ export interface InfoMapOptions {
  * @does 정보 상자를 눌러 필드와 쓰이는 화면을 본다 | 오른쪽 패널에 필드와 흐름이 나온다
  * @does 같은 상자를 다시 눌러 전체 요약으로 돌아간다 | 오른쪽 패널이 한눈에 보기로 바뀐다
  */
-export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, drawer }: InfoMapOptions): void {
-  const infos = model.infos;
+export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, drawer, filter, onFilter }: InfoMapOptions): void {
+  const infos = infosOf(model, filter);
   const level: Record<string, number> = {};
   const strong = model.relations.filter((r) => !r.weak);
   const lv = (n: string, seen: string[] = []): number => {
@@ -176,14 +186,16 @@ export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, d
     const p = pos[i.name];
     const doc1 = i.doc ? i.doc.split(/[.。]/)[0] : '';
     const node = h('div', { class: `inode${i.unused ? ' unused' : ''}${selected === i.name ? ' sel' : ''}${selected && selected !== i.name ? ' dim' : ''}`, style: `left:${p.x}px;top:${p.y}px;height:${p.h}px`, title: `${i.name}${doc1 ? ' — ' + doc1 : ''}`, onclick: () => onSelect(i.name) },
-      h('div', { class: 'h' }, h('b', null, i.name), h('span', null, i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1)),
+      h('div', { class: 'h' }, h('b', null, i.name, i.kind === 'internal' ? h('em', { class: 'kind-tag' }, '내부') : null), h('span', null, i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1)),
       h('div', { class: 'c' }, ROLES.map((r) => h('span', { class: `cnt-chip ${r}${i.flow[r].length ? '' : ' zero'}` }, `${ROLE_LABEL[r]} ${i.flow[r].length}`))));
     erd.append(node);
   }
   const spacer = h('div', { style: `width:${canvasW}px;height:${canvasH}px` });
   erd.append(spacer);
   if (!infos.length) erd.append(h('div', { class: 'empty-note' }, '정보를 찾지 못했다', h('br'), model.analysisError || '타입을 export한 정의가 있고 쓰이는 곳이 있어야 보인다'));
+  const count = (f: InfoFilter): number => infosOf(model, f).length;
   root.append(h('div', { class: 'legend' },
+    h('div', { class: 'seg' }, (['all', 'screen', 'internal'] as InfoFilter[]).map((f) => h('button', { class: filter === f ? 'on' : '', onclick: () => onFilter(f) }, `${FILTER_LABEL[f]} ${count(f)}`))),
     h('span', null, '관계선'), h('span', { class: 'mono' }, '──'), h('span', null, '소유 (실제 연결)'), h('span', { class: 'mono' }, '┄┄'), h('span', null, '약한 연결 (값으로만 가리킴)'),
     h('span', { style: 'margin-left:12px' }, '표시'), ROLES.map((r) => h('span', { class: `cnt-chip ${r}`, style: 'font-size:12px;padding:2px 10px' }, ROLE_LABEL[r])), h('span', { style: 'color:var(--dim)' }, '= 그 일을 하는 곳의 수')));
   root.append(h('div', { class: 'erd-wrap' }, erd, drawer ? h('aside', { class: 'side', style: 'width:420px' }, drawer) : null));
@@ -205,7 +217,7 @@ export function infoOverview(model: Model, { openInfo }: { openInfo: (name: stri
       h('div', { class: 'reason' }, h('div', { class: 'k' }, '이 화면을 읽는 법'),
         h('div', { class: 'v' }, '상자 하나가 앱이 다루는 정보 하나입니다. 선은 정보끼리 이어진 관계이고, 실선은 실제 연결, 점선은 값으로만 가리키는 약한 연결입니다. 상자의 숫자는 입력·보여줌·수정·판단을 하는 곳의 수입니다.'),
         h('div', { class: 'w' }, '상자를 누르면 필드와 쓰이는 화면이 이 자리에 나옵니다. 같은 상자를 다시 누르면 이 요약으로 돌아옵니다.')),
-      sec('전체', h('div', { style: 'font-size:13px;line-height:1.8' }, `정보 ${infos.length}개 · 필드 ${infos.reduce((n, i) => n + i.props.length, 0)}개`, h('br'), `관계 ${model.relations.length}개 (실제 연결 ${strong} · 약한 연결 ${model.relations.length - strong})`)),
+      sec('전체', h('div', { style: 'font-size:13px;line-height:1.8' }, `정보 ${infos.length}개 (화면용 ${infos.filter((i) => i.kind === 'screen').length} · 내부용 ${infos.filter((i) => i.kind === 'internal').length}) · 필드 ${infos.reduce((n, i) => n + i.props.length, 0)}개`, h('br'), `관계 ${model.relations.length}개 (실제 연결 ${strong} · 약한 연결 ${model.relations.length - strong})`)),
       sec('여러 곳에서 쓰는 정보', busy.length ? busy.map((i) => link(i, `쓰는 곳 ${placesOf(i)}`)) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '아직 없다')),
       sec('정리 후보 — 쓰는 곳이 없다', unused.length ? unused.map((i) => link(i, '쓰는 곳 없음')) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '없다')),
       sec('확인이 필요한 필드가 있는 정보', flagged.length ? flagged.map((i) => link(i, `확인 ${i.flagged}`)) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '없다'))));

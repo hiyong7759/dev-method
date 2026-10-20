@@ -693,6 +693,9 @@ export interface ModelProp {
   evidence: Evidence[];
 }
 
+/** 정보의 쓰임: 화면이 보여주거나 입력받는 정보(screen)인지, 화면과 닿지 않는 내부용(internal)인지 */
+export type InfoKind = 'screen' | 'internal';
+
 /** 화면에 보여 줄 정보 하나 */
 export interface ModelInfo {
   /** 정보 이름 */
@@ -707,6 +710,8 @@ export interface ModelInfo {
   doc: string;
   /** 어디에서도 쓰이지 않는가 */
   unused: boolean;
+  /** 화면용인지 내부용인지(화면이 보여주거나 입력받거나 고치면 화면용). 코드에서 계산한다 */
+  kind: InfoKind;
   /** 역할별로 쓰는 화면이나 모듈 */
   flow: Record<Role, string[]>;
   /** 필드들 */

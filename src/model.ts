@@ -103,7 +103,7 @@ export function buildModel(scanRoot: string): Model {
   try { analysis = cachedAnalysis(root); } catch (e) { analysisError = errorText(e); }
   const kept: AnalyzedInfo[] = (analysis?.infos ?? []).filter((i) => i.props.length && !NONINFO.test(i.doc || ''));
   const infos: ModelInfo[] = kept.map((i) => ({
-    name: i.name, file: i.file, fileSrc: path.relative(scanRoot, path.join(root, i.file)), line: i.line, unused: i.unused, doc: clean(i.doc),
+    name: i.name, file: i.file, fileSrc: path.relative(scanRoot, path.join(root, i.file)), line: i.line, unused: i.unused, kind: 'internal', doc: clean(i.doc),
     flow: { shown: [], input: [], modify: [], judge: [] }, flagged: 0, unfilled: i.props.filter((p) => !p.doc).length,
     props: i.props.map((p) => ({ name: p.name, type: p.type, optional: p.optional, doc: clean(p.doc), line: p.line, status: p.status, roles: { shown: [], input: [], modify: [], judge: [] }, evidence: [] })),
   }));
@@ -180,6 +180,7 @@ export function buildModel(scanRoot: string): Model {
       for (const role of ROLES) roles[role].forEach((v) => flow[role].add(v));
     });
     info.flow = listOf(flow);
+    info.kind = info.flow.shown.length || info.flow.input.length || info.flow.modify.length ? 'screen' : 'internal';
     info.flagged = info.props.filter((p) => !p.doc || p.status !== 'rw').length;
   });
 

@@ -378,3 +378,7 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .mg-card .kv{display:grid;grid-template-columns:90px 1fr;gap:6px 10px;font-size:13px}.mg-card .kv .k{color:var(--dim)}
 .tl{display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--dim)}.tl div{display:flex;gap:10px;align-items:baseline}
 .tl i{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex:none}.tl b{color:var(--text)}
+
+/* 정보 구분(화면용/내부용) */
+.kind-tag { font-style: normal; font-size: 10px; font-weight: 600; color: var(--dim); border: 1px solid var(--line, #4a4238); border-radius: 8px; padding: 0 6px; margin-left: 6px; vertical-align: middle; }
+.legend .seg { margin-right: 12px; }

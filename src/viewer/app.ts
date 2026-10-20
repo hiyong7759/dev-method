@@ -8,6 +8,7 @@ import { h, get, statusChip, errorText } from './util.js';
 import type { Kid } from './util.js';
 import { mapView } from './map.js';
 import { infoMap, infoDrawer, infoOverview } from './info.js';
+import type { InfoFilter } from './info.js';
 import { screenView } from './screen.js';
 import type { ScreenViewHandle } from './screen.js';
 import { manageList } from './manage-list.js';
@@ -51,7 +52,7 @@ function screenMenuItems(m: Model, cur: string): Kid[] {
   ]);
 }
 /** 정보 ▾ 메뉴의 목록 */
-const infoMenuItems = (m: Model, cur: string): Kid[] => (m.infos.length ? m.infos.map((i) => h('button', { class: `mitem${i.name === cur ? ' cur' : ''}`, onclick: () => nav(hash('info', i.name)) }, h('span', { class: 'mono' }, i.name), i.flagged ? h('span', { style: 'color:var(--amber);font-size:11px' }, `확인 ${i.flagged}`) : null)) : [h('div', { class: 'mitem' }, '정보가 없다')]);
+const infoMenuItems = (m: Model, cur: string): Kid[] => (m.infos.length ? m.infos.map((i) => h('button', { class: `mitem${i.name === cur ? ' cur' : ''}`, onclick: () => nav(hash('info', i.name)) }, h('span', { class: 'mono' }, i.name, i.kind === 'internal' ? h('em', { class: 'kind-tag' }, '내부') : null), i.flagged ? h('span', { style: 'color:var(--amber);font-size:11px' }, `확인 ${i.flagged}`) : null)) : [h('div', { class: 'mitem' }, '정보가 없다')]);
 
 /** 맨 위 줄: 현행 | 관리 전환, 그 영역의 메뉴, 지금 상태 */
 function topbar(m: Model, r: Route): HTMLElement {
@@ -99,9 +100,11 @@ function render(): void {
     active = { name: r.arg, ...v };
   } else if (r.view === 'info') {
     const sel = r.arg || '';
+    const kind = (['screen', 'internal'].includes(r.params.get('kind') ?? '') ? r.params.get('kind') : 'all') as InfoFilter;
+    const kp = { kind: kind === 'all' ? undefined : kind };
     infoMap(body, m, {
-      selected: sel, onSelect: (n) => nav(hash('info', n === sel ? '' : n)),
-      drawer: sel ? infoDrawer(m, sel, { onClose: () => nav(hash('info')), openInfo: (n) => nav(hash('info', n)) }) : infoOverview(m, { openInfo: (n) => nav(hash('info', n)) }),
+      selected: sel, filter: kind, onFilter: (f) => nav(hash('info', sel, { kind: f === 'all' ? undefined : f })), onSelect: (n) => nav(hash('info', n === sel ? '' : n, kp)),
+      drawer: sel ? infoDrawer(m, sel, { onClose: () => nav(hash('info', '', kp)), openInfo: (n) => nav(hash('info', n, kp)) }) : infoOverview(m, { openInfo: (n) => nav(hash('info', n, kp)) }),
     });
   } else if (r.view === 'manage') {
     if (r.arg) manageDetail(body, { model: m, id: r.arg });
