@@ -82,12 +82,12 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
         }) : h('div', { style: 'font-size:12px;color:var(--dim)' }, '다른 정보와 이어진 곳이 없다')),
       h('div', { class: 'sec' }, h('h4', null, '정보의 흐름'),
         flowKinds.map(([r, list]) => h('div', { class: 'flowrow' }, h('span', { class: `lab role ${r}`, style: 'margin:0' }, ROLE_LABEL[r]),
-          h('div', { class: 'chips', style: 'gap:6px' }, list.length ? list.map((p) => h('span', { class: 'tag', style: `cursor:${screens.has(p) ? 'pointer' : 'default'}${screens.has(p) ? '' : ';border-color:#6a5a99;border-radius:12px'}${p === currentScreen ? ';border-color:var(--accent);background:var(--accent-bg);font-weight:700' : ''}`, onclick: screens.has(p) ? () => openScreen(p) : undefined }, p + (screens.has(p) ? '' : ' (모듈)') + (p === currentScreen ? ' · 지금 화면' : ''))) : h('span', { style: 'font-size:12px;color:var(--dim2)' }, '없음'))))),
+          h('div', { class: 'chips', style: 'gap:6px' }, list.length ? list.map((p) => h('span', { class: 'tag', style: `cursor:${screens.has(p) ? 'pointer' : 'default'}${screens.has(p) ? '' : ';border-color:var(--purple-deep);border-radius:12px'}${p === currentScreen ? ';border-color:var(--accent);background:var(--accent-bg);font-weight:700' : ''}`, onclick: screens.has(p) ? () => openScreen(p) : undefined }, p + (screens.has(p) ? '' : ' (모듈)') + (p === currentScreen ? ' · 지금 화면' : ''))) : h('span', { style: 'font-size:12px;color:var(--dim2)' }, '없음'))))),
       h('div', { class: 'sec' }, h('h4', null, `필드 · ${info.props.length}`, info.flagged ? h('small', { style: 'color:var(--amber)' }, `확인 ${info.flagged}`) : null),
         h('div', { class: 'fld' }, [...info.props].sort((x, y) => Number(y.status === 'none' || !y.doc) - Number(x.status === 'none' || !x.doc)).map((p) => {
           const rolesOf = ROLES.filter((r) => p.roles[r].length);
           const flag = !p.doc ? '정리 후보 · 존재 이유 미작성' : (p.status !== 'rw' ? (p.status === 'none' ? '쓰는 곳 없음' : p.status === 'read-only' ? '쓰는 곳(입력) 없음' : '읽는 곳 없음') : '');
-          const evBox = h('div', { style: `display:${open.has(p.name) ? '' : 'none'};margin-top:8px;padding:8px 10px;border-radius:6px;background:#14161f;font-size:11.5px;line-height:1.7` }, h('div', { style: 'color:var(--dim);margin-bottom:2px' }, '역할을 이렇게 읽었다 (근거)'), p.evidence && p.evidence.length ? p.evidence.map((e) => h('div', null, h('span', { class: `role ${e.role}` }, ROLE_LABEL[e.role]), `${e.who} · `, h('span', { class: 'mono' }, `${e.file}:${e.line}`), ` · ${KIND[e.kind] || e.kind}`)) : h('div', { style: 'color:var(--dim2)' }, '화면·모듈에서 쓰는 곳을 찾지 못했다'));
+          const evBox = h('div', { style: `display:${open.has(p.name) ? '' : 'none'};margin-top:8px;padding:8px 10px;border-radius:6px;background:var(--inset);font-size:11.5px;line-height:1.7` }, h('div', { style: 'color:var(--dim);margin-bottom:2px' }, '역할을 이렇게 읽었다 (근거)'), p.evidence && p.evidence.length ? p.evidence.map((e) => h('div', null, h('span', { class: `role ${e.role}` }, ROLE_LABEL[e.role]), `${e.who} · `, h('span', { class: 'mono' }, `${e.file}:${e.line}`), ` · ${KIND[e.kind] || e.kind}`)) : h('div', { style: 'color:var(--dim2)' }, '화면·모듈에서 쓰는 곳을 찾지 못했다'));
           const row = h('div', { class: `row${focusField === p.name ? ' focus' : ''}`, style: 'cursor:pointer', onclick: () => { if (open.has(p.name)) open.delete(p.name); else open.add(p.name); evBox.style.display = open.has(p.name) ? '' : 'none'; } });
           row.append(...[
             flag ? h('span', { class: 'flag' }, flag) : null,
@@ -167,14 +167,14 @@ export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, d
   svg.setAttribute('width', String(canvasW)); svg.setAttribute('height', String(canvasH));
   const line = (d: string, weak: boolean, hl: boolean): void => {
     const p = document.createElementNS(svgNS, 'path');
-    p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', hl ? '#9db4ff' : '#7a6f60'); p.setAttribute('stroke-width', hl ? '3' : '2');
+    p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.style.stroke = hl ? 'var(--accent)' : 'var(--line2)'; p.setAttribute('stroke-width', hl ? '3' : '2');
     if (weak) p.setAttribute('stroke-dasharray', '5 4');
     if (selected && !hl) p.setAttribute('opacity', '.15');
     svg.append(p);
   };
   const text = (x: number, t: string, yy: number, hl: boolean): void => {
     const e = document.createElementNS(svgNS, 'text');
-    e.setAttribute('x', String(x)); e.setAttribute('y', String(yy)); e.setAttribute('fill', hl ? '#9db4ff' : '#cfc6b8'); e.setAttribute('font-size', '12'); e.setAttribute('font-family', 'ui-monospace,Menlo,monospace');
+    e.setAttribute('x', String(x)); e.setAttribute('y', String(yy)); e.style.fill = hl ? 'var(--accent)' : 'var(--text2)'; e.setAttribute('font-size', '12'); e.setAttribute('font-family', 'ui-monospace,Menlo,monospace');
     if (selected && !hl) e.setAttribute('opacity', '.15');
     e.textContent = t;
     svg.append(e);

@@ -73,7 +73,7 @@ export function components(c: ScreenCtx): HTMLElement {
   const card = (s: Spec): HTMLElement => {
     const memoForm = c.draft && c.draft.type === 'component' && c.draft.spec === s.id;
     return h('div', { class: `comp${c.active === s.id ? ' on' : ''}${c.active && c.active !== s.id ? ' dim' : ''}`, style: s.kind === 'logic' ? '' : 'cursor:pointer', onclick: (e) => { if ((e.target as HTMLElement).closest('button, textarea')) return; void c.pickComp(s.id); } },
-      h('div', { class: 'ct' }, h('span', { class: `num${s.kind === 'logic' ? ' logic' : ''}` }, c.num(s.id)), h('b', null, s.title), h('span', { class: 'kind', style: s.kind === 'logic' ? 'color:var(--purple);border-color:#6a5a99' : 'color:var(--accent);border-color:var(--accent-deep)' }, s.kind === 'logic' ? '로직' : s.kind)),
+      h('div', { class: 'ct' }, h('span', { class: `num${s.kind === 'logic' ? ' logic' : ''}` }, c.num(s.id)), h('b', null, s.title), h('span', { class: 'kind', style: s.kind === 'logic' ? 'color:var(--purple);border-color:var(--purple-deep)' : 'color:var(--accent);border-color:var(--accent-deep)' }, s.kind === 'logic' ? '로직' : s.kind)),
       h('div', { class: 'where mono' }, `${s.file}:${s.line}`),
       h('div', { class: 'crow' }, h('span', { class: 'k' }, '이유'), s.why ? h('span', { class: 'v' }, s.why) : h('span', { class: 'v empty' }, '미작성')),
       s.basis ? h('div', { class: 'crow' }, h('span', { class: 'k' }, '근거'), h('span', { class: 'v' }, s.basis)) : null,
@@ -103,10 +103,10 @@ function targetLabel(t: MemoTarget | undefined): string {
 function targetCard(_c: ScreenCtx, d: MemoTarget): HTMLElement {
   const r = d.rect ?? { x: 0, y: 0, w: 0, h: 0 };
   const where = d.type === 'component' ? [h('b', null, d.title), h('div', { class: 'mono', style: 'font-size:11px;color:var(--dim)' }, d.file || '')] : [
-    h('div', { style: 'display:flex;gap:12px;align-items:center' }, d.shotData ? h('img', { src: d.shotData, style: 'width:120px;max-height:80px;object-fit:contain;border:1px dashed #e0575a;border-radius:4px;background:#fff' }) : h('div', { class: 'thumb' }), h('div', null, h('b', null, d.type === 'empty' ? '빈 영역 — 요소 없음' : '선택한 영역', d.shotData ? ' · 스크린샷 첨부됨' : ''), h('div', { class: 'mono', style: 'font-size:11px;color:var(--dim);margin-top:4px' }, `${d.route || ''} · x ${r.x} y ${r.y} · ${r.w}×${r.h}`))),
+    h('div', { style: 'display:flex;gap:12px;align-items:center' }, d.shotData ? h('img', { src: d.shotData, style: 'width:120px;max-height:80px;object-fit:contain;border:1px dashed var(--red-strong);border-radius:4px;background:#fff' }) : h('div', { class: 'thumb' }), h('div', null, h('b', null, d.type === 'empty' ? '빈 영역 — 요소 없음' : '선택한 영역', d.shotData ? ' · 스크린샷 첨부됨' : ''), h('div', { class: 'mono', style: 'font-size:11px;color:var(--dim);margin-top:4px' }, `${d.route || ''} · x ${r.x} y ${r.y} · ${r.w}×${r.h}`))),
     d.type === 'empty'
-      ? h('div', { style: 'font-size:12px;line-height:1.7;color:#d9d1c6' }, h('div', null, h('b', null, '주변'), ' (자동 추정 — 위치 힌트로 에이전트에게 간다)'), h('div', null, `위  ${d.neighbors?.above || '화면 맨 위 여백'}`), h('div', null, `아래  ${d.neighbors?.below || '화면 끝까지 여백'}`))
-      : h('div', { style: 'font-size:12px;color:#d9d1c6;line-height:1.6' }, h('b', null, '가장 가까운 컴포넌트'), ' (자동 추정) ', h('div', { class: 'tag', style: 'display:inline-block;margin-top:4px' }, d.nearest ? `${d.nearest.title}` : '없음'), d.nearest?.file ? h('div', { class: 'mono', style: 'font-size:11px;color:var(--dim)' }, d.nearest.file) : null)];
+      ? h('div', { style: 'font-size:12px;line-height:1.7;color:var(--text2)' }, h('div', null, h('b', null, '주변'), ' (자동 추정 — 위치 힌트로 에이전트에게 간다)'), h('div', null, `위  ${d.neighbors?.above || '화면 맨 위 여백'}`), h('div', null, `아래  ${d.neighbors?.below || '화면 끝까지 여백'}`))
+      : h('div', { style: 'font-size:12px;color:var(--text2);line-height:1.6' }, h('b', null, '가장 가까운 컴포넌트'), ' (자동 추정) ', h('div', { class: 'tag', style: 'display:inline-block;margin-top:4px' }, d.nearest ? `${d.nearest.title}` : '없음'), d.nearest?.file ? h('div', { class: 'mono', style: 'font-size:11px;color:var(--dim)' }, d.nearest.file) : null)];
   return h('div', { class: 'target' }, h('div', { class: 'tt' }, '대상'), where);
 }
 /** 메모 입력칸과 저장·취소 버튼(쓰는 중인 메모 c.draft가 있을 때) */
@@ -187,7 +187,7 @@ export function approval(c: ScreenCtx): HTMLElement {
       ap.region ? h('div', { style: 'margin:8px 0' }, targetCard(c, ap.region)) : null, ta,
       h('div', { style: 'font-size:12px;color:var(--dim);margin:8px 0' }, `지금 소스 버전(${st.commit || '—'})과 함께 저장된다.`),
       h('div', { class: 'btns', style: 'justify-content:flex-end' }, h('button', { class: 'smallbtn', onclick: () => { c.ap = { problem: false }; c.render(); } }, '취소'),
-        h('button', { class: 'smallbtn', style: 'background:#ff9d9d;color:#2a1214;border-color:#ff9d9d;font-weight:700', onclick: async () => {
+        h('button', { class: 'smallbtn', style: 'background:var(--red);color:var(--on-red);border-color:var(--red);font-weight:700', onclick: async () => {
           if (!ap.text?.trim()) return toast('문제를 한 줄로 적어 주세요');
           const t = ap.target || 'screen';
           const target: MemoTarget = t === 'region' && ap.region ? { ...ap.region } : { type: 'screen', route: c.route() };
@@ -223,7 +223,7 @@ export function approval(c: ScreenCtx): HTMLElement {
     box.append(list);
     get<{ items: HistoryItem[] }>(`/__spec/history.json?screen=${encodeURIComponent(sc.name)}`).then(({ items }) => {
       const after = items.filter((i): i is HistoryCommit => i.type === 'commit' && i.at > st.at);
-      list.replaceChildren(h('div', { style: 'font-size:13px;font-weight:700;margin-bottom:6px' }, `그 뒤 바뀐 것 · ${after.length}`), ...(after.length ? after.map((i) => h('div', { style: 'padding:8px 10px;border-radius:8px;background:#14161f;margin-bottom:6px;font-size:12px' }, h('span', { class: `kindtag ${i.kind === '오류 수정' ? 'k2' : 'k1'}` }, i.kind), i.title, h('div', { class: 'mmeta mono', style: 'margin-top:4px' }, `${i.hash} · ${fmt(i.at)}${i.request ? ` · 요청: ${i.request.split('—')[0].trim()}` : ''}`))) : [h('div', { style: 'font-size:12px;color:var(--dim)' }, '아직 커밋되지 않은 변경입니다(작업 중인 파일).')]));
+      list.replaceChildren(h('div', { style: 'font-size:13px;font-weight:700;margin-bottom:6px' }, `그 뒤 바뀐 것 · ${after.length}`), ...(after.length ? after.map((i) => h('div', { style: 'padding:8px 10px;border-radius:8px;background:var(--inset);margin-bottom:6px;font-size:12px' }, h('span', { class: `kindtag ${i.kind === '오류 수정' ? 'k2' : 'k1'}` }, i.kind), i.title, h('div', { class: 'mmeta mono', style: 'margin-top:4px' }, `${i.hash} · ${fmt(i.at)}${i.request ? ` · 요청: ${i.request.split('—')[0].trim()}` : ''}`))) : [h('div', { style: 'font-size:12px;color:var(--dim)' }, '아직 커밋되지 않은 변경입니다(작업 중인 파일).')]));
     }).catch(() => {});
     box.append(h('div', { class: 'btns', style: 'margin-top:10px' }, h('button', { class: 'smallbtn bad', onclick: () => { c.ap = { problem: true }; c.render(); } }, '문제 있음 (메모로)'), h('button', { class: 'smallbtn good', onclick: approve }, '이대로 승인')),
       h('div', { style: 'font-size:12px;color:var(--dim);margin-top:10px;line-height:1.5' }, '승인하면 날짜·승인한 사람·소스 버전이 기록되고 이 소스가 기준으로 저장된다.'));

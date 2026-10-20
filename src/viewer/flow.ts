@@ -39,11 +39,11 @@ function drawArrows(area: HTMLElement, sc: Scenario): void {
   const svg = document.createElementNS(SVG, 'svg');
   svg.setAttribute('class', 'farrows');
   svg.setAttribute('width', String(area.scrollWidth)); svg.setAttribute('height', String(area.scrollHeight));
-  svg.innerHTML = '<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#9db4ff"/></marker><marker id="ahl" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#8a8272"/></marker><marker id="aha" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#e0b25a"/></marker></defs>';
+  svg.innerHTML = '<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style="fill:var(--accent)"/></marker><marker id="ahl" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style="fill:var(--dim2)"/></marker><marker id="aha" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style="fill:var(--amber)"/></marker></defs>';
   const el = (id: string): DOMRect | null => area.querySelector(`[data-id="${CSS.escape(id)}"]`)?.getBoundingClientRect() ?? null;
   const put = (d: string, color: string, marker: string, dashed: boolean): void => {
     const p = document.createElementNS(SVG, 'path');
-    p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', color); p.setAttribute('stroke-width', '2');
+    p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.style.stroke = color; p.setAttribute('stroke-width', '2');
     if (dashed) p.setAttribute('stroke-dasharray', '5 4');
     p.setAttribute('marker-end', `url(#${marker})`);
     svg.append(p);
@@ -59,22 +59,22 @@ function drawArrows(area: HTMLElement, sc: Scenario): void {
       if (e.kind === 'loop' && !st.main) {
         // 갈래에서 돌아가는 길: 갈래 칸의 왼쪽에서 나와 앞 단계의 아랫면으로 들어간다
         const x1 = X(a.left), y1 = Y(a.top + a.height / 2), x2 = X(b.left + b.width / 2), y2 = Y(b.bottom);
-        put(`M${x1} ${y1} C${x1 - 50} ${y1}, ${x2} ${y2 + 50}, ${x2} ${y2}`, '#8a8272', 'ahl', true);
+        put(`M${x1} ${y1} C${x1 - 50} ${y1}, ${x2} ${y2 + 50}, ${x2} ${y2}`, 'var(--dim2)', 'ahl', true);
       } else if (e.kind === 'loop') {
         // 위쪽으로 휘어 앞 단계의 윗면으로 돌아온다
         const x1 = X(a.left + a.width / 2), x2 = X(b.left + b.width / 2), top = Math.min(Y(a.top), Y(b.top));
-        put(`M${x1} ${Y(a.top)} C${x1} ${top - 34}, ${x2} ${top - 34}, ${x2} ${Y(b.top)}`, '#8a8272', 'ahl', true);
+        put(`M${x1} ${Y(a.top)} C${x1} ${top - 34}, ${x2} ${top - 34}, ${x2} ${Y(b.top)}`, 'var(--dim2)', 'ahl', true);
       } else if (Math.abs(a.left - b.left) < 6) {
         // 같은 열(갈래): 바로 아래 칸이면 곧게 내려가고, 사이에 다른 칸이 끼면 오른쪽 틈으로 돌아 들어간다
         const between = [...area.querySelectorAll('[data-id]')].some((o) => { const r = o.getBoundingClientRect(); return o !== area.querySelector(`[data-id="${CSS.escape(e.to)}"]`) && Math.abs(r.left - a.left) < 6 && r.top > a.bottom - 1 && r.bottom < b.top + 1; });
         if (between) {
           const gx = X(a.right) + 20, y1 = Y(a.top + a.height / 2), y2 = Y(b.top + b.height / 2);
-          put(`M${X(a.right)} ${y1} L${gx} ${y1} L${gx} ${y2} L${X(b.right)} ${y2}`, '#e0b25a', 'aha', false);
-        } else put(`M${X(a.left + a.width / 2)} ${Y(a.bottom)} L${X(b.left + b.width / 2)} ${Y(b.top)}`, '#e0b25a', 'aha', false);
+          put(`M${X(a.right)} ${y1} L${gx} ${y1} L${gx} ${y2} L${X(b.right)} ${y2}`, 'var(--amber)', 'aha', false);
+        } else put(`M${X(a.left + a.width / 2)} ${Y(a.bottom)} L${X(b.left + b.width / 2)} ${Y(b.top)}`, 'var(--amber)', 'aha', false);
       } else if (b.left > a.left) {
         // 오른쪽 열로 간다(기본 흐름이거나 갈래에서 합류)
         const x1 = X(a.right), y1 = Y(a.top + a.height / 2), x2 = X(b.left), y2 = Y(b.top + b.height / 2), dx = Math.max(24, (x2 - x1) / 2);
-        put(`M${x1} ${y1} C${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`, st.main ? '#9db4ff' : '#e0b25a', st.main ? 'ah' : 'aha', false);
+        put(`M${x1} ${y1} C${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`, st.main ? 'var(--accent)' : 'var(--amber)', st.main ? 'ah' : 'aha', false);
       }
     }
   }
