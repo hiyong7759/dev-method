@@ -14,6 +14,7 @@ import type { ScreenViewHandle } from './screen.js';
 import { manageList } from './manage-list.js';
 import { manageDetail } from './manage-detail.js';
 import { hash, nav as go } from './route.js';
+import { themeMode, applyTheme, THEME_MODES } from './theme.js';
 import type { Model } from '../types.js';
 
 /** 설계서 보기 틀의 전부가 그려지는 자리 */
@@ -31,16 +32,24 @@ const parse = (): Route => {
 function closeMenu(): void { menu?.remove(); menu = null; }
 /** 메뉴를 닫고 이동한다 */
 const nav = (hh: string, replace?: boolean): void => { closeMenu(); go(hh, replace); };
-function openMenu(anchor: HTMLElement, items: Kid[]): void {
+function openMenu(anchor: HTMLElement, items: Kid[], narrow = false): void {
   const was = menu;
   closeMenu();
   if (was && was.dataset.for === anchor.dataset.k) return;
   const r = anchor.getBoundingClientRect();
-  menu = h('div', { class: 'menu', dataset: { for: anchor.dataset.k ?? '' }, style: `left:${Math.min(r.left, innerWidth - 340)}px;top:${r.bottom + 6}px` }, items);
+  menu = h('div', { class: `menu${narrow ? ' narrow' : ''}`, dataset: { for: anchor.dataset.k ?? '' }, style: `left:${Math.min(r.left, innerWidth - (narrow ? 170 : 340))}px;top:${r.bottom + 6}px` }, items);
   document.body.append(menu);
 }
 document.addEventListener('click', (e) => { const t = e.target as HTMLElement; if (menu && !menu.contains(t) && !t.closest('[data-k]')) closeMenu(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+/** 밝기 단추(◐): 누르면 다크·라이트·시스템 세 줄이 펼쳐진다. 상단 바 맨 오른쪽 */
+function themeButton(): HTMLElement {
+  return h('button', { class: 'tbtn', title: '화면 밝기', dataset: { k: 'theme' }, onclick: (e) => {
+    const cur = themeMode();
+    openMenu(e.currentTarget as HTMLElement, THEME_MODES.map((t) => h('button', { class: `mitem${t.key === cur ? ' cur' : ''}`, onclick: () => { applyTheme(t.key); closeMenu(); } }, h('span', null, t.label), t.key === cur ? h('small', null, '✓') : null)), true);
+  } }, '◐');
+}
 
 /** 화면 ▾ 메뉴의 목록(분야별 묶음, 상태 이름표 포함) */
 function screenMenuItems(m: Model, cur: string): Kid[] {
@@ -68,7 +77,7 @@ function topbar(m: Model, r: Route): HTMLElement {
   if (r.view === 'manage') {
     return h('header', { class: 'top tall' }, h('span', { class: 'dev mono' }, 'DEV'), h('span', { class: 'ttl' }, m.project), seg,
       h('div', { class: 'tabs-top' }, h('button', { class: 'sel', onclick: () => nav(hash('manage')) }, '요청')),
-      h('span', { class: 'grow' }), s.requestsMine ? h('span', { class: 'pill accent' }, '내 차례 ', h('b', { style: 'color:var(--accent)' }, s.requestsMine)) : null);
+      h('span', { class: 'grow' }), s.requestsMine ? h('span', { class: 'pill accent' }, '내 차례 ', h('b', { style: 'color:var(--accent)' }, s.requestsMine)) : null, themeButton());
   }
   return h('header', { class: 'top tall' }, h('span', { class: 'dev mono' }, 'DEV'), h('span', { class: 'ttl' }, m.project), seg,
     h('div', { class: 'tabs-top' },
@@ -77,7 +86,7 @@ function topbar(m: Model, r: Route): HTMLElement {
       h('button', { class: `nav-dd${r.view === 'screen' ? ' sel' : ''}`, dataset: { k: 'screens' }, onclick: (e) => openMenu(e.currentTarget as HTMLElement, screenMenuItems(m, curScreen)) }, curScreen || '화면', h('span', { class: 'caret' }, '▾')),
       h('button', { class: `nav-dd${curInfo ? ' sel' : ''}`, dataset: { k: 'infos' }, onclick: (e) => openMenu(e.currentTarget as HTMLElement, infoMenuItems(m, curInfo)) }, curInfo || '정보', h('span', { class: 'caret' }, '▾'))),
     curModel ? statusChip(curModel.status, ['test-requested', 'approved-changed'].includes(curModel.status.status) ? ' pulse' : '') : null,
-    h('span', { class: 'grow' }), chips);
+    h('span', { class: 'grow' }), chips, themeButton());
 }
 
 /** 주소에 맞는 화면을 그린다 */
