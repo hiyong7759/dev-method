@@ -104,8 +104,8 @@ export function buildModel(scanRoot: string): Model {
   const kept: AnalyzedInfo[] = (analysis?.infos ?? []).filter((i) => i.props.length && !NONINFO.test(i.doc || ''));
   const infos: ModelInfo[] = kept.map((i) => ({
     name: i.name, file: i.file, fileSrc: path.relative(scanRoot, path.join(root, i.file)), line: i.line, unused: i.unused, kind: 'internal', doc: clean(i.doc),
-    flow: { shown: [], input: [], modify: [], judge: [] }, flagged: 0, unfilled: i.props.filter((p) => !p.doc).length,
-    props: i.props.map((p) => ({ name: p.name, type: p.type, optional: p.optional, doc: clean(p.doc), line: p.line, status: p.status, roles: { shown: [], input: [], modify: [], judge: [] }, evidence: [] })),
+    flow: { shown: [], input: [], modify: [], judge: [] }, flagged: 0,
+    props: i.props.map((p) => ({ name: p.name, doc: clean(p.doc), line: p.line, status: p.status, roles: { shown: [], input: [], modify: [], judge: [] }, evidence: [] })),
   }));
   const infoByName = new Map(infos.map((i) => [i.name, i]));
 
@@ -181,38 +181,24 @@ export function buildModel(scanRoot: string): Model {
     });
     info.flow = listOf(flow);
     info.kind = info.flow.shown.length || info.flow.input.length || info.flow.modify.length ? 'screen' : 'internal';
-    info.flagged = info.props.filter((p) => !p.doc || p.status !== 'rw').length;
+    // 확인이 필요한 필드: 설명이 없거나, 어디에서도 쓰이지 않는 것(none). 한쪽(읽기만, 쓰기만)은 값이 JSON으로 넘어가는 등 코드만으로 판단할 수 없어 세지 않는다
+    info.flagged = info.props.filter((p) => !p.doc || p.status === 'none').length;
   });
 
-  // ── 화면 흐름: 들어오는 길, 단계(시작에서 몇 번째) ───────────
+  // ── 화면으로 들어오는 길(화면 설계서의 "들어오는 길"에 쓴다) ───────────
   const incoming: Record<string, Incoming[]> = Object.fromEntries(out.screens.map((s) => [s.name, []]));
   let moves = 0;
   for (const s of out.screens) for (const t of s.to) if (incoming[t.target]) { incoming[t.target].push({ from: s.name, action: t.action, pass: t.pass }); moves++; }
-  const stage: Record<string, number> = {};
-  // 시작 화면: @start가 있으면 그 화면. 없으면 들어오는 길이 가장 적은 화면(같으면 주소가 짧은 쪽). 서로 오가는 화면만 있어도 시작이 정해진다
-  const flagged = out.screens.filter((s) => s.start).map((s) => s.name);
-  const byIn = [...out.screens].sort((a, b) => incoming[a.name].length - incoming[b.name].length || (a.route || '').length - (b.route || '').length);
-  const starts = flagged.length ? flagged : out.screens.filter((s) => !incoming[s.name].length).map((s) => s.name);
-  const queue = (starts.length ? starts : byIn.slice(0, 1).map((s) => s.name)).map((n) => { stage[n] = 0; return n; });
-  while (queue.length) {
-    const n = queue.shift() as string;
-    const cur = out.screens.find((s) => s.name === n);
-    for (const t of cur?.to ?? []) if (stage[t.target] === undefined && incoming[t.target]) { stage[t.target] = stage[n] + 1; queue.push(t.target); }
-  }
-  out.screens.forEach((s) => { if (stage[s.name] === undefined) stage[s.name] = 0; });
 
   // ── 화면별 모델 ──────────────────────────────────────
   const screens: ModelScreen[] = out.screens.map((s) => {
     const specs = specsOfScreen(s.name);
-    const mine = memos.filter((m) => m.screen === s.name);
     const fields: ScreenField[] = [...screenFields[s.name].values()].map((f) => ({ ...f, roles: [...f.roles], specs: [...f.specs], doms: [...f.doms.values()] }));
     const missing = specs.filter((x) => !x.why).length + (s.why ? 0 : 1);
     const warns = out.warnings.filter((w) => s.files.some((f) => w.includes(`(${f}:`)));
     return {
-      ...s, to: s.to.map((t) => ({ ...t, verified: nav.edges.some((e) => e.from === s.name && e.to === t.target) || t.target === s.name })), stage: stage[s.name], incoming: incoming[s.name], status: status[s.name],
-      specIds: specs.map((x) => x.id), fields, infoCount: new Set(fields.map((f) => f.info)).size,
-      memoCount: mine.length, memoPending: mine.filter((m) => m.state === 'pending').length,
-      missing, warnings: warns,
+      ...s, to: s.to.map((t) => ({ ...t, verified: nav.edges.some((e) => e.from === s.name && e.to === t.target) || t.target === s.name })), incoming: incoming[s.name], status: status[s.name],
+      fields, missing, warnings: warns,
     };
   });
 

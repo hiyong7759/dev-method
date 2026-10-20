@@ -349,7 +349,7 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
     const rs = rects();
     let best: { s: Spec; r: Box } | null = null, area = 0;
     for (const x of rs) { const w = Math.min(r.right, x.r.right) - Math.max(r.left, x.r.left), hh = Math.min(r.bottom, x.r.bottom) - Math.max(r.top, x.r.top); if (w > 0 && hh > 0 && w * hh > area) { area = w * hh; best = x; } }
-    const lab = (x: { s: Spec }): { title: string; file: string; id: string } => ({ title: x.s.title, file: `${x.s.file}:${x.s.line}`, id: x.s.id });
+    const lab = (x: { s: Spec }): { title: string; file: string } => ({ title: x.s.title, file: `${x.s.file}:${x.s.line}` });
     const route = c.route();
     if (best) return { type: 'region', rect, nearest: lab(best), route };
     const above = rs.filter((x) => x.r.bottom <= r.top).sort((a, b) => b.r.bottom - a.r.bottom)[0];

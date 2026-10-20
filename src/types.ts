@@ -248,8 +248,6 @@ export interface NearestSpec {
   title: string;
   /** 소스 위치(파일:줄) */
   file?: string;
-  /** 컴포넌트 이름표 */
-  id?: string;
 }
 
 /** 메모가 가리키는 곳: 컴포넌트, 고른 영역, 빈 영역, 화면 전체 */
@@ -557,8 +555,6 @@ export interface Snapshot {
   shot: string;
   /** 저장한 시각 */
   at: string;
-  /** 어떤 때의 것인가(승인, 테스트 요청) */
-  label: string;
 }
 
 /** 한 번의 커밋에서 바뀐 덩어리 하나 */
@@ -689,10 +685,6 @@ export interface Evidence {
 export interface ModelProp {
   /** 필드 이름 */
   name: string;
-  /** 타입 글자 */
-  type: string;
-  /** 없어도 되는 필드인가 */
-  optional: boolean;
   /** 존재 이유 */
   doc: string;
   /** 정의된 줄 */
@@ -730,8 +722,6 @@ export interface ModelInfo {
   props: ModelProp[];
   /** 확인이 필요한 필드 수 */
   flagged: number;
-  /** 존재 이유가 비어 있는 필드 수 */
-  unfilled: number;
 }
 
 /** 정보 사이의 관계 한 줄 */
@@ -782,22 +772,12 @@ export interface Incoming {
 export interface ModelScreen extends Omit<ScreenTag, 'to'> {
   /** 나가는 길과 그것이 코드에서 확인됐는지 */
   to: (Move & { verified: boolean })[];
-  /** 시작 화면에서 몇 번째 단계인가 */
-  stage: number;
   /** 들어오는 길 */
   incoming: Incoming[];
   /** 지금 상태 */
   status: ScreenStatus;
-  /** 이 화면에 속한 요소들의 이름표 */
-  specIds: string[];
   /** 이 화면이 다루는 정보 필드들 */
   fields: ScreenField[];
-  /** 이 화면이 다루는 정보의 수 */
-  infoCount: number;
-  /** 이 화면의 메모 수 */
-  memoCount: number;
-  /** 전달 전(대기) 메모 수 */
-  memoPending: number;
   /** 존재 이유가 빈 곳의 수 */
   missing: number;
   /** 이 화면과 관련된 경고들 */
@@ -814,8 +794,6 @@ export interface ScenarioStep {
   check: string;
   /** 이 일이 일어나는 자리(컴포넌트 제목 또는 화면 이름) */
   owner: string;
-  /** 자리의 종류: 화면 자체 또는 컴포넌트 */
-  ownerKind: 'screen' | 'spec';
   /** 이 자리가 속한 화면들 */
   screens: string[];
   /** 앞 단계에서 오는 조건(없으면 빈 글) */
@@ -824,10 +802,6 @@ export interface ScenarioStep {
   edges: ScenarioEdge[];
   /** 기본 흐름 위의 단계인가(아니면 갈래) */
   main: boolean;
-  /** 주석이 있는 파일(소스 폴더 기준) */
-  file: string;
-  /** 주석이 있는 줄 */
-  line: number;
 }
 
 /** 단계에서 이어지는 길 하나 */

@@ -6,7 +6,7 @@
 import type { Does, Extracted, Scenario, ScenarioEdge, ScenarioStep } from './types.js';
 
 /** 단계 하나를 모으려고 잠깐 쓰는 재료: 일 + 그 일이 일어나는 자리 */
-interface Raw { does: Does; owner: string; ownerKind: 'screen' | 'spec'; screens: string[]; file: string; line: number }
+interface Raw { does: Does; owner: string; screens: string[]; file: string; line: number }
 
 /** "단계" 또는 "시나리오#단계"를 (시나리오, 단계)로 나눈다. 시나리오가 없으면 빈 글 */
 const splitRef = (ref: string): { scenario: string; step: string } => {
@@ -27,8 +27,8 @@ export function buildScenarios(out: Extracted): Scenario[] {
     if (!r.does.scenario) return;
     byScenario.set(r.does.scenario, [...(byScenario.get(r.does.scenario) ?? []), r]);
   };
-  for (const s of out.screens) for (const d of s.does) add({ does: d, owner: s.name, ownerKind: 'screen', screens: [s.name], file: s.file, line: s.line });
-  for (const sp of out.specs) for (const d of sp.does) add({ does: d, owner: sp.title, ownerKind: 'spec', screens: sp.screens, file: sp.file, line: sp.line });
+  for (const s of out.screens) for (const d of s.does) add({ does: d, owner: s.name, screens: [s.name], file: s.file, line: s.line });
+  for (const sp of out.specs) for (const d of sp.does) add({ does: d, owner: sp.title, screens: sp.screens, file: sp.file, line: sp.line });
 
   const screenDomain = new Map(out.screens.map((s) => [s.name, s.domain]));
   const scenarios: Scenario[] = [];
@@ -62,8 +62,8 @@ export function buildScenarios(out: Extracted): Scenario[] {
       cur = next ? next.to : '';
     }
     const steps: ScenarioStep[] = raws.filter((r) => r.does.step).map((r) => ({
-      id: r.does.step, title: r.does.title, check: r.does.check, owner: r.owner, ownerKind: r.ownerKind, screens: r.screens,
-      cond: r.does.cond, edges: edgesOf(r), main: main.has(r.does.step), file: r.file, line: r.line,
+      id: r.does.step, title: r.does.title, check: r.does.check, owner: r.owner, screens: r.screens,
+      cond: r.does.cond, edges: edgesOf(r), main: main.has(r.does.step),
     }));
     const first = steps[0];
     scenarios.push({ name, domain: first ? (screenDomain.get(first.screens[0]) ?? '') : '', steps, firstScreens: first ? first.screens : [] });

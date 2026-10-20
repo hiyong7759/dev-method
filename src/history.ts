@@ -123,7 +123,7 @@ export function screenHistory(scanRoot: string, sc: ScreenTag, statusRec: Screen
     }
   }
   // 화면이 어떻게 달라졌는지: 이 커밋 직전·직후에 저장된 화면 스냅샷(테스트 요청·승인 때 저장)
-  const snaps: Snapshot[] = events.filter((h) => h.shot).map((h) => ({ shot: h.shot, at: h.at, label: h.status === 'approved' ? '승인' : '테스트 요청' })).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const snaps: Snapshot[] = events.filter((h) => h.shot).map((h) => ({ shot: h.shot, at: h.at})).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   for (const it of items) {
     if (it.type !== 'commit') { const m = events.find((h) => h.at === it.at && h.shot); if (m) it.shot = m.shot; continue; }
     const t = Date.parse(it.at);
