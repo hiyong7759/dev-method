@@ -11,10 +11,13 @@ import { analyzeTs } from './analyze-ts.js';
 import { allStatus, projectRoot, LABEL } from './status.js';
 import { loadMemos, STATE_LABEL } from './memo.js';
 import { loadRequests, describeRequests } from './request.js';
+import { untrackedCommits } from './history.js';
+import { loadReports, reportRows, openCount } from './report.js';
+import { loadGlossary } from './glossary.js';
 import { detectNav } from './nav.js';
 import { errorText } from './cli.js';
 import type {
-  Analysis, AnalyzedInfo, DomHint, Evidence, Extracted, Incoming, Model, ModelInfo, ModelScreen, NavResult, Note, Relation,
+  Analysis, AnalyzedInfo, Request, ReviewItem, DomHint, Evidence, Extracted, Incoming, Model, ModelInfo, ModelScreen, NavResult, Note, Relation,
   RevealStep, Role, ScreenField, Spec,
 } from './types.js';
 
@@ -104,7 +107,7 @@ export function buildModel(scanRoot: string): Model {
   const kept: AnalyzedInfo[] = (analysis?.infos ?? []).filter((i) => i.props.length && !NONINFO.test(i.doc || ''));
   const infos: ModelInfo[] = kept.map((i) => ({
     name: i.name, file: i.file, fileSrc: path.relative(scanRoot, path.join(root, i.file)), line: i.line, unused: i.unused, kind: 'internal', doc: clean(i.doc),
-    flow: { shown: [], input: [], modify: [], judge: [] }, flagged: 0,
+    flow: { shown: [], input: [], modify: [], judge: [] }, flagged: 0, domains: [],
     props: i.props.map((p) => ({ name: p.name, doc: clean(p.doc), line: p.line, status: p.status, dupTotal: p.evidence.dupTotal, strs: p.evidence.strs.slice(0, 4), roles: { shown: [], input: [], modify: [], judge: [] }, evidence: [] })),
   }));
   const infoByName = new Map(infos.map((i) => [i.name, i]));
@@ -205,22 +208,46 @@ export function buildModel(scanRoot: string): Model {
   // ── 확인 필요: 기계가 판단할 수 없어 사람이 정해야 하는 것만 올린다. 코드나 주석을 고치면 해소되는 것(메타정보 빠짐, 이동 선언 어긋남 등)은
   //    경고로 올라가 에이전트가 해소해야 커밋되므로 여기에 올리지 않는다.
   const notes: Note[] = [];
-  for (const i of infos) if (i.unused) notes.push({ info: i.name, text: `정보 ${i.name}은 어디에서도 쓰이지 않는다 — 지울지 남길지 정한다` });
+  const domainOf = new Map(screens.map((s) => [s.name, s.domain || '']));
+  const reviews: ReviewItem[] = [];
+  const scenariosOfScreens = (names: string[]): string[] => out.scenarios.filter((sc) => sc.steps.some((st) => st.screens.some((n) => names.includes(n)))).map((sc) => sc.name);
+  for (const i of infos) {
+    const usedScreens = [...new Set([...i.flow.shown, ...i.flow.input, ...i.flow.modify, ...i.flow.judge])].filter((n) => domainOf.has(n));
+    i.domains = [...new Set(usedScreens.map((n) => domainOf.get(n) || '').filter(Boolean))];
+    if (i.unused) {
+      reviews.push({ id: `review:${i.name}`, title: `정보 “${i.name}”를 어디에서도 쓰지 않습니다`, help: '어디에서도 쓰이지 않아 지워도 될 수 있지만, 지울지 남길지는 사람이 정한다', tone: 'warn', where: `${i.fileSrc}:${i.line}`, also: [], info: i.name, prop: '', screens: [], scenarios: [] });
+      continue;
+    }
+    for (const p of i.props) {
+      if (p.status !== 'none') continue;
+      const found = p.strs.length > 0 || p.dupTotal > 0;
+      reviews.push({
+        id: `review:${i.name}.${p.name}`, title: `필드 “${p.name}”를 어디에서도 쓰지 않습니다`,
+        help: found ? '코드에서는 쓰는 곳을 못 찾았지만 같은 이름이 다른 곳에 나온다 — 값이 JSON이나 글자로 쓰일 수 있어 지우기 전에 아래 곳을 본다' : '코드에서도 글자로도 쓰는 곳이 없습니다 — 지워도 안전해 보입니다',
+        tone: found ? 'warn' : 'ok', where: `${i.fileSrc}:${p.line}`, also: p.strs.map((x) => `${x.file}:${x.line}`), info: i.name, prop: p.name, screens: usedScreens, scenarios: scenariosOfScreens(usedScreens),
+      });
+    }
+  }
+  const store = loadReports(scanRoot);
+  const rows = reportRows(store.items, reviews, store.decisions, new Set(screens.map((s) => s.name)), new Set(infos.map((i) => i.name)));
+  for (const i of infos) i.flagged = rows.filter((r) => r.review && !r.decision && r.review.info === i.name).length;
 
   for (const i of infos) for (const p of i.props) p.evidence = p.evidence.slice(0, 12);
-  const requests = describeRequests(loadRequests(scanRoot));
+  const componentsOf = (r: Request): string[] => [...new Set(out.scenarios.filter((sc) => (r.scope.scenarios ?? []).includes(sc.name)).flatMap((sc) => sc.steps.map((st) => st.owner)))];
+  const rawRequests = loadRequests(scanRoot);
+  const requests = describeRequests(rawRequests, componentsOf);
   const pendingCopy = memos.filter((m) => m.state === 'pending' && !m.copiedAt).length;
   return {
     project: path.basename(root), generatedAt: new Date().toISOString(),
-    screens, specs: out.specs, infos, relations, notes, scenarios: out.scenarios, warnings: out.warnings, analysisError,
+    screens, specs: out.specs, infos, relations, notes, reports: rows, glossary: loadGlossary(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
     memos: memos.map((m) => ({ ...m, stateLabel: STATE_LABEL[m.state] })),
-    requests,
+    requests, untracked: untrackedCommits(scanRoot, rawRequests),
     summary: {
       screens: screens.length, moves, infos: infos.length, relations: relations.length,
       waiting: screens.filter((s) => ['test-requested', 'approved-changed'].includes(s.status.status)).length,
       testRequested: screens.filter((s) => s.status.status === 'test-requested').length,
       changedAfterApproval: screens.filter((s) => s.status.status === 'approved-changed').length,
-      requestsMine: requests.filter((r) => r.turn === 'user').length, memosUndelivered: pendingCopy, needCheck: out.warnings.length + notes.length,
+      requestsMine: requests.filter((r) => r.turn === 'user').length, memosUndelivered: pendingCopy, needCheck: out.warnings.length + notes.length, reportsOpen: openCount(rows),
     },
     labels: LABEL,
   };

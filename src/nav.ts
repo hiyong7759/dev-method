@@ -87,8 +87,9 @@ export function detectNav(scanRoot: string, root: string, out: Extracted = extra
             // hash('보는 곳', 대상): 주소 #/보는 곳(/대상). 대상이 비어 있으면 붙이지 않는다
             const view = strOf(n.arguments[0]);
             const arg = n.arguments[1];
-            const has = !!arg && strOf(arg) !== '';
-            if (view) add(`${hashPrefix}#/${view}${has ? '/:x' : ''}`, n, `${callee}('${view}')`);
+            const lit = arg ? strOf(arg) : '';
+            // 대상이 글자 상수면(예: 'reports') 그대로, 변수면 :x로 둔다. 글자 상수여야 고정 주소(#/manage/reports)와 맞춰 볼 수 있다
+            if (view) add(`${hashPrefix}#/${view}${lit === '' ? '' : `/${lit ?? ':x'}`}`, n, `${callee}('${view}')`);
           } else if (helpers.has(callee)) { const key = strOf(n.arguments[0]); const addr = key ? table.get(key) : undefined; if (key && addr) add(addr, n, `${callee}('${key}')`); }
           else if (callee === 'navigate' || callee === 'nav') { const v = strOf(n.arguments[0]); if (v && v.startsWith('/')) add(v, n, `${callee}("${v}")`); }
         } else if (ts.isJsxAttribute(n) && ts.isIdentifier(n.name) && n.name.text === 'to' && n.initializer) {

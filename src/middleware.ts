@@ -2,7 +2,7 @@
  * @spec spec-handler 설계서 보기 접속 부분
  * @why 서버 종류(vite, 순수 node)와 무관하게 같은 경로로 설계서 보기를 내놓는다. 요청 때마다 소스에서 다시 만든 모델을 보여 주고, 사용자가 화면에서 남기는 상태·확인 목록·메모·요청 결정을 프로젝트 .spec 폴더에만 쓴다.
  * @basis 개발 서버에서만 쓴다. 운영 빌드에는 이 파일도 화면도 들어가지 않는다.
- * @contract 경로: /__spec/ 설계서 보기 화면, /__spec/model.json 모델, /__spec/history.json 화면 이력, 나머지 POST는 상태·확인 목록·메모·캡처·처리 요청 글이다. 화면(viewer/)이 이 경로를 그대로 부른다. 에이전트용 상태 명령이 거부하는 승인·수정 필요·승인 취소는 여기(사용자 화면)에서만 받는다.
+ * @contract 경로: /__spec/ 설계서 보기 화면, /__spec/model.json 모델, /__spec/history.json 화면 이력, 나머지 POST는 상태·확인 목록·메모·캡처·처리 요청 글과, 사용자만 하는 결정(리포트 처리, 설계·테스트 승인·반려, 요청 순서)이다. 화면(viewer/)이 이 경로를 그대로 부른다. 에이전트용 상태 명령이 거부하는 승인·수정 필요·승인 취소는 여기(사용자 화면)에서만 받는다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,6 +13,8 @@ import { buildModel } from './model.js';
 import { allStatus, setStatus, setCheck, specDir } from './status.js';
 import { addMemo, confirmMemo, markCopied, exportText, loadMemos } from './memo.js';
 import { screenHistory } from './history.js';
+import { decide } from './report.js';
+import { addRequest, recordUntracked, approveDesign, rejectDesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
 import { errorText } from './cli.js';
 import { ROOT_DIR, SKILL_DIR, VIEWER_DIR } from './paths.js';
 import type { MemoTarget } from './types.js';
@@ -100,6 +102,26 @@ export function specHandler(scanRoot: string): SpecHandler {
           fs.writeFileSync(path.join(dir, name), Buffer.from(data.split(',')[1], 'base64'));
           return json(res, { name });
         }
+        // 사용자만 하는 결정: 리포트(확인 필요 포함) 처리와 요청의 승인·반려·순서. 에이전트용 명령은 이것들을 할 수 없다
+        if (url === '/__spec/report/decide') {
+          const id = String(b.id || ''), state = String(b.state || '');
+          if (state !== 'registered' && state !== 'intended' && state !== 'ignored') throw new Error('처리는 요청으로 등록·의도한 것·무시 중 하나다');
+          let request: number | undefined;
+          if (state === 'registered') {
+            const row = buildModel(scanRoot).reports.find((r) => r.id === id);
+            if (!row) throw new Error('이 항목을 찾지 못했다');
+            const screens = row.where.filter((w) => w.kind === 'screen').map((w) => w.name), infos = row.where.filter((w) => w.kind === 'info').map((w) => w.name);
+            request = addRequest(scanRoot, { title: row.title, origin: row.detail, channel: row.origin === 'review' ? '확인 필요' : '리포트', screens, infos, source: 'report' }).id;
+          }
+          return json(res, decide(scanRoot, id, { state, request, reason: b.reason ? String(b.reason) : undefined }));
+        }
+        if (url === '/__spec/request/record') return json(res, recordUntracked(scanRoot, String(b.hash || ''), String(b.title || '')));
+        if (url === '/__spec/request/design-approve') return json(res, approveDesign(scanRoot, Number(b.id)));
+        if (url === '/__spec/request/design-reject') return json(res, rejectDesign(scanRoot, Number(b.id), String(b.note || '')));
+        if (url === '/__spec/request/test-check') return json(res, checkTest(scanRoot, Number(b.id), String(b.key || ''), !!b.done));
+        if (url === '/__spec/request/test-approve') return json(res, approveTest(scanRoot, Number(b.id), !!b.none));
+        if (url === '/__spec/request/test-problem') return json(res, testProblem(scanRoot, Number(b.id), String(b.note || '')));
+        if (url === '/__spec/request/order') return json(res, setOrder(scanRoot, Number(b.first), Number(b.other)));
         if (url === '/__spec/check') return json(res, setCheck(scanRoot, b.screen as string, Number(b.index), !!b.done));
         if (url === '/__spec/memo') return json(res, addMemo(scanRoot, { screen: b.screen as string, target: b.target as MemoTarget, text: b.text as string, kind: b.kind as string | undefined }));
         if (url === '/__spec/memo/confirm') return json(res, confirmMemo(scanRoot, b.id as number));

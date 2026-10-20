@@ -324,6 +324,62 @@ export interface RequestEvent {
   note: string;
 }
 
+/** 설계가 바꾸는 정보 한 곳 */
+export interface DesignChange {
+  /** 정보 이름 */
+  info: string;
+  /** 추가(add), 삭제(remove), 바뀜(change), 정보끼리의 연결(link) */
+  kind: 'add' | 'remove' | 'change' | 'link';
+  /** 필드 이름(연결이면 "하루 일정 → 예약.취소 기한" 같은 설명) */
+  field: string;
+  /** 사람이 읽을 설명 */
+  note: string;
+}
+
+/** 설계가 바꾸는 화면 하나의 디자인 */
+export interface DesignScreen {
+  /** 화면 이름 */
+  screen: string;
+  /** 바뀐 뒤 디자인 그림(.spec/shots 안의 파일 이름) */
+  after: string;
+  /** 지금 화면 그림(없으면 빈 글) */
+  before: string;
+  /** Claude Design 캔버스의 해당 보드 주소(없으면 빈 글) */
+  link: string;
+  /** 무엇이 달라지는지 한두 줄 */
+  note: string;
+  /** 추가·바뀜·삭제 개수 */
+  counts: { add: number; change: number; remove: number };
+}
+
+/** 에이전트가 낸 설계 */
+export interface RequestDesign {
+  /** 이렇게 이해했다 */
+  understanding: string;
+  /** 이렇게 처리하겠다 */
+  approach: string;
+  /** 정보 변경들 */
+  changes: DesignChange[];
+  /** 화면 디자인들 */
+  screens: DesignScreen[];
+  /** 이미 있는 데이터와 되돌리기(정보를 바꿀 때만): 저장된 것은 어떻게 되나, 되돌리려면, 실제 데이터 상태 */
+  data?: { existing: string; rollback: string; real: string };
+  /** 정보도 화면도 안 바뀌어 "설계 없음"으로 올린 것 */
+  none: boolean;
+  /** 반려되어 다시 낸 횟수 */
+  rejected: number;
+}
+
+/** 테스트 단계의 확인 기록 */
+export interface RequestTest {
+  /** 확인한 단계들: "시나리오#단계" → 확인함 */
+  checks: Record<string, boolean>;
+  /** 테스트하다 발견한 범위 밖의 것(리포트로도 올라간다) */
+  found: { text: string; reportId: string }[];
+  /** 테스트 없음으로 승인했는가 */
+  none: boolean;
+}
+
 /** .spec/requests/<번호>.json 하나 */
 export interface Request {
   /** 요청 번호(커밋의 요청 줄과 이어 주는 열쇠) */
@@ -347,7 +403,21 @@ export interface Request {
     screens: string[];
     /** 건드리는 정보 이름들 */
     infos: string[];
+    /** 건드리는 사용 시나리오 이름들(요청 범위·테스트 범위의 기준) */
+    scenarios?: string[];
+    /** 이번 요청이 바꾸는 단계들("시나리오#단계"). 테스트 확인표에서 갈래는 여기 적힌 것만 올라온다 */
+    steps?: string[];
+    /** 바꾸지 않고 영향만 확인하는 시나리오 이름들 */
+    impactOnly?: string[];
   };
+  /** 설계 단계에서 에이전트가 낸 결과 */
+  design?: RequestDesign;
+  /** 테스트 단계의 확인 기록 */
+  test?: RequestTest;
+  /** 구현으로 남은 커밋들(짧은 해시) */
+  commits?: string[];
+  /** 이 요청이 끝나길 기다려야 하는 요청 번호들(겹치는 요청의 순서) */
+  waitFor?: number[];
   /** 이 요청을 맡은 에이전트 */
   agent: {
     /** 맡은 세션의 이름(아직 없으면 빈 값) */
@@ -371,6 +441,8 @@ export interface RequestOverlap {
   screens: string[];
   /** 겹치는 정보 */
   infos: string[];
+  /** 겹치는 컴포넌트(사용 시나리오의 단계가 일어나는 자리) */
+  components: string[];
 }
 
 /** 화면에 보여 줄 요청: 이름표, 누구 차례인지, 겹치는 요청을 붙인 것 */
@@ -383,6 +455,8 @@ export interface RequestView extends Request {
   turn: Actor | null;
   /** 겹치는 요청들 */
   overlaps: RequestOverlap[];
+  /** 아직 끝나지 않아 기다려야 하는 요청 번호들 */
+  waitingFor: number[];
 }
 
 // ── 정보 분석 (analyze-ts) ───────────────────────────────
@@ -724,8 +798,10 @@ export interface ModelInfo {
   flow: Record<Role, string[]>;
   /** 필드들 */
   props: ModelProp[];
-  /** 확인이 필요한 필드 수 */
+  /** 아직 처리하지 않은 확인 필요 수 */
   flagged: number;
+  /** 이 정보를 쓰는 화면들의 도메인(왼쪽 "도메인으로 보기"의 근거) */
+  domains: string[];
 }
 
 /** 정보 사이의 관계 한 줄 */
@@ -862,6 +938,20 @@ export interface ModelSummary {
   memosUndelivered: number;
   /** 확인이 필요한 곳의 수 */
   needCheck: number;
+  /** 아직 처리하지 않은 리포트 수 */
+  reportsOpen: number;
+}
+
+/** 요청 번호가 없는 채로 남은 커밋 하나 */
+export interface UntrackedCommit {
+  /** 짧은 해시 */
+  hash: string;
+  /** 커밋 시각 */
+  at: string;
+  /** 쓴 사람 */
+  author: string;
+  /** 제목 */
+  title: string;
 }
 
 /** 설계서 보기 화면이 읽는 모델 한 덩어리 */
@@ -880,6 +970,10 @@ export interface Model {
   relations: Relation[];
   /** 확인 필요 안내들 */
   notes: Note[];
+  /** 리포트 화면의 줄들(에이전트 발견 + 확인 필요, 처리한 것 포함) */
+  reports: ReportRow[];
+  /** 우리가 만든 용어들 */
+  glossary: GlossaryTerm[];
   /** 사용 시나리오들 */
   scenarios: Scenario[];
   /** 메타정보 경고들 */
@@ -890,6 +984,8 @@ export interface Model {
   memos: (Memo & { stateLabel: string })[];
   /** 변경 요청들 */
   requests: RequestView[];
+  /** 요청 번호 없이 남은 커밋들(첫 요청이 생긴 뒤의 것만) */
+  untracked: UntrackedCommit[];
   /** 개수 모음 */
   summary: ModelSummary;
   /** 상태 이름의 화면용 글자 */
@@ -921,4 +1017,97 @@ export interface ProjectConfig {
     /** 도우미가 만든 주소 앞에 붙는 길(예: /__spec/) */
     hashPrefix?: string;
   };
+}
+
+
+// ── 확인 필요 · 리포트 · 용어집 ───────────────────────────
+
+/** 사람이 내린 결정: 요청으로 등록 / 의도한 것 / 무시 */
+export interface Decision {
+  /** 결정 */
+  state: 'registered' | 'intended' | 'ignored';
+  /** 요청으로 등록했다면 그 요청 번호 */
+  request?: number;
+  /** 의도한 것이면 이유 한 줄 */
+  reason?: string;
+  /** 결정한 시각 */
+  at: string;
+}
+
+/** 에이전트가 올린 리포트(발견한 것) */
+export interface AgentReport {
+  /** 리포트 번호 */
+  id: string;
+  /** 한 줄 제목 */
+  title: string;
+  /** 자세한 설명(없으면 빈 글) */
+  detail: string;
+  /** 짧은 분류(보안, 화면 등) */
+  label: string;
+  /** 어디서 발견했나(주기 점검, 요청 작업 중 등) */
+  from: string;
+  /** 관련 화면·정보·컴포넌트 이름들 */
+  where: string[];
+  /** 발견한 시각 */
+  at: string;
+  /** 이번 요청의 범위 밖에서 발견했는가 */
+  outOfScope: boolean;
+}
+
+/** 확인 필요 한 건(코드에서 계산) */
+export interface ReviewItem {
+  /** 같은 것을 알아보는 열쇠(결정을 여기에 붙인다) */
+  id: string;
+  /** 사람이 읽을 제목 */
+  title: string;
+  /** 판단에 도움: 무엇이 걸렸고 지워도 안전해 보이는지 */
+  help: string;
+  /** 판단 도움의 어조: 안전해 보이면 ok, 더 봐야 하면 warn */
+  tone: 'ok' | 'warn';
+  /** 정의된 곳(파일:줄) */
+  where: string;
+  /** 글자로 나오는 다른 곳들(파일:줄) */
+  also: string[];
+  /** 관련 정보 이름 */
+  info: string;
+  /** 관련 필드 이름(정보 전체에 대한 것이면 빈 글) */
+  prop: string;
+  /** 이 정보를 쓰는 화면들 */
+  screens: string[];
+  /** 그 화면들이 속한 사용 시나리오들 */
+  scenarios: string[];
+}
+
+/** 리포트 화면의 한 줄: 에이전트 발견이나 확인 필요 한 건과 그 처리 */
+export interface ReportRow {
+  /** 열쇠 */
+  id: string;
+  /** 에이전트 발견인지 확인 필요인지 */
+  origin: 'agent' | 'review';
+  /** 제목 */
+  title: string;
+  /** 설명 */
+  detail: string;
+  /** 짧은 분류(에이전트 발견만) */
+  label: string;
+  /** 어디서 왔나 */
+  from: string;
+  /** 관련 이름들 */
+  where: { kind: 'screen' | 'info' | 'other'; name: string }[];
+  /** 발견·계산한 시각(확인 필요는 빈 글) */
+  at: string;
+  /** 처리 결과(처리 전이면 없음) */
+  decision: Decision | null;
+  /** 확인 필요라면 그 항목 */
+  review: ReviewItem | null;
+}
+
+/** 우리가 만든 용어 한 개 */
+export interface GlossaryTerm {
+  /** 용어 */
+  term: string;
+  /** 쉬운 설명 */
+  meaning: string;
+  /** 쓰이는 곳들 */
+  uses: string[];
 }

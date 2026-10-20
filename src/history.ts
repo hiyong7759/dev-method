@@ -6,7 +6,7 @@
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { projectRoot } from './status.js';
-import type { HistoryCommit, HistoryItem, HistoryPlace, ModelInfo, ScreenStatus, ScreenTag, Snapshot, Spec } from './types.js';
+import type { HistoryCommit, HistoryItem, HistoryPlace, ModelInfo, Request, ScreenStatus, ScreenTag, Snapshot, Spec, UntrackedCommit } from './types.js';
 
 /** 커밋 메시지를 쪼개는 구분 글자 */
 const SEP = '\x1e', FIELD = '\x1f';
@@ -133,4 +133,31 @@ export function screenHistory(scanRoot: string, sc: ScreenTag, statusRec: Screen
   }
   items.sort((a, b) => (a.at < b.at ? 1 : -1));
   return items;
+}
+
+/** 마지막으로 읽은 결과(저장소의 HEAD가 그대로면 다시 읽지 않는다) */
+const untrackedCache = new Map<string, { head: string; since: string; known: string; list: UntrackedCommit[] }>();
+
+/** 요청 번호 없이 남은 커밋: 첫 요청이 생긴 뒤의 커밋 중 메시지에 "요청 #번호"가 없고 어느 요청의 커밋으로도 적히지 않은 것(병합·되돌리기는 뺀다) */
+export function untrackedCommits(scanRoot: string, requests: Request[]): UntrackedCommit[] {
+  if (!requests.length) return [];
+  const root = projectRoot(scanRoot);
+  const since = requests.reduce((m, r) => (r.origin.at < m ? r.origin.at : m), requests[0].origin.at);
+  const known = new Set(requests.flatMap((r) => r.commits ?? []));
+  let head = '';
+  try { head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return []; }
+  const key = [...known].sort().join(',');
+  const hit = untrackedCache.get(root);
+  if (hit && hit.head === head && hit.since === since && hit.known === key) return hit.list;
+  let raw = '';
+  try { raw = execFileSync('git', ['log', `--since=${since}`, `--format=${SEP}%h${FIELD}%aI${FIELD}%an${FIELD}%s${FIELD}%b`], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 1 << 24 }).toString(); } catch { return []; }
+  const list: UntrackedCommit[] = [];
+  for (const chunk of raw.split(SEP).filter(Boolean)) {
+    const [hash, at, author, subject, body = ''] = chunk.split(FIELD);
+    if (/^(Merge|Revert)\b/.test(subject) || /^revert[:(]/i.test(subject)) continue;
+    if (/요청\s*[:#]?\s*#\d+/.test(`${subject}\n${body}`) || known.has(hash)) continue;
+    list.push({ hash, at, author, title: subject.replace(/^\w+(\([^)]*\))?:\s*/, '') });
+  }
+  untrackedCache.set(root, { head, since, known: key, list });
+  return list;
 }
