@@ -92,7 +92,7 @@ function notesOf(model: Model, sc: Scenario): Note[] {
 }
 
 /** 시나리오 한 개: 이름, 첫 화면 열기, 단계들과 화살표, 이어서 할 수 있는 일, 이 시나리오의 확인 필요 */
-function scenarioCard(model: Model, sc: Scenario): HTMLElement {
+function scenarioCard(model: Model, sc: Scenario, domain: string, open: string): HTMLElement {
   const mains = sc.steps.filter((s) => s.main);
   const area = h('div', { class: 'farea' },
     h('div', { class: 'fcols' }, mains.map((m) => h('div', { class: 'fcol' }, stepBox(sc, m), branchesOf(sc, m).map((b) => stepBox(sc, b))))));
@@ -101,10 +101,9 @@ function scenarioCard(model: Model, sc: Scenario): HTMLElement {
   const notes = notesOf(model, sc);
   const card = h('div', { class: 'scn' },
     h('div', { class: 'scn-h' }, h('span', { class: 'scn-t' }, sc.name), h('span', { class: 'chip dim' }, `${mains.length}단계${sc.steps.length > mains.length ? ` · 갈래 ${sc.steps.length - mains.length}` : ''}`),
-      notes.length ? h('button', { class: 'chk-btn', onclick: (e) => { const box = (e.currentTarget as HTMLElement).closest('.scn')?.querySelector('.scn-notes'); box?.classList.toggle('open'); } }, `확인 필요 ${notes.length}`) : null,
+      notes.length ? h('button', { class: `chk-btn${open === sc.name ? ' on' : ''}`, onclick: () => nav(hash('flow', '', { domain, notes: open === sc.name ? undefined : sc.name })) }, `확인 필요 ${notes.length}`) : null,
       first ? h('a', { class: 'open', href: `${location.pathname}${hash('screen', first)}`, target: '_blank', rel: 'noopener' }, '첫 화면 열기 ↗') : h('span', { class: 'chip dim', style: 'margin-left:auto' }, '직접 열 수 없음')),
     area,
-    notes.length ? h('div', { class: 'scn-notes' }, notes.map((n) => h('div', { class: 'fn' }, n.text))) : null,
     nexts.length ? h('div', { class: 'next' }, '이어서 할 수 있는 일 ', nexts.map((n) => h('b', null, n))) : null);
   // 화면에 붙어 크기가 정해진 뒤에 선을 긋고, 폭이 바뀌면 다시 긋는다
   requestAnimationFrame(() => { drawArrows(area, sc); new ResizeObserver(() => drawArrows(area, sc)).observe(area); });
@@ -121,7 +120,7 @@ function scenarioCard(model: Model, sc: Scenario): HTMLElement {
  * @does 도메인으로 시나리오를 거른다 | 고른 도메인의 시나리오만 남는다 | 화면 설계서를 열어 본다#1 | → 2
  * @does 시나리오의 첫 화면을 새 창으로 연다 | 첫 단계가 있는 화면의 설계서가 새 창에서 열린다 | 화면 설계서를 열어 본다#2 | → 3
  */
-export function flowView(root: HTMLElement, { model, domain }: { model: Model; domain: string }): void {
+export function flowView(root: HTMLElement, { model, domain, notes }: { model: Model; domain: string; notes: string }): void {
   const doms = [...new Set(model.scenarios.map((s) => s.domain).filter(Boolean))];
   const shown = model.scenarios.filter((s) => !domain || s.domain === domain);
   const side = h('div', { class: 'side-nav' }, h('h4', null, '도메인으로 보기'),
@@ -130,9 +129,17 @@ export function flowView(root: HTMLElement, { model, domain }: { model: Model; d
   const groups = [...new Set(shown.map((s) => s.domain))];
   const covered = new Set(model.scenarios.flatMap((s) => notesOf(model, s)));
   const rest = model.notes.filter((n) => !covered.has(n));
+  const opened = model.scenarios.find((s) => s.name === notes);
+  const panel = opened ? h('aside', { class: 'side', style: 'width:380px' }, h('div', { class: 'side-in', style: 'display:flex;flex-direction:column;min-height:0;flex:1' },
+    h('div', { class: 'drawer-head' }, h('div', null, h('b', null, '확인 필요'), h('div', { style: 'font-size:12px;color:var(--dim);margin-top:2px' }, opened.name)),
+      h('button', { class: 'xbtn', onclick: () => nav(hash('flow', '', { domain })), 'aria-label': '닫기' }, '×')),
+    h('div', { class: 'tbody' },
+      h('p', { style: 'margin:0 0 10px;font-size:12px;color:var(--dim);line-height:1.6' }, '코드를 읽어 규칙에 맞지 않는 곳을 자동으로 찾은 것입니다. 이 시나리오의 화면과 그 화면이 쓰는 정보에 대한 것만 모았습니다.'),
+      notesOf(model, opened).map((n) => h('div', { class: 'fn' }, n.text))))) : null;
   root.append(h('div', { class: 'map-body' }, side, h('div', { class: 'map-main' },
     h('p', { class: 'map-help' }, '사용자가 앱으로 이루려는 일(사용 시나리오)을 단계 순서대로 보여 줍니다. 파란 선은 기본 흐름, 노란 선은 조건에 따라 갈라지는 길, 점선은 앞 단계로 되돌아오는 길입니다. 칸 아래 이름은 그 일이 일어나는 자리(컴포넌트)입니다.'),
-    shown.length ? groups.map((g) => h('section', { class: 'flow-sec' }, g ? h('h2', null, g) : null, shown.filter((s) => s.domain === g).map((s) => scenarioCard(model, s))))
+    shown.length ? groups.map((g) => h('section', { class: 'flow-sec' }, g ? h('h2', null, g) : null, shown.filter((s) => s.domain === g).map((s) => scenarioCard(model, s, domain, notes))))
       : h('div', { class: 'empty-note' }, '사용 시나리오가 없다 — @does의 셋째 칸에 "시나리오#단계"를 쓰면 여기 나온다'),
-    rest.length ? h('details', { class: 'flow-notes' }, h('summary', null, `시나리오에 속하지 않은 확인 필요 ${rest.length}건`), rest.map((n) => h('div', { class: 'fn' }, n.text))) : null)));
+    rest.length ? h('details', { class: 'flow-notes' }, h('summary', null, `시나리오에 속하지 않은 확인 필요 ${rest.length}건`), rest.map((n) => h('div', { class: 'fn' }, n.text))) : null),
+    panel));
 }

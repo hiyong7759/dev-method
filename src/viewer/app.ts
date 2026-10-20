@@ -110,7 +110,7 @@ function render(): void {
     if (r.arg) manageDetail(body, { model: m, id: r.arg });
     else manageList(body, { model: m });
   } else {
-    flowView(body, { model: m, domain: r.params.get('domain') || '' });
+    flowView(body, { model: m, domain: r.params.get('domain') || '', notes: r.params.get('notes') || '' });
   }
 }
 

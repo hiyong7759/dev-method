@@ -408,5 +408,4 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .fn{padding:5px 0;color:#d9d1c6;line-height:1.5;font-size:13px;border-top:1px solid rgba(255,255,255,.06)}
 .fn:first-child{border-top:0}
 .chk-btn{padding:4px 12px;border-radius:999px;border:1px solid #7a6226;background:#2a2316;color:var(--amber);font-size:12px;font-weight:700;min-height:28px;cursor:pointer}
-.scn-notes{display:none;border:1px solid #7a6226;border-radius:10px;background:#2a2316;padding:10px 14px;font-size:13px;line-height:1.5;color:#d9d1c6;flex-direction:column;gap:6px}
-.scn-notes.open{display:flex}
+.chk-btn.on{background:#7a6226;color:#fff}
