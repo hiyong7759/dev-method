@@ -12,7 +12,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* 상단 바 */
 .top{flex:none;overflow:hidden;height:56px;display:flex;align-items:center;gap:16px;padding:0 20px;background:var(--bg);border-bottom:1px solid var(--line)}
 .top.tall{height:62px}
-.dev{font-size:11px;padding:3px 8px;border-radius:4px;background:var(--accent);color:var(--inset);font-weight:700}
+.dev{font-size:11px;padding:3px 8px;border-radius:4px;background:var(--accent);color:var(--on-accent);font-weight:700}
 .top .ttl{font-size:17px;font-weight:700}
 .top .sub{font-size:12px;color:var(--dim)}
 .crumb{display:flex;align-items:center;gap:8px;font-size:15px}
@@ -75,7 +75,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .tgl{display:flex;align-items:center;gap:8px;background:none;border:0;font-size:12px}
 .sw{position:relative;width:36px;height:20px;border-radius:10px;background:var(--line2);flex:none;transition:background .12s}
 .sw i{position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:8px;background:var(--text);transition:left .12s,background .12s}
-.sw.on{background:var(--accent)}.sw.on i{left:18px;background:var(--inset)}
+.sw.on{background:var(--accent)}.sw.on i{left:18px;background:var(--on-accent)}
 .regionbtn{min-height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--accent-deep);background:var(--accent-bg);font-weight:700;font-size:12px}
 .regionbtn.on{border-color:var(--accent);background:var(--accent-bg)}
 .stage{position:relative;flex:1;min-height:0;background:var(--stage);overflow:hidden}
@@ -121,7 +121,6 @@ button{font:inherit;color:inherit;cursor:pointer}
 .sec h4{margin:0 0 12px;font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:baseline}
 .sec h4 small{font-weight:400;font-size:12px;color:var(--dim)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.tag{font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--line);background:var(--card)}
 .way{display:grid;grid-template-columns:34px 1fr;gap:4px 8px;font-size:12px;line-height:1.55;color:var(--text2)}
 .way .k{color:var(--dim)}
 .way a{color:var(--accent);cursor:pointer}
@@ -138,7 +137,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .finfo .fn{font-size:13px}
 .finfo .fn .i{color:var(--dim)}.finfo .fn b{font-weight:700}
 .finfo .fd{font-size:12px;color:var(--text2);line-height:1.5}
-.num{display:inline-flex;width:22px;height:22px;border-radius:11px;background:var(--accent);color:var(--inset);font-size:12px;align-items:center;justify-content:center;flex:none}
+.num{display:inline-flex;width:22px;height:22px;border-radius:11px;background:var(--accent);color:var(--on-accent);font-size:12px;align-items:center;justify-content:center;flex:none}
 .num.logic{background:none;border:1px dashed var(--dim);color:var(--dim)}
 .comp{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:10px;border:1px solid var(--line);background:var(--card);transition:opacity .12s}
 .comp.dim{opacity:.5}
@@ -155,7 +154,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .zone{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--text2);padding:0 2px}
 .zone small{font-weight:400;color:var(--dim)}
 .smallbtn{min-height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--line);background:var(--card);font-size:12px}
-.smallbtn.pri{background:var(--accent);color:var(--inset);border-color:var(--accent);font-weight:700}
+.smallbtn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
 .smallbtn.bad{border-color:var(--red);color:var(--red);background:none}
 .smallbtn.good{background:var(--green);color:var(--on-green);border-color:var(--green);font-weight:700}
 .smallbtn[disabled]{opacity:.5;cursor:not-allowed;border-style:dashed}
@@ -321,7 +320,7 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 /* 정보 상세 맨 위: 이 화면에서의 쓰임 */
 .thisscreen{padding:14px;border-radius:10px;border:1px solid var(--accent-deep);background:var(--accent-bg)}
 .ts-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.ts-badge{font-size:11px;font-weight:700;padding:1px 8px;border-radius:10px;background:var(--accent);color:var(--inset)}
+.ts-badge{font-size:11px;font-weight:700;padding:1px 8px;border-radius:10px;background:var(--accent);color:var(--on-accent)}
 .ts-sub{font-size:12px;color:var(--dim)}
 
 /* 히스토리에서 고른 변경이 바꾼 요소: 눈에 띄게 */
@@ -374,7 +373,7 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .chip.me{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-deep)}.chip.ag{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-deep)}
 .chip.ok{background:var(--green-bg);color:var(--green);border-color:var(--green-deep)}.chip.dim{background:var(--bg2);color:var(--dim);border-color:var(--line)}
 .btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--text);font-size:13px;font-weight:700;min-height:36px}
-.btn.pri{background:var(--accent);color:var(--inset);border-color:var(--accent)}
+.btn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .mg-card{padding:16px;border-radius:12px;border:1px solid var(--line);background:var(--card);display:flex;flex-direction:column;gap:10px}
 .mg-card h3{margin:0;font-size:14px}
 .crumb{color:var(--dim);font-size:12px}.crumb a{color:var(--accent)}
