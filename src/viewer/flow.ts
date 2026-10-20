@@ -3,7 +3,7 @@
  * @why 사용자가 앱으로 이루려는 일(사용 시나리오)을 단계 순서대로, 갈라지는 길과 되돌아가는 길까지 한눈에 보게 한다. 화면이 아니라 일이 기준이라, 한 화면 안의 패널이나 오버레이, 여러 화면에 걸친 일을 같은 모양으로 그린다.
  * @contract model.scenarios(extract가 @does의 시나리오#단계·다음 단계·조건에서 계산)를 그대로 그린다. 기본 흐름은 가로 한 줄, 갈래는 갈라지는 단계 아래, 되돌아가는 길은 위쪽 점선 곡선이다. 여기서는 흐름을 새로 계산하지 않는다.
  */
-import { h } from './util.js';
+import { h, filterChips } from './util.js';
 import { hash, nav } from './route.js';
 import type { Model, Note, Scenario, ScenarioStep } from '../types.js';
 
@@ -123,9 +123,7 @@ function scenarioCard(model: Model, sc: Scenario, domain: string, open: string):
 export function flowView(root: HTMLElement, { model, domain, notes }: { model: Model; domain: string; notes: string }): void {
   const doms = [...new Set(model.scenarios.map((s) => s.domain).filter(Boolean))];
   const shown = model.scenarios.filter((s) => !domain || s.domain === domain);
-  const side = h('div', { class: 'side-nav' }, h('h4', null, '도메인으로 보기'),
-    h('button', { class: `dom-btn${!domain ? ' sel' : ''}`, onclick: () => nav(hash('flow')) }, '전체', h('span', null, model.scenarios.length)),
-    doms.map((d) => h('button', { class: `dom-btn${domain === d ? ' sel' : ''}`, onclick: () => nav(hash('flow', '', { domain: d })) }, d, h('span', null, model.scenarios.filter((s) => s.domain === d).length))));
+  const chips = filterChips([{ key: '', label: '전체', count: model.scenarios.length }, ...doms.map((d) => ({ key: d, label: d, count: model.scenarios.filter((s) => s.domain === d).length }))], domain, (d) => nav(hash('flow', '', { domain: d })));
   const groups = [...new Set(shown.map((s) => s.domain))];
   const covered = new Set(model.scenarios.flatMap((s) => notesOf(model, s)));
   const rest = model.notes.filter((n) => !covered.has(n));
@@ -136,10 +134,10 @@ export function flowView(root: HTMLElement, { model, domain, notes }: { model: M
     h('div', { class: 'tbody' },
       h('p', { style: 'margin:0 0 10px;font-size:12px;color:var(--dim);line-height:1.6' }, '기계가 판단할 수 없어 사람이 정해야 하는 것만 올라옵니다. 이 시나리오의 화면과 그 화면이 쓰는 정보에 대한 것만 모았습니다.'),
       notesOf(model, opened).map((n) => h('div', { class: 'fn' }, n.text))))) : null;
-  root.append(h('div', { class: 'map-body' }, side, h('div', { class: 'map-main' },
+  root.append(h('div', { class: 'map-body' }, h('div', { style: 'flex:1;display:flex;flex-direction:column;min-width:0' }, h('div', { class: 'fbar' }, chips), h('div', { class: 'map-main' },
     h('p', { class: 'map-help' }, '사용자가 앱으로 이루려는 일(사용 시나리오)을 단계 순서대로 보여 줍니다. 파란 선은 기본 흐름, 노란 선은 조건에 따라 갈라지는 길, 점선은 앞 단계로 되돌아오는 길입니다. 칸 아래 이름은 그 일이 일어나는 자리(컴포넌트)입니다.'),
     shown.length ? groups.map((g) => h('section', { class: 'flow-sec' }, g ? h('h2', null, g) : null, shown.filter((s) => s.domain === g).map((s) => scenarioCard(model, s, domain, notes))))
       : h('div', { class: 'empty-note' }, '사용 시나리오가 없다 — @does의 셋째 칸에 "시나리오#단계"를 쓰면 여기 나온다'),
-    rest.length ? h('details', { class: 'flow-notes' }, h('summary', null, `시나리오에 속하지 않은 확인 필요 ${rest.length}건`), rest.map((n) => h('div', { class: 'fn' }, n.text))) : null),
+    rest.length ? h('details', { class: 'flow-notes' }, h('summary', null, `시나리오에 속하지 않은 확인 필요 ${rest.length}건`), rest.map((n) => h('div', { class: 'fn' }, n.text))) : null)),
     panel));
 }

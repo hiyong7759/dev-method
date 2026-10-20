@@ -32,6 +32,11 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props |
   return el;
 }
 
+/** 보기를 거르는 칩 한 줄. 정보 흐름과 사용 흐름이 같은 모양을 쓰고, 칩이 많아지면 줄바꿈된다 */
+export function filterChips<K extends string>(items: { key: K; label: string; count: number }[], current: K, pick: (k: K) => void): HTMLElement {
+  return h('div', { class: 'seg fchips' }, items.map((i) => h('button', { class: current === i.key ? 'on' : '', onclick: () => pick(i.key) }, `${i.label} ${i.count}`)));
+}
+
 /** 잡은 오류에서 사람이 읽을 글만 꺼낸다(src/cli.ts에도 같은 것이 있다: 화면 코드는 바깥 폴더를 못 불러온다) */
 export const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 

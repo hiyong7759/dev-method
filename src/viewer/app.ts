@@ -62,8 +62,7 @@ function topbar(m: Model, r: Route): HTMLElement {
   const curInfo = r.view === 'info' ? r.arg : '';
   const chips = [
     s.waiting ? h('button', { class: 'pill accent', onclick: () => { if (first) nav(hash('screen', first.name, { tab: 'approval' })); } }, '승인 대기 ', h('b', { style: 'color:var(--accent)' }, s.waiting), h('small', null, `테스트 요청 ${s.testRequested} · 승인 후 변경 ${s.changedAfterApproval}`)) : null,
-    s.memosUndelivered ? h('span', { class: 'pill purple' }, '전달 전 메모 ', h('b', { style: 'color:var(--purple)' }, s.memosUndelivered)) : null,
-    r.view === 'info' ? h('button', { class: 'pill warn', onclick: () => nav(hash('info', '', { kind: 'review' })) }, '확인 필요 ', h('b', null, m.infos.reduce((a, i) => a + i.flagged, 0))) : h('span', { class: 'pill warn' }, '확인 필요 ', h('b', null, s.needCheck))];
+    s.memosUndelivered ? h('span', { class: 'pill purple' }, '전달 전 메모 ', h('b', { style: 'color:var(--purple)' }, s.memosUndelivered)) : null];
   const curModel = curScreen ? m.screens.find((x) => x.name === curScreen) : null;
   const seg = h('div', { class: 'seg' }, h('button', { class: r.view === 'manage' ? '' : 'on', onclick: () => nav(hash('flow')) }, '현행'), h('button', { class: r.view === 'manage' ? 'on' : '', onclick: () => nav(hash('manage')) }, '관리'));
   if (r.view === 'manage') {

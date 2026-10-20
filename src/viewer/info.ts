@@ -3,7 +3,7 @@
  * @why 정보가 어느 화면에서 입력되고 보이고 바뀌고 판단되는지를, 어디서 열든 같은 모양의 상세 패널과 한눈에 보는 관계도로 보여 준다. 정보를 따로 문서로 쓰지 않아도 코드에서 읽은 것이 그대로 보이게 한다.
  * @contract model.infos, model.relations, model.screens[].fields를 그대로 그린다. 관계도는 창 폭에 맞춰 상자를 줄바꿈해 놓으므로, 창 폭이 바뀌면 부르는 쪽(app.ts)이 다시 그려야 한다. 오른쪽 패널은 항상 열려 있다(고르기 전에는 한눈에 보기).
  */
-import { h, ROLES, ROLE_LABEL } from './util.js';
+import { h, ROLES, ROLE_LABEL, filterChips } from './util.js';
 import { hash, nav } from './route.js';
 import type { InfoKind, Model, ModelInfo, ModelProp, RefKind } from '../types.js';
 
@@ -50,7 +50,7 @@ function judgeBox(info: ModelInfo, p: ModelProp): HTMLElement {
     : found ? '코드에서는 쓰는 곳을 못 찾았지만, 같은 이름이 다른 곳에 나온다 — 값이 JSON이나 글자로 쓰일 수 있어 지우기 전에 아래 곳을 본다'
       : '코드에서도, 글자로도 쓰는 곳이 없다 — 지워도 안전해 보인다(지울지 요청으로 정한다)';
   return h('div', { class: 'judge' },
-    h('div', { class: found || !p.doc ? 'jv warn' : 'jv ok' }, verdict),
+    h('div', { class: found || !p.doc ? 'jv bad' : 'jv ok' }, verdict),
     h('div', { class: 'jl' }, '정의된 곳 ', h('span', { class: 'mono' }, `${info.fileSrc}:${p.line}`)),
     p.dupTotal ? h('div', { class: 'jl' }, `같은 이름으로 다시 정의한 곳 ${p.dupTotal}개`) : null,
     p.strs.length ? h('div', { class: 'jl' }, '글자로 나오는 곳 ', p.strs.map((s) => h('span', { class: 'mono', style: 'margin-right:8px' }, `${s.file}:${s.line}`))) : null);
@@ -202,8 +202,9 @@ export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, d
     const p = pos[i.name];
     const doc1 = i.doc ? i.doc.split(/[.。]/)[0] : '';
     const node = h('div', { class: `inode${i.unused ? ' unused' : ''}${selected === i.name ? ' sel' : ''}${selected && selected !== i.name ? ' dim' : ''}`, style: `left:${p.x}px;top:${p.y}px;height:${p.h}px`, title: `${i.name}${doc1 ? ' — ' + doc1 : ''}`, onclick: () => onSelect(i.name) },
-      h('div', { class: 'h' }, h('b', null, i.name, i.kind === 'internal' ? h('em', { class: 'kind-tag' }, '내부') : null, i.flagged ? h('em', { class: 'kind-tag warn' }, `확인 ${i.flagged}`) : null), h('span', null, i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1)),
-      h('div', { class: 'c' }, ROLES.map((r) => h('span', { class: `cnt-chip ${r}${i.flow[r].length ? '' : ' zero'}` }, `${ROLE_LABEL[r]} ${i.flow[r].length}`))));
+      h('div', { class: 'h' }, h('b', null, i.name, i.kind === 'internal' ? h('em', { class: 'kind-tag' }, '내부') : null), h('span', null, i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1)),
+      h('div', { class: 'c' }, ROLES.map((r) => h('span', { class: `cnt-chip ${r}${i.flow[r].length ? '' : ' zero'}` }, `${ROLE_LABEL[r]} ${i.flow[r].length}`))),
+      i.flagged ? h('span', { class: 'rv-badge', title: `확인 필요 ${i.flagged}` }, `확인 ${i.flagged}`) : null);
     erd.append(node);
   }
   const spacer = h('div', { style: `width:${canvasW}px;height:${canvasH}px` });
@@ -211,7 +212,7 @@ export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, d
   if (!infos.length) erd.append(h('div', { class: 'empty-note' }, '정보를 찾지 못했다', h('br'), model.analysisError || '타입을 export한 정의가 있고 쓰이는 곳이 있어야 보인다'));
   const count = (f: InfoFilter): number => infosOf(model, f).length;
   root.append(h('div', { class: 'legend' },
-    h('div', { class: 'seg' }, (['all', 'screen', 'internal', 'review'] as InfoFilter[]).filter((f) => f !== 'review' || count(f) > 0 || filter === 'review').map((f) => h('button', { class: filter === f ? 'on' : '', onclick: () => onFilter(f) }, `${FILTER_LABEL[f]} ${count(f)}`))),
+    filterChips((['all', 'screen', 'internal', 'review'] as InfoFilter[]).filter((f) => f !== 'review' || count(f) > 0 || filter === 'review').map((f) => ({ key: f, label: FILTER_LABEL[f], count: count(f) })), filter, onFilter),
     h('span', null, '관계선'), h('span', { class: 'mono' }, '──'), h('span', null, '소유 (실제 연결)'), h('span', { class: 'mono' }, '┄┄'), h('span', null, '약한 연결 (값으로만 가리킴)'),
     h('span', { style: 'margin-left:12px' }, '표시'), ROLES.map((r) => h('span', { class: `cnt-chip ${r}`, style: 'font-size:12px;padding:2px 10px' }, ROLE_LABEL[r])), h('span', { style: 'color:var(--dim)' }, '= 그 일을 하는 곳의 수')));
   root.append(h('div', { class: 'erd-wrap' }, erd, drawer ? h('aside', { class: 'side', style: 'width:420px' }, drawer) : null));
