@@ -32,9 +32,60 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props |
   return el;
 }
 
-/** 보기를 거르는 칩 한 줄. 정보 흐름과 사용 흐름이 같은 모양을 쓰고, 칩이 많아지면 줄바꿈된다 */
+/** 이름표 chip의 색: me=내 차례(노랑), ag=에이전트 차례(파랑), ok=완료·통과(초록), bad=문제(빨강), dim=그 밖 */
+export type Tone = 'me' | 'ag' | 'ok' | 'bad' | 'dim';
+/** 상태를 한두 단어로 알리는 이름표 */
+export const chip = (tone: Tone, text: Kid, extra = ''): HTMLSpanElement => h('span', { class: `chip ${tone}${extra}` }, text);
+/** 범위·종류를 알리는 태그: c=화면·컴포넌트(파랑), i=정보(초록), 비우면 보통 */
+export const tag = (kind: 'c' | 'i' | '', text: Kid): HTMLSpanElement => h('span', { class: `tag${kind ? ` ${kind}` : ''}` }, text);
+/** 확인 필요 표시. 어디서나 같은 모양이고, 누르면 같은 확인 필요 패널이 열린다(onclick을 안 주면 표시만) */
+export const rv = (text: Kid = '확인 필요', onclick?: () => void): HTMLElement => h(onclick ? 'button' : 'span', { class: 'rv', onclick: onclick ? (e: Event) => { e.stopPropagation(); onclick(); } : undefined }, text);
+
+/** 보기를 거르는 칩 한 줄(fchips). 위쪽 칩 = 상태·종류. 하나만 고르고, 넘치면 줄바꿈된다 */
 export function filterChips<K extends string>(items: { key: K; label: string; count: number }[], current: K, pick: (k: K) => void): HTMLElement {
-  return h('div', { class: 'seg fchips' }, items.map((i) => h('button', { class: current === i.key ? 'on' : '', onclick: () => pick(i.key) }, `${i.label} ${i.count}`)));
+  return h('div', { class: 'fchips' }, items.map((i) => h('button', { class: `fc${current === i.key ? ' on' : ''}`, onclick: () => pick(i.key) }, i.label, h('small', null, i.count))));
+}
+
+/** 왼쪽 분류 목록(side-list). 분류(도메인처럼 프로젝트마다 달라지는 것)로 거를 때 쓴다 */
+export function sideList<K extends string>(title: string, items: { key: K; label: string; count: number }[], current: K, pick: (k: K) => void): HTMLElement {
+  return h('nav', { class: 'side-list' }, h('h4', null, title), items.map((i) => h('button', { class: current === i.key ? 'on' : '', onclick: () => pick(i.key) }, i.label, h('span', null, i.count))));
+}
+
+/** 페이지 머리(ph): [빵부스러기] 제목 / 한 줄 설명. 모든 화면이 같은 구조를 쓴다 */
+export interface PageHeadOptions {
+  /** 두 단계 이상 들어간 화면에서만: 위 단계 이동 링크들 */
+  crumb?: Kid;
+  /** 화면 제목 */
+  title: Kid;
+  /** 제목 바로 아래 한 줄 설명 */
+  lead?: Kid;
+  /** 설명 대신 이름표·출처를 한 줄로 보일 때 */
+  meta?: Kid;
+  /** 오른쪽 작업 단추 */
+  actions?: Kid;
+}
+export function pageHead({ crumb, title, lead, meta, actions }: PageHeadOptions): HTMLElement {
+  const main = h('div', null, crumb ? h('div', { class: 'crumb' }, crumb) : null, h('h1', null, title), lead ? h('p', { class: 'lead' }, lead) : null, meta ? h('div', { class: 'lead meta' }, meta) : null);
+  return h('header', { class: 'ph' }, actions ? h('div', { class: 'phrow' }, main, h('div', { style: 'display:flex;gap:8px;flex:none' }, actions)) : main);
+}
+
+/** 오른쪽 패널(sidepanel): 제목+닫기 / 본문 칸들 / 아래 단추. 폭은 380 고정 */
+export interface SidePanelOptions {
+  /** 패널 제목 */
+  title: Kid;
+  /** 제목 아래 한 줄 설명 */
+  sub?: Kid;
+  /** 닫기(✕). 없으면 닫기 단추를 그리지 않는다 */
+  onClose?: () => void;
+  /** 본문 칸들 */
+  body: Kid;
+  /** 아래 단추 줄 */
+  foot?: Kid;
+}
+export function sidePanel({ title, sub, onClose, body, foot }: SidePanelOptions): HTMLElement {
+  return h('aside', { class: 'sidepanel' },
+    h('div', { class: 'sp-head' }, h('h3', null, title), onClose ? h('button', { class: 'sp-x', onclick: onClose, 'aria-label': '닫기' }, '✕') : null),
+    sub ? h('div', { class: 'hint' }, sub) : null, body, foot ? h('div', { class: 'sp-foot' }, foot) : null);
 }
 
 /** 잡은 오류에서 사람이 읽을 글만 꺼낸다(src/cli.ts에도 같은 것이 있다: 화면 코드는 바깥 폴더를 못 불러온다) */
@@ -65,9 +116,11 @@ export const ROLE_LABEL: Record<Role, string> = { input: '입력', shown: '보�
 /** 정보가 하는 일을 보이는 순서 */
 export const ROLES: Role[] = ['input', 'shown', 'modify', 'judge'];
 
+/** 화면 상태 이름표의 색 */
+const STATUS_TONE: Record<string, Tone> = { dev: 'dim', 'test-requested': 'ag', 'needs-fix': 'bad', approved: 'ok', 'approved-changed': 'me', memo: 'dim' };
 /** 화면 상태를 알리는 작은 이름표 */
 export function statusChip(st: Pick<ScreenStatus, 'status' | 'label'>, extra = ''): HTMLSpanElement {
-  return h('span', { class: `chip-st ${st.status}${extra}` }, st.label);
+  return chip(STATUS_TONE[st.status] ?? 'dim', st.label, extra);
 }
 
 let toastTimer = 0;
