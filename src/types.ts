@@ -39,10 +39,14 @@ export interface Does {
   title: string;
   /** 잘 됐는지 보는 기준 */
   check: string;
-  /** 이 일을 하면 가는 화면(없으면 빈 글). 같은 화면이면 그 화면 안에서 끝나는 일 */
-  to: string;
-  /** 이동하며 넘기는 값 */
-  pass: string;
+  /** 이 일이 속한 사용 시나리오 이름(없으면 빈 글: 이 자리 안에서 끝나는 단독 일) */
+  scenario: string;
+  /** 시나리오 안에서 이 단계를 가리키는 이름 */
+  step: string;
+  /** 이 일 다음에 이어지는 단계들. "단계" 또는 "다른시나리오#단계". 둘 이상이면 갈래, 앞 단계를 적으면 되돌아가는 순환 */
+  next: string[];
+  /** 앞 단계에서 이 단계로 오는 조건(갈래일 때) */
+  cond: string;
 }
 
 /** 화면 이동 선언 한 줄 */
@@ -120,6 +124,8 @@ export interface Spec {
   line: number;
   /** 이 요소가 속한 화면 이름들 */
   screens: string[];
+  /** 이 요소에서 사용자가 하는 일들 */
+  does: Does[];
   /** 처음 화면에 안 보일 때 설계서 보기가 눌러 볼 순서(@open이 있으면 그것, 없으면 검사가 찾아 둔 것) */
   reveal?: RevealStep[];
 }
@@ -132,6 +138,8 @@ export interface Extracted {
   screen: ScreenTag | null;
   /** 읽은 요소들 */
   specs: Spec[];
+  /** 읽은 사용 시나리오들 */
+  scenarios: Scenario[];
   /** 메타정보가 비었거나 어긋난 곳의 경고들 */
   warnings: string[];
   /** 읽은 시각 */
@@ -796,60 +804,52 @@ export interface ModelScreen extends Omit<ScreenTag, 'to'> {
   warnings: string[];
 }
 
-/** 사용 흐름의 한 칸에서 나가는 길 하나 */
-export interface FlowOut {
-  /** 가는 화면 */
-  to: string;
-  /** 사용자가 무엇을 해서 가는가 */
-  action: string;
-  /** 넘기는 값 */
-  pass: string;
-  /** 앞으로 나아가는 길이 아니라 이미 지난 칸으로 되돌아가는 길(순환)인가 */
-  loop: boolean;
-  /** 코드에서 이 이동이 확인됐는가 */
-  verified: boolean;
-  /** 다른 도메인의 화면으로 가는가 */
-  crossDomain: boolean;
-}
-
-/** 사용 흐름의 한 칸 안의 일 하나: 사용자가 이 화면에서 하는 한 가지 일 */
-export interface FlowAction {
+/** 사용 시나리오의 한 단계 */
+export interface ScenarioStep {
+  /** 시나리오 안에서 이 단계를 가리키는 이름 */
+  id: string;
   /** 사용자가 하는 일 */
   title: string;
   /** 잘 됐는지 보는 기준 */
   check: string;
-  /** 이 일을 하면 가는 화면(없으면 이 화면 안에서 끝나는 일) */
+  /** 이 일이 일어나는 자리(컴포넌트 제목 또는 화면 이름) */
+  owner: string;
+  /** 자리의 종류: 화면 자체 또는 컴포넌트 */
+  ownerKind: 'screen' | 'spec';
+  /** 이 자리가 속한 화면들 */
+  screens: string[];
+  /** 앞 단계에서 오는 조건(없으면 빈 글) */
+  cond: string;
+  /** 이어지는 길들 */
+  edges: ScenarioEdge[];
+  /** 기본 흐름 위의 단계인가(아니면 갈래) */
+  main: boolean;
+  /** 주석이 있는 파일(소스 폴더 기준) */
+  file: string;
+  /** 주석이 있는 줄 */
+  line: number;
+}
+
+/** 단계에서 이어지는 길 하나 */
+export interface ScenarioEdge {
+  /** 이어지는 단계 */
   to: string;
-  /** 넘기는 값 */
-  pass: string;
-  /** 앞으로 나아가는 길이 아니라 이미 지난 칸으로 돌아오는 길(순환)인가 */
-  loop: boolean;
-  /** 코드에서 이 이동이 확인됐는가 */
-  verified: boolean;
-  /** 다른 도메인의 화면으로 가는가 */
-  crossDomain: boolean;
+  /** 다른 시나리오로 이어지면 그 이름(같은 시나리오면 빈 글) */
+  scenario: string;
+  /** 앞으로 가는 길(forward), 이미 지난 단계로 돌아오는 길(loop), 다른 시나리오로 가는 길(other) */
+  kind: 'forward' | 'loop' | 'other';
 }
 
-/** 사용 흐름의 한 칸(화면 하나와 그 안에서 하는 일들) */
-export interface FlowStep {
-  /** 화면 이름 */
-  screen: string;
-  /** 시작에서 몇 번째 칸인가(0이 시작) */
-  depth: number;
-  /** 이 화면에서 하는 일들 */
-  actions: FlowAction[];
-  /** 일로 적히지 않은 나가는 길(@to만 있는 이동) */
-  extra: FlowOut[];
-}
-
-/** 한 도메인 안에서 시작 화면 하나에서 이어지는 사용 흐름 한 갈래 */
-export interface UsageFlow {
-  /** 도메인(없으면 빈 글) */
+/** 사용 시나리오: 사용자가 이루려는 일 하나와 그 단계들 */
+export interface Scenario {
+  /** 시나리오 이름(사용자가 이루려는 일) */
+  name: string;
+  /** 첫 단계가 속한 화면의 도메인(없으면 빈 글) */
   domain: string;
-  /** 시작 화면 */
-  start: string;
-  /** 칸들(깊이 순) */
-  steps: FlowStep[];
+  /** 단계들(선언 순서) */
+  steps: ScenarioStep[];
+  /** 첫 단계가 속한 화면들(첫 화면 열기에 쓴다) */
+  firstScreens: string[];
 }
 
 /** 확인 필요 안내 한 줄 */
@@ -902,8 +902,8 @@ export interface Model {
   relations: Relation[];
   /** 확인 필요 안내들 */
   notes: Note[];
-  /** 도메인별 사용 흐름(시작 화면마다 한 갈래) */
-  flows: UsageFlow[];
+  /** 사용 시나리오들 */
+  scenarios: Scenario[];
   /** 메타정보 경고들 */
   warnings: string[];
   /** 정보 분석이 실패했을 때의 이유 */

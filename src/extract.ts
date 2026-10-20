@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { screenFiles } from './files.js';
 import { parseArgs } from './cli.js';
+import { buildScenarios } from './scenarios.js';
 import type { Does, Extracted, Move, OnEffect, OpenAct, OpenStep, ScreenTag, Spec, SpecKind } from './types.js';
 
 /** 읽는 파일 확장자(주석이 있을 수 있는 소스 파일) */
@@ -42,6 +43,16 @@ function commentBlocks(text: string): Block[] {
   return blocks;
 }
 
+/** @does 한 줄을 읽는다: 일 | 확인 기준 | 시나리오#단계 | → 다음 단계,… | 조건 (앞의 둘 뒤는 시나리오에 속하는 일일 때만) */
+function parseDoes(line: string): Does {
+  const [title, check, ref, next, cond] = splitBar(line, 5);
+  const i = ref.indexOf('#');
+  return {
+    title, check, scenario: i < 0 ? ref : ref.slice(0, i).trim(), step: i < 0 ? '' : ref.slice(i + 1).trim(),
+    next: next.replace(/^→\s*/, '').split(',').map((x) => x.trim()).filter(Boolean), cond,
+  };
+}
+
 /** 한 번만 쓰는 칸(why, basis, contract, anchor …)과 여러 번 쓰는 칸(does, to, on) */
 const FIELDS = ['why', 'basis', 'contract', 'anchor', 'open', 'route', 'sample', 'domain', 'start'] as const;
 const LISTS = ['does', 'to', 'on'] as const;
@@ -55,7 +66,7 @@ interface Entity extends Partial<Record<Field, string>> {
 
 /**
  * 한 덩어리를 개체 하나로 읽는다. 태그가 없으면 null.
- * @does 사용자가 하는 일 | 확인 기준 | → 가는 화면 | 넘기는 값(뒤 둘은 이 일이 다른 화면으로 가는 일일 때만), @to 대상 화면 | 행동 | 넘기는 값, @on 이벤트: 효과
+ * @does 사용자가 하는 일 | 확인 기준 | 시나리오#단계 | → 다음 단계,… | 조건(셋째 칸부터는 시나리오에 속하는 일일 때만. 컴포넌트에도 쓴다), @to 대상 화면 | 행동 | 넘기는 값, @on 이벤트: 효과
  */
 function parseBlock(block: Block): (Entity & { kind: 'screen' | 'spec' }) | null {
   const entity: Entity = { kind: null, id: '', title: '', line: block.line, does: [], to: [], on: [] };
@@ -125,7 +136,7 @@ function kindOf(anchor: string | undefined): SpecKind | null {
 
 /** 소스 폴더의 주석 태그를 모두 읽어 화면과 요소 목록, 경고를 만든다 */
 export function extractSpecs(root: string): Extracted {
-  const out: Extracted = { screens: [], screen: null, specs: [], warnings: [], generatedAt: new Date().toISOString() };
+  const out: Extracted = { screens: [], screen: null, specs: [], scenarios: [], warnings: [], generatedAt: new Date().toISOString() };
   const ids = new Map<string, string>();
   const names = new Map<string, string>();
   for (const file of walk(root)) {
@@ -143,14 +154,10 @@ export function extractSpecs(root: string): Extracted {
         names.set(e.title, `${rel}:${e.line}`);
         const screen: ScreenTag = {
           name: e.title, why: e.why || '', basis: e.basis || '', route: e.route || '', sample: e.sample || '', domain: e.domain || '', start: e.start !== undefined,
-          does: e.does.map((d): Does => { const [title, check, go, pass] = splitBar(d, 4); return { title, check, to: go.replace(/^→\s*/, ''), pass }; }),
-          to: [],
+          does: e.does.map(parseDoes),
+          to: e.to.map((d): Move => { const [target, action, pass] = splitBar(d, 3); return { target, action, pass }; }),
           files: [], ...where,
         };
-        // 이동은 두 곳에서 모은다: @does 셋째 칸의 "→ 화면"(그 일의 이름이 곧 행동)과, 일과 따로 쓴 @to
-        const fromDoes = screen.does.filter((d) => d.to).map((d): Move => ({ target: d.to, action: d.title, pass: d.pass }));
-        const fromTo = e.to.map((d): Move => { const [target, action, pass] = splitBar(d, 3); return { target, action, pass }; });
-        screen.to = [...fromDoes, ...fromTo.filter((m) => !fromDoes.some((x) => x.target === m.target))];
         out.screens.push(screen);
         if (!e.why) out.warnings.push(`@screen ${e.title}에 @why가 없다 (${rel}:${e.line})`);
         if (!e.route) out.warnings.push(`@screen ${e.title}에 @route가 없다 — 실제 화면을 끼워 넣으려면 주소가 필요하다 (${rel}:${e.line})`);
@@ -163,7 +170,7 @@ export function extractSpecs(root: string): Extracted {
         const spec: Spec = {
           id: e.id, title: e.title, why: e.why || '', basis: e.basis || '', contract: e.contract || '',
           ons: e.on.map((o): OnEffect => { const i = o.indexOf(':'); return i < 0 ? { event: o.trim(), effect: '' } : { event: o.slice(0, i).trim(), effect: o.slice(i + 1).trim() }; }),
-          anchor: e.anchor || '', open: openParsed.steps, kind: kind ?? 'logic', screens: [], ...where,
+          anchor: e.anchor || '', open: openParsed.steps, kind: kind ?? 'logic', screens: [], does: e.does.map(parseDoes), ...where,
         };
         out.specs.push(spec);
         if (kind === null) out.warnings.push(`@spec ${e.id}의 @anchor "${e.anchor}"를 읽지 못했다 — dom:<선택자> 또는 3d:<오브젝트 이름>으로 쓴다 (${rel}:${e.line})`);
@@ -188,6 +195,7 @@ export function extractSpecs(root: string): Extracted {
     sp.screens = out.screens.filter((sc) => sc.files.includes(sp.file)).map((sc) => sc.name);
     if (sp.kind === 'dom' && !sp.screens.length) out.warnings.push(`@spec ${sp.id}는 어느 @screen에도 속하지 않는다 — 화면 파일에서 import로 닿아야 한다 (${sp.file}:${sp.line})`);
   }
+  out.scenarios = buildScenarios(out);
   out.screen = out.screens[0] || null;
   if (!out.screens.length) out.warnings.push('@screen이 없다');
   return out;

@@ -53,8 +53,8 @@ export interface ScreenViewHandle {
  * @route /__spec/#/screen/:name
  * @domain 현행
  * @why 한 화면의 존재 이유, 동작, 정보, 이력을 실제로 동작하는 화면과 나란히 보게 한다.
- * @does 오른쪽 탭(개요, 컴포넌트, 메모, 승인, 히스토리)을 오가며 본다 | 탭마다 해당 내용이 나온다
- * @does 화면 위에서 영역을 끌어 메모를 남긴다 | 메모 탭에 대상과 함께 저장된다
+ * @does 오른쪽 탭(개요, 컴포넌트, 메모, 승인, 히스토리)을 오가며 본다 | 탭마다 해당 내용이 나온다 | 화면 설계서를 열어 본다#3 | → 3b
+ * @does 화면 위에서 영역을 끌어 메모를 남긴다 | 메모 탭에 대상과 함께 저장된다 | 화면 설계서를 열어 본다#3b | | 고치고 싶은 곳이 있으면
  */
 export function screenView(root: HTMLElement, { model, name, tab, at, go }: ScreenViewOptions): ScreenViewHandle {
   let alive = true, raf = 0;

@@ -14,8 +14,10 @@ import type { Model } from '../types.js';
  * @route /__spec/#/manage/:id
  * @domain 관리
  * @why 요청 하나의 원문, 범위, 겹침, 진행 기록을 한 화면에 모아 "왜 이 일이 있고 어디까지 왔나"를 따라가게 한다.
- * @does 위쪽 "요청"을 눌러 목록으로 돌아간다 | 요청 목록이 열린다 | → 요청 목록
- * @does 겹치는 다른 요청을 열어 본다 | 그 요청의 상세가 열린다
+ * @to 요청 목록 | 위쪽 "요청"을 누른다
+ * @does 요청의 원문, 범위, 겹침, 진행 기록을 읽는다 | 한 화면에 모여 보인다 | 요청의 진행을 확인한다#3 | → 3b, 3c
+ * @does 위쪽 "요청"을 눌러 목록으로 돌아간다 | 요청 목록이 열린다 | 요청의 진행을 확인한다#3b | → 1 | 목록으로 돌아가려면
+ * @does 겹치는 다른 요청을 열어 본다 | 그 요청의 상세가 열린다 | 요청의 진행을 확인한다#3c | → 3 | 겹치는 요청이 있으면
  */
 export function manageDetail(root: HTMLElement, { model, id }: { model: Model; id: string }): void {
   const r = model.requests.find((x) => String(x.id) === String(id));

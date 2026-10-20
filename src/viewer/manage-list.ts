@@ -31,8 +31,9 @@ function section(title: string, hint: string, list: RequestView[]): HTMLElement 
  * @domain 관리
  * @start
  * @why 현재를 바꾸는 일(요청)을 "내 차례 / 에이전트 차례 / 끝난 것"으로 나눠 한곳에서 본다.
- * @does 요청의 진행 단계와 누구 차례인지를 본다 | 내 차례인 요청이 위에 모여 있다
- * @does 요청의 "열기"를 눌러 상세를 본다 | 요청 상세 화면이 열린다 | → 요청 상세
+ * @to 요청 상세 | 요청의 "열기"를 누른다 | 요청 번호
+ * @does 요청의 진행 단계와 누구 차례인지를 본다 | 내 차례인 요청이 위에 모여 있다 | 요청의 진행을 확인한다#1 | → 2
+ * @does 요청의 "열기"를 눌러 상세를 본다 | 요청 상세 화면이 열린다 | 요청의 진행을 확인한다#2 | → 3
  */
 export function manageList(root: HTMLElement, { model }: { model: Model }): void {
   const all = model.requests;
