@@ -5,7 +5,7 @@
  */
 import { h } from './util.js';
 import { hash, nav } from './route.js';
-import type { Model, Scenario, ScenarioStep } from '../types.js';
+import type { Model, Note, Scenario, ScenarioStep } from '../types.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 
@@ -81,17 +81,30 @@ function drawArrows(area: HTMLElement, sc: Scenario): void {
   area.append(svg);
 }
 
-/** 시나리오 한 개: 이름, 첫 화면 열기, 단계들과 화살표, 이어서 할 수 있는 일 */
-function scenarioCard(sc: Scenario): HTMLElement {
+/** 이 시나리오와 관련된 확인 필요 안내: 시나리오의 단계가 있는 화면에 대한 것, 그 화면들이 쓰는 정보에 대한 것 */
+function notesOf(model: Model, sc: Scenario): Note[] {
+  const screens = new Set(sc.steps.flatMap((s) => s.screens));
+  return model.notes.filter((n) => {
+    if (n.screen) return screens.has(n.screen);
+    const info = n.info ? model.infos.find((i) => i.name === n.info) : undefined;
+    return !!info && [...info.flow.shown, ...info.flow.input, ...info.flow.modify].some((s) => screens.has(s));
+  });
+}
+
+/** 시나리오 한 개: 이름, 첫 화면 열기, 단계들과 화살표, 이어서 할 수 있는 일, 이 시나리오의 확인 필요 */
+function scenarioCard(model: Model, sc: Scenario): HTMLElement {
   const mains = sc.steps.filter((s) => s.main);
   const area = h('div', { class: 'farea' },
     h('div', { class: 'fcols' }, mains.map((m) => h('div', { class: 'fcol' }, stepBox(sc, m), branchesOf(sc, m).map((b) => stepBox(sc, b))))));
   const nexts = [...new Set(sc.steps.flatMap((s) => s.edges.filter((e) => e.kind === 'other').map((e) => e.scenario)))];
   const first = sc.firstScreens[0];
+  const notes = notesOf(model, sc);
   const card = h('div', { class: 'scn' },
     h('div', { class: 'scn-h' }, h('span', { class: 'scn-t' }, sc.name), h('span', { class: 'chip dim' }, `${mains.length}단계${sc.steps.length > mains.length ? ` · 갈래 ${sc.steps.length - mains.length}` : ''}`),
+      notes.length ? h('button', { class: 'chk-btn', onclick: (e) => { const box = (e.currentTarget as HTMLElement).closest('.scn')?.querySelector('.scn-notes'); box?.classList.toggle('open'); } }, `확인 필요 ${notes.length}`) : null,
       first ? h('a', { class: 'open', href: `${location.pathname}${hash('screen', first)}`, target: '_blank', rel: 'noopener' }, '첫 화면 열기 ↗') : h('span', { class: 'chip dim', style: 'margin-left:auto' }, '직접 열 수 없음')),
     area,
+    notes.length ? h('div', { class: 'scn-notes' }, notes.map((n) => h('div', { class: 'fn' }, n.text))) : null,
     nexts.length ? h('div', { class: 'next' }, '이어서 할 수 있는 일 ', nexts.map((n) => h('b', null, n))) : null);
   // 화면에 붙어 크기가 정해진 뒤에 선을 긋고, 폭이 바뀌면 다시 긋는다
   requestAnimationFrame(() => { drawArrows(area, sc); new ResizeObserver(() => drawArrows(area, sc)).observe(area); });
@@ -115,9 +128,11 @@ export function flowView(root: HTMLElement, { model, domain }: { model: Model; d
     h('button', { class: `dom-btn${!domain ? ' sel' : ''}`, onclick: () => nav(hash('flow')) }, '전체', h('span', null, model.scenarios.length)),
     doms.map((d) => h('button', { class: `dom-btn${domain === d ? ' sel' : ''}`, onclick: () => nav(hash('flow', '', { domain: d })) }, d, h('span', null, model.scenarios.filter((s) => s.domain === d).length))));
   const groups = [...new Set(shown.map((s) => s.domain))];
+  const covered = new Set(model.scenarios.flatMap((s) => notesOf(model, s)));
+  const rest = model.notes.filter((n) => !covered.has(n));
   root.append(h('div', { class: 'map-body' }, side, h('div', { class: 'map-main' },
     h('p', { class: 'map-help' }, '사용자가 앱으로 이루려는 일(사용 시나리오)을 단계 순서대로 보여 줍니다. 파란 선은 기본 흐름, 노란 선은 조건에 따라 갈라지는 길, 점선은 앞 단계로 되돌아오는 길입니다. 칸 아래 이름은 그 일이 일어나는 자리(컴포넌트)입니다.'),
-    shown.length ? groups.map((g) => h('section', { class: 'flow-sec' }, g ? h('h2', null, g) : null, shown.filter((s) => s.domain === g).map(scenarioCard)))
+    shown.length ? groups.map((g) => h('section', { class: 'flow-sec' }, g ? h('h2', null, g) : null, shown.filter((s) => s.domain === g).map((s) => scenarioCard(model, s))))
       : h('div', { class: 'empty-note' }, '사용 시나리오가 없다 — @does의 셋째 칸에 "시나리오#단계"를 쓰면 여기 나온다'),
-    model.notes.length ? h('details', { class: 'flow-notes' }, h('summary', null, `확인 필요 ${model.notes.length}건`), model.notes.map((n) => h('div', { class: 'note' }, n.text))) : null)));
+    rest.length ? h('details', { class: 'flow-notes' }, h('summary', null, `시나리오에 속하지 않은 확인 필요 ${rest.length}건`), rest.map((n) => h('div', { class: 'fn' }, n.text))) : null)));
 }
