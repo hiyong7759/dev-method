@@ -29,6 +29,7 @@ function section(title: string, hint: string, list: RequestView[]): HTMLElement 
  * @screen 요청 목록
  * @route /__spec/#/manage
  * @domain 관리
+ * @start
  * @why 현재를 바꾸는 일(요청)을 "내 차례 / 에이전트 차례 / 끝난 것"으로 나눠 한곳에서 본다.
  * @does 요청의 진행 단계와 누구 차례인지를 본다 | 내 차례인 요청이 위에 모여 있다
  * @to 요청 상세 | 요청의 "열기"를 누른다 | 요청 번호

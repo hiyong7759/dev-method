@@ -382,3 +382,14 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 /* 정보 구분(화면용/내부용) */
 .kind-tag { font-style: normal; font-size: 10px; font-weight: 600; color: var(--dim); border: 1px solid var(--line, #4a4238); border-radius: 8px; padding: 0 6px; margin-left: 6px; vertical-align: middle; }
 .legend .seg { margin-right: 12px; }
+
+/* 사용 흐름 */
+.flow-sec{margin-bottom:28px}
+.flow-sec>h2{margin:0 0 12px;font-size:15px;color:var(--dim)}
+.lane{margin-bottom:22px}
+.lane h3{margin:0 0 10px;font-size:15px}
+.lane h3 small{margin-left:8px;font-size:12px;font-weight:400;color:var(--dim)}
+.scard .does{font-size:12px;color:var(--dim)}
+.scard .mv.loop{color:var(--dim)}
+.flow-notes{margin-top:8px;font-size:12px}
+.flow-notes summary{cursor:pointer;color:var(--dim)}

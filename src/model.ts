@@ -15,7 +15,7 @@ import { detectNav } from './nav.js';
 import { errorText } from './cli.js';
 import type {
   Analysis, AnalyzedInfo, DomHint, Evidence, Extracted, Incoming, Model, ModelInfo, ModelScreen, NavResult, Note, Relation,
-  RevealStep, Role, ScreenField, Spec,
+  FlowStep, RevealStep, Role, ScreenField, Spec, UsageFlow,
 } from './types.js';
 
 /** 설명 글에서 @태그가 달린 줄을 뺀 글 */
@@ -216,7 +216,39 @@ export function buildModel(scanRoot: string): Model {
     };
   });
 
-  // ── 확인 필요(화면 흐름 왼쪽 안내) ───────────────────
+  // ── 사용 흐름: 도메인마다, 시작 화면마다 한 갈래. 앞으로 가는 길은 단계, 이미 지난 칸으로 돌아오는 길은 순환 ──
+  const flows: UsageFlow[] = [];
+  const byName = new Map(screens.map((s) => [s.name, s]));
+  for (const domain of [...new Set(screens.map((s) => s.domain || ''))]) {
+    const inDomain = screens.filter((s) => (s.domain || '') === domain);
+    const hasIn = (s: ModelScreen): boolean => inDomain.some((o) => o.name !== s.name && o.to.some((t) => t.target === s.name));
+    // 시작 화면: @start가 있는 화면과, 같은 도메인에서 들어오는 길이 없는 화면(어디서 이어지는지 모르는 시작점)
+    const starts = inDomain.filter((s) => s.start || !hasIn(s));
+    for (const st of starts.length ? starts : inDomain.slice(0, 1)) {
+      const depth = new Map<string, number>([[st.name, 0]]);
+      const queue = [st.name];
+      while (queue.length) {
+        const n = queue.shift() as string;
+        for (const t of byName.get(n)?.to ?? []) {
+          const tgt = byName.get(t.target);
+          if (tgt && (tgt.domain || '') === domain && !depth.has(t.target)) { depth.set(t.target, (depth.get(n) as number) + 1); queue.push(t.target); }
+        }
+      }
+      const steps: FlowStep[] = [...depth.entries()].sort((a, b) => a[1] - b[1]).map(([name, d]) => {
+        const sc = byName.get(name) as ModelScreen;
+        return {
+          screen: name, depth: d, does: sc.does.map((x) => x.title),
+          out: sc.to.filter((t) => t.target !== name && byName.has(t.target)).map((t) => {
+            const td = depth.get(t.target);
+            return { to: t.target, action: t.action, pass: t.pass, loop: td !== undefined && td <= d, verified: t.verified, crossDomain: ((byName.get(t.target) as ModelScreen).domain || '') !== domain };
+          }),
+        };
+      });
+      flows.push({ domain, start: st.name, steps });
+    }
+  }
+
+  // ── 확인 필요(사용 흐름 아래 접어 둔 안내) ───────────────────
   const notes: Note[] = [];
   for (const s of screens) if (!s.to.length && screens.length > 1) notes.push({ screen: s.name, text: `${s.name} 화면에서 다른 화면으로 나가는 길이 없다 (돌아가기 포함)` });
   for (const i of infos) if (i.flow.shown.length && !i.flow.input.length && !i.flow.modify.length) notes.push({ info: i.name, text: `${i.name}은 ${i.flow.shown.join('·')}에서 보여주지만 어느 화면에서도 입력하지 않는다` });
@@ -226,7 +258,7 @@ export function buildModel(scanRoot: string): Model {
   const pendingCopy = memos.filter((m) => m.state === 'pending' && !m.copiedAt).length;
   return {
     project: path.basename(root), generatedAt: new Date().toISOString(),
-    screens, specs: out.specs, infos, relations, notes, warnings: out.warnings, analysisError,
+    screens, specs: out.specs, infos, relations, notes, flows, warnings: out.warnings, analysisError,
     memos: memos.map((m) => ({ ...m, stateLabel: STATE_LABEL[m.state] })),
     requests,
     summary: {

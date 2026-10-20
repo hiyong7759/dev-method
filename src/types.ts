@@ -63,7 +63,7 @@ export interface ScreenTag {
   route: string;
   /** 실제 화면을 끼워 보일 예시 주소 */
   sample: string;
-  /** 화면 흐름에서 묶어 보이는 분야 이름 */
+  /** 사용 흐름에서 묶어 보이는 분야(도메인) 이름 */
   domain: string;
   /** 사용자가 처음 들어오는 화면인가 */
   start: boolean;
@@ -792,7 +792,45 @@ export interface ModelScreen extends Omit<ScreenTag, 'to'> {
   warnings: string[];
 }
 
-/** 화면 흐름 왼쪽에 보여 줄 "확인 필요" 안내 한 줄 */
+/** 사용 흐름의 한 칸에서 나가는 길 하나 */
+export interface FlowOut {
+  /** 가는 화면 */
+  to: string;
+  /** 사용자가 무엇을 해서 가는가 */
+  action: string;
+  /** 넘기는 값 */
+  pass: string;
+  /** 앞으로 나아가는 길이 아니라 이미 지난 칸으로 되돌아가는 길(순환)인가 */
+  loop: boolean;
+  /** 코드에서 이 이동이 확인됐는가 */
+  verified: boolean;
+  /** 다른 도메인의 화면으로 가는가 */
+  crossDomain: boolean;
+}
+
+/** 사용 흐름의 한 칸: 사용자가 어느 화면에서 무엇을 하고 어디로 가는가 */
+export interface FlowStep {
+  /** 화면 이름 */
+  screen: string;
+  /** 시작에서 몇 번째 칸인가(0이 시작) */
+  depth: number;
+  /** 사용자가 이 화면에서 하는 일 */
+  does: string[];
+  /** 나가는 길 */
+  out: FlowOut[];
+}
+
+/** 한 도메인 안에서 시작 화면 하나에서 이어지는 사용 흐름 한 갈래 */
+export interface UsageFlow {
+  /** 도메인(없으면 빈 글) */
+  domain: string;
+  /** 시작 화면 */
+  start: string;
+  /** 칸들(깊이 순) */
+  steps: FlowStep[];
+}
+
+/** 확인 필요 안내 한 줄 */
 export interface Note {
   /** 관련 화면 */
   screen?: string;
@@ -842,6 +880,8 @@ export interface Model {
   relations: Relation[];
   /** 확인 필요 안내들 */
   notes: Note[];
+  /** 도메인별 사용 흐름(시작 화면마다 한 갈래) */
+  flows: UsageFlow[];
   /** 메타정보 경고들 */
   warnings: string[];
   /** 정보 분석이 실패했을 때의 이유 */

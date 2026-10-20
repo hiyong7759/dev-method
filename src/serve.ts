@@ -1,7 +1,7 @@
 /**
  * @spec serve 설계서 보기 서버
  * @why 프로젝트마다 플러그인을 설치하지 않고(어떤 개발 서버든 같은 방식), 앱 화면과 설계서가 같은 주소 안에 있어 컴포넌트 위치, 영역 선택, 화면 따라가기가 되게 한다. 프로젝트의 앱 개발 서버를 그대로 중계(프록시)하면서 그 위에 /__spec/ 설계서 보기를 얹는다.
- * @basis 이 서버 주소(기본 http://localhost:5290)를 열면 설계서 보기(화면 흐름)가 먼저 나온다. 앱 화면은 설계서 안에 끼워 넣어 보이고 앱의 요청은 그대로 통과시킨다. 브라우저가 앱 주소를 최상위 페이지로 직접 열면(주소창, 새 탭) 그 주소의 화면 설계서(없으면 화면 흐름)로 보낸다. 화면 안(iframe)의 요청과 도구(curl 등)의 요청은 그대로 통과한다.
+ * @basis 이 서버 주소(기본 http://localhost:5290)를 열면 설계서 보기(사용 흐름)가 먼저 나온다. 앱 화면은 설계서 안에 끼워 넣어 보이고 앱의 요청은 그대로 통과시킨다. 브라우저가 앱 주소를 최상위 페이지로 직접 열면(주소창, 새 탭) 그 주소의 화면 설계서(없으면 사용 흐름)로 보낸다. 화면 안(iframe)의 요청과 도구(curl 등)의 요청은 그대로 통과한다.
  * @contract 설정은 <프로젝트>/.spec/config.json의 src, app, port이고 옵션(--src, --app, --port)이 우선한다. app이 null이면 앱 서버 없이 설계서 보기만 띄운다.
  */
 import http from 'node:http';
@@ -52,7 +52,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
   const toViewer = (req: IncomingMessage, res: ServerResponse): boolean => {
     if (req.method !== 'GET' || req.headers['sec-fetch-dest'] !== 'document') return false;
     const pathname = new URL(req.url || '/', 'http://x').pathname;
-    let to = '/__spec/#/map';
+    let to = '/__spec/#/flow';
     if (pathname !== '/') {
       const hit = extractSpecs(scanRoot).screens.filter((s) => s.route && rx(s.route).test(pathname)).sort((a, b) => b.route.length - a.route.length)[0];
       if (hit) to = `/__spec/#/screen/${encodeURIComponent(hit.name)}?at=${encodeURIComponent(pathname)}`;

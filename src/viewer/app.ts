@@ -1,12 +1,12 @@
 /**
  * @spec viewer-app 설계서 보기의 틀
- * @why 상단 내비게이션 하나로 모든 화면과 정보와 관리로 가게 한다. 주소(#)가 곧 지금 보는 곳이라 새로고침해도, 링크를 보내도 같은 곳이 열린다: 화면 흐름(#/map), 정보 흐름(#/info/<정보>), 화면 설계서(#/screen/<화면>?tab=…), 관리(#/manage, #/manage/<요청 번호>).
+ * @why 상단 내비게이션 하나로 모든 화면과 정보와 관리로 가게 한다. 주소(#)가 곧 지금 보는 곳이라 새로고침해도, 링크를 보내도 같은 곳이 열린다: 사용 흐름(#/flow), 정보 흐름(#/info/<정보>), 화면 설계서(#/screen/<화면>?tab=…), 관리(#/manage, #/manage/<요청 번호>).
  * @basis 개발 모드 전용이다. 소스에서 계산한 모델을 읽어 그리고, 쓰기는 .spec의 승인·메모·확인 목록뿐이다. 모델은 2.5초마다 다시 받아 달라졌을 때만 그린다.
  * @contract 서버(middleware.ts)가 /__spec/model.json을 준다. 정보 흐름은 창 폭에 맞춰 상자를 줄바꿈해 놓으므로 창 폭이 달라지면 다시 그린다.
  */
 import { h, get, statusChip, errorText } from './util.js';
 import type { Kid } from './util.js';
-import { mapView } from './map.js';
+import { flowView } from './flow.js';
 import { infoMap, infoDrawer, infoOverview } from './info.js';
 import type { InfoFilter } from './info.js';
 import { screenView } from './screen.js';
@@ -23,9 +23,9 @@ let model: Model | null = null, active: (ScreenViewHandle & { name: string }) | 
 /** 주소(#)를 읽은 결과: 어느 화면(view), 그 안의 대상(arg), 쿼리(params) */
 interface Route { view: string; arg: string; params: URLSearchParams }
 const parse = (): Route => {
-  const [path, qs = ''] = (location.hash.slice(1) || '/map').split('?');
+  const [path, qs = ''] = (location.hash.slice(1) || '/flow').split('?');
   const p = path.split('/').filter(Boolean).map(decodeURIComponent);
-  return { view: p[0] || 'map', arg: p[1] || '', params: new URLSearchParams(qs) };
+  return { view: p[0] || 'flow', arg: p[1] || '', params: new URLSearchParams(qs) };
 };
 // 상단 메뉴(화면 ▾, 정보 ▾): 누르면 목록이 열리고, 바깥을 누르면 닫힌다
 function closeMenu(): void { menu?.remove(); menu = null; }
@@ -65,7 +65,7 @@ function topbar(m: Model, r: Route): HTMLElement {
     s.memosUndelivered ? h('span', { class: 'pill purple' }, '전달 전 메모 ', h('b', { style: 'color:var(--purple)' }, s.memosUndelivered)) : null,
     h('span', { class: 'pill warn' }, '확인 필요 ', h('b', null, r.view === 'info' ? m.infos.reduce((a, i) => a + i.flagged, 0) : s.needCheck))];
   const curModel = curScreen ? m.screens.find((x) => x.name === curScreen) : null;
-  const seg = h('div', { class: 'seg' }, h('button', { class: r.view === 'manage' ? '' : 'on', onclick: () => nav(hash('map')) }, '현행'), h('button', { class: r.view === 'manage' ? 'on' : '', onclick: () => nav(hash('manage')) }, '관리'));
+  const seg = h('div', { class: 'seg' }, h('button', { class: r.view === 'manage' ? '' : 'on', onclick: () => nav(hash('flow')) }, '현행'), h('button', { class: r.view === 'manage' ? 'on' : '', onclick: () => nav(hash('manage')) }, '관리'));
   if (r.view === 'manage') {
     return h('header', { class: 'top tall' }, h('span', { class: 'dev mono' }, 'DEV'), h('span', { class: 'ttl' }, m.project), seg,
       h('div', { class: 'tabs-top' }, h('button', { class: 'sel', onclick: () => nav(hash('manage')) }, '요청')),
@@ -73,7 +73,7 @@ function topbar(m: Model, r: Route): HTMLElement {
   }
   return h('header', { class: 'top tall' }, h('span', { class: 'dev mono' }, 'DEV'), h('span', { class: 'ttl' }, m.project), seg,
     h('div', { class: 'tabs-top' },
-      h('button', { class: r.view === 'map' ? 'sel' : '', onclick: () => nav(hash('map')) }, '화면 흐름'),
+      h('button', { class: r.view === 'flow' ? 'sel' : '', onclick: () => nav(hash('flow')) }, '사용 흐름'),
       h('button', { class: r.view === 'info' && !curInfo ? 'sel' : '', onclick: () => nav(hash('info')) }, '정보 흐름'),
       h('button', { class: `nav-dd${r.view === 'screen' ? ' sel' : ''}`, dataset: { k: 'screens' }, onclick: (e) => openMenu(e.currentTarget as HTMLElement, screenMenuItems(m, curScreen)) }, curScreen || '화면', h('span', { class: 'caret' }, '▾')),
       h('button', { class: `nav-dd${curInfo ? ' sel' : ''}`, dataset: { k: 'infos' }, onclick: (e) => openMenu(e.currentTarget as HTMLElement, infoMenuItems(m, curInfo)) }, curInfo || '정보', h('span', { class: 'caret' }, '▾'))),
@@ -110,7 +110,7 @@ function render(): void {
     if (r.arg) manageDetail(body, { model: m, id: r.arg });
     else manageList(body, { model: m });
   } else {
-    mapView(body, { model: m, domain: r.params.get('domain') || '' });
+    flowView(body, { model: m, domain: r.params.get('domain') || '' });
   }
 }
 

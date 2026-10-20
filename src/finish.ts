@@ -78,7 +78,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
     if (playwright) { try { browser = await playwright.chromium.launch({ channel: 'chrome' }); } catch (e) { step('Chrome 실행', false, errorText(e).split('\n')[0]); } }
     if (browser) {
       const open = async (): Promise<Page> => { const p = await (browser as Browser).newPage({ viewport: { width: 1280, height: 800 } }); await p.addInitScript(NAME_HELPER); return p; };
-      // 설계서 보기 주소(base 또는 base/)가 화면 흐름으로 열린다
+      // 설계서 보기 주소(base 또는 base/)가 사용 흐름으로 열린다
       {
         const page = await open();
         const errors: string[] = [];
@@ -86,8 +86,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
         try {
           await page.goto(base + '/', { waitUntil: 'networkidle' });
           await page.waitForSelector('.top', { timeout: 5000 }).catch(() => {});
-          const onMap = /__spec/.test(page.url()) && (await page.locator('.tabs-top button.sel', { hasText: '화면 흐름' }).count()) > 0;
-          step('중계 서버 첫 화면이 설계서의 화면 흐름이다', onMap && errors.length === 0, onMap ? (errors[0] || '') : `열린 주소 ${page.url()}`);
+          const onMap = /__spec/.test(page.url()) && (await page.locator('.tabs-top button.sel', { hasText: '사용 흐름' }).count()) > 0;
+          step('중계 서버 첫 화면이 설계서의 사용 흐름이다', onMap && errors.length === 0, onMap ? (errors[0] || '') : `열린 주소 ${page.url()}`);
           await page.screenshot({ path: path.join(out, 'map.png') });
         } catch (e) { step('설계서 첫 화면 열기', false, errorText(e).split('\n')[0]); }
         await page.close();
