@@ -3,7 +3,7 @@
  * @why 이 도구와 일하는 방식에서 우리가 만든 말만 모아, 화면에서 점선이 그어진 말에 마우스를 올렸을 때 나오는 설명과 같은 글을 한곳에서 읽게 한다. 일반 개발 용어는 넣지 않는다.
  * @contract model.glossary를 그대로 그린다. 용어는 에이전트가 glossary 명령으로 관리하고 사람은 보기만 한다.
  */
-import { h, pageHead } from './util.js';
+import { h, pageHead, chip } from './util.js';
 import type { Model } from '../types.js';
 
 /**
@@ -29,7 +29,8 @@ export function glossaryView(root: HTMLElement, { model, term }: { model: Model;
     h('div', { class: 'gl-cols' }, h('div', { class: 'gl-main' }, input, list),
       h('div', { class: 'gl-side' },
         h('div', { class: 'card' }, h('h3', null, '툴팁은 이렇게 보입니다'),
-          h('div', { class: 'box' }, '예: ', h('span', { class: 'term demo' }, model.glossary[0]?.term ?? '설계 승인'), '을 하면 구현이 시작됩니다'),
+          h('div', { class: 'box noterm' }, h('div', null, chip('me', '설계 승인 대기'), ' ', h('span', { class: 'term demo' }, model.glossary[0]?.term ?? '설계 승인'), '을 하면 구현이 시작됩니다'),
+            h('div', { class: 'termtip static' }, h('b', null, model.glossary[0]?.term ?? '설계 승인'), h('div', null, model.glossary[0]?.meaning ?? ''), h('span', { class: 'lnk' }, '용어집에서 보기 ›'))),
           h('div', { class: 'hint' }, '용어에 마우스를 올리면(휴대폰은 한 번 누르면) 짧은 설명과 용어집 링크가 나옵니다.')),
         h('div', { class: 'card' }, h('h3', null, '무엇을 올리고 무엇을 안 올리나'),
           h('ul', { class: 'bul' },

@@ -116,7 +116,7 @@ export function buildErd(model: Model, o: ErdOptions): HTMLElement {
     const fields = deco?.fields ?? i.props.map((pr) => ({ name: pr.name, kind: (flaggedProps.has(pr.name) ? 'flag' : '') as '' | 'flag' }));
     const shownFields = fields.slice(0, SHOWN);
     const hidden = fields.length - shownFields.length;
-    const dim = o.dimOthers ? o.dimOthers(i) : !!selected && selected !== i.name;
+    const dim = o.dimOthers ? o.dimOthers(i) : false;
     const node = h('div', { class: `inode${i.kind === 'internal' ? ' internal' : ''}${selected === i.name ? ' sel' : ''}${dim ? ' dim' : ''}${deco?.cls ? ` ${deco.cls}` : ''}`, style: `left:${p.x}px;top:${p.y}px;height:${p.h}px`, title: `${i.name}${doc1 ? ' — ' + doc1 : ''}`, onclick: () => o.onSelect?.(i.name) },
       h('div', { class: 'h' }, h('b', null, i.name, i.kind === 'internal' ? h('span', { class: 'chip dim kt' }, '내부용') : null), h('span', null, deco?.sub ?? (i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1))),
       h('div', { class: 'ftags' }, shownFields.map((f) => h('span', { class: `tag${f.kind === 'flag' ? ' flag' : f.kind === 'add' ? ' add' : f.kind === 'del' ? ' del' : ''}` }, f.kind === 'add' ? `+ ${f.name}` : f.name)), hidden > 0 ? h('span', { class: 'tag more' }, `+${hidden}`) : null),

@@ -112,7 +112,7 @@ export function matchScreen(model: Pick<Model, 'screens'>, pathname: string): Mo
 /** 시각을 "월/일 시:분"으로 */
 export const fmt = (iso: string): string => { const d = new Date(iso); const p = (n: number): string => String(n).padStart(2, '0'); return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 /** 정보가 화면에서 하는 일의 화면용 이름 */
-export const ROLE_LABEL: Record<Role, string> = { input: '입력', shown: '보여줌', modify: '수정', judge: '판단' };
+export const ROLE_LABEL: Record<Role, string> = { input: '입력', shown: '보임', modify: '수정', judge: '판단' };
 /** 정보가 하는 일을 보이는 순서 */
 export const ROLES: Role[] = ['input', 'shown', 'modify', 'judge'];
 

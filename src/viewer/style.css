@@ -581,3 +581,19 @@ a.tag{text-decoration:none}
 .frow.focus .fname{color:var(--accent);font-weight:700}.frow.mine .fname{font-weight:700}
 .froles{display:flex;gap:4px;align-items:center;flex:none}
 .tag.here{background:var(--accent-bg);border-color:var(--accent)}button.tag{cursor:pointer;font:inherit;font-size:11px}
+
+.card>.chip,.card>.tag{align-self:flex-start}
+.stepper-lg{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700}
+.stepper-lg .st{display:flex;align-items:center;gap:8px;color:var(--dim)}
+.stepper-lg .st i{width:24px;height:24px;border-radius:50%;border:2px solid var(--line2);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px}
+.stepper-lg .st.d{color:var(--green)}.stepper-lg .st.d i{border-color:var(--green);background:var(--green);color:var(--on-green)}
+.stepper-lg .st.c{color:var(--amber)}.stepper-lg .st.c i{border-color:var(--amber);color:var(--amber)}
+.stepper-lg u{flex:1;height:1px;background:var(--line);min-width:20px}
+.ibox{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.ibox b{font-size:14px}
+.ibox .f{padding:5px 10px;border-radius:6px;background:var(--bg2);font-size:12px;color:var(--dim)}
+.ibox .f.add{border:1px solid var(--green-deep);background:var(--green-bg);color:var(--green)}
+.ibox .f.del{border:1px solid var(--red-deep);background:var(--red-bg);color:var(--red);text-decoration:line-through}
+.ibox .f.chg{border:1px solid var(--amber-deep);background:var(--amber-bg);color:var(--amber)}
+.termtip.static{position:static;width:auto;max-width:300px;margin-top:8px}
+.warn.ov .kv{grid-template-columns:90px 1fr}

@@ -18,3 +18,9 @@ export function stepper(r: RequestView): HTMLDivElement {
 export const chipFor = (r: RequestView): HTMLSpanElement => chip(r.turn === 'user' ? 'me' : r.turn === 'agent' ? 'ag' : r.stage === 'done' ? 'ok' : 'dim', r.stepLabel);
 /** 요청이 건드리는 화면과 정보를 이름표로 보인다 */
 export const scopeTags = (r: RequestView): HTMLSpanElement[] => [...r.scope.screens.map((s) => tag('c', `화면 ${s}`)), ...r.scope.infos.map((s) => tag('i', `정보 ${s}`))];
+
+/** 요청 상세용 큰 진행 표시: 번호 동그라미와 단계 이름, 사이를 잇는 줄. 지난 단계 초록, 지금 단계 노랑 */
+export function stepperBig(r: RequestView): HTMLDivElement {
+  const cur = STAGES.findIndex(([k]) => k === r.stage);
+  return h('div', { class: 'stepper-lg' }, STAGES.map(([, l], i) => [i ? h('u') : null, h('span', { class: `st ${r.stage === 'done' || cur > i ? 'd' : cur === i ? 'c' : ''}` }, h('i', null, i + 1), l)]));
+}

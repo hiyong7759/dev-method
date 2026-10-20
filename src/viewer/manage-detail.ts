@@ -6,7 +6,7 @@
 import { h, post, pageHead, chip, tag, fmt, toast, errorText, copyText } from './util.js';
 import type { Kid } from './util.js';
 import { hash, nav } from './route.js';
-import { stepper, chipFor, scopeTags } from './manage-parts.js';
+import { stepperBig, chipFor, scopeTags } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
 import type { Model, RequestView, Scenario, ScenarioStep } from '../types.js';
 
@@ -16,22 +16,48 @@ function act(path: string, body: Record<string, unknown>, done: string, onChange
 }
 const kv = (k: string, v: Kid): Kid[] => [h('span', null, k), h('span', null, v)];
 
-/** 겹치는 요청 칸: 겹치는 곳과 순서 정하기 단추 */
-function overlapCard(r: RequestView, onChange: () => void): HTMLElement | null {
+/** 겹치는 요청 칸: 겹치는 곳, 각자 하는 일, 판단과 순서 정하기 단추 */
+function overlapCard(r: RequestView, onChange: () => void, model?: Model): HTMLElement | null {
   if (!r.overlaps.length) return null;
   return h('div', { class: 'card' }, h('h3', null, '다른 요청과 겹침 ', h('small', null, `${r.overlaps.length}건`)),
-    r.overlaps.map((o) => h('div', { class: 'warn ov' },
-      h('div', { class: 'ovt' }, h('b', null, `#${o.id}`), ' ', o.title, h('a', { class: 'lnk', href: hash('manage', String(o.id)) }, '열기 ›')),
-      h('div', { class: 'kv' }, kv('겹치는 곳', [...o.components.map((c) => `컴포넌트 ${c}`), ...o.screens.map((s) => `화면 ${s}`), ...o.infos.map((i) => `정보 ${i}`)].join(', '))),
-      h('div', { class: 'hint' }, '같은 곳을 함께 건드립니다. 끝나는 순서만 정하면 됩니다.'),
-      h('div', { class: 'sp-foot', style: 'margin-top:8px' },
-        h('button', { class: 'btn', onclick: () => act('order', { first: r.id, other: o.id }, `#${r.id}을 먼저 끝내도록 정했습니다`, onChange) }, `#${r.id} 먼저`),
-        h('button', { class: 'btn', onclick: () => act('order', { first: o.id, other: r.id }, `#${o.id}을 먼저 끝내도록 정했습니다`, onChange) }, `#${o.id} 먼저`)))));
+    r.overlaps.map((o) => {
+      const other = model?.requests.find((x) => x.id === o.id);
+      const shared = (r.scope.scenarios ?? []).filter((n) => (other?.scope.scenarios ?? []).includes(n));
+      return h('div', { class: 'warn ov' },
+        h('div', { class: 'ovt' }, h('b', null, `#${o.id}`), ' ', o.title, other ? chip(other.turn === 'user' ? 'me' : 'ag', other.stepLabel) : null, h('a', { class: 'lnk', href: hash('manage', String(o.id)) }, '열기 ›')),
+        h('div', { class: 'kv' },
+          kv('겹치는 곳', [...o.components.map((c) => `컴포넌트 ${c}`), ...o.screens.map((s) => `화면 ${s}`), ...o.infos.map((i) => `정보 ${i}`)].join(', ')),
+          kv(`#${r.id}의 일`, r.title), kv(`#${o.id}의 일`, o.title),
+          kv('판단', shared.length ? `같은 시나리오(${shared.join(', ')})를 함께 바꿉니다. 먼저 끝낼 요청을 정하세요.` : '시나리오는 서로 다릅니다. 끝나는 순서만 정하면 됩니다.')),
+        h('div', { class: 'sp-foot', style: 'margin-top:8px' },
+          h('button', { class: 'btn', onclick: () => act('order', { first: r.id, other: o.id }, `#${r.id}을 먼저 끝내도록 정했습니다`, onChange) }, `#${r.id} 먼저`),
+          h('button', { class: 'btn', onclick: () => act('order', { first: o.id, other: r.id }, `#${o.id}을 먼저 끝내도록 정했습니다`, onChange) }, `#${o.id} 먼저`)));
+    }));
+}
+
+/** 요청이 건드리는 시나리오 하나의 요약: 바뀌는 단계, 자리(컴포넌트), 정보 */
+function scenarioSummary(model: Model, r: RequestView, sc: Scenario): HTMLElement {
+  const picked = new Set((r.scope.steps ?? []).filter((k) => k.startsWith(`${sc.name}#`)).map((k) => k.slice(sc.name.length + 1)));
+  const impact = (r.scope.impactOnly ?? []).includes(sc.name);
+  const mains = sc.steps.filter((s) => s.main), branches = sc.steps.filter((s) => !s.main);
+  const changedMain = mains.filter((s) => picked.has(s.id)), changedBranch = branches.filter((s) => picked.has(s.id));
+  const screens = [...new Set(sc.steps.flatMap((s) => s.screens))];
+  const comps = [...new Set(sc.steps.filter((s) => (impact || picked.size ? picked.has(s.id) : true)).map((s) => s.owner))];
+  const infos = model.infos.filter((i) => (['shown', 'input', 'modify'] as const).some((role) => i.flow[role].some((n) => screens.includes(n)))).map((i) => i.name).slice(0, 6);
+  const first = sc.firstScreens[0];
+  return h('div', { class: 'box' },
+    h('div', { class: 'tsc-h' }, h('b', null, sc.name), impact ? chip('dim', '영향 확인만') : null, h('span', { class: 'grow' }), first ? h('a', { class: 'open', target: '_blank', rel: 'noopener', href: `${location.pathname}${hash('screen', first)}` }, '첫 화면 열기 ↗') : null),
+    h('div', { class: 'tagrow' },
+      impact ? chip('dim', '영향 확인만 (바꾸지 않음)') : [changedMain.length ? chip('dim', `기본 ${mains.length}단계 중 ${changedMain.map((s) => s.id).join('·')}단계를 바꿈`) : chip('dim', `기본 ${mains.length}단계`), branches.length ? chip('dim', `갈래 ${branches.length}개 중 ${changedBranch.length}개에 영향`) : null]),
+    h('div', { class: 'tagrow' }, comps.map((c) => tag('c', c)), infos.map((i) => tag('i', i))));
 }
 
 /** 범위: 사용 시나리오 기준(컴포넌트·정보는 코드에서 계산) */
-function scopeCard(model: Model, r: RequestView): HTMLElement {
+function scopeCard(model: Model, r: RequestView, rich: boolean): HTMLElement {
   const scs = (r.scope.scenarios ?? []).map((n) => model.scenarios.find((s) => s.name === n)).filter((s): s is Scenario => !!s);
+  if (rich) return h('div', { class: 'card' }, h('h3', null, '범위 ', h('small', null, '사용 시나리오 기준 — 컴포넌트와 정보는 코드에서 계산됩니다')),
+    scs.length ? scs.map((sc) => scenarioSummary(model, r, sc)) : h('div', { class: 'hint' }, '이 요청에 사용 시나리오가 정해지지 않았습니다.'),
+    h('div', { class: 'hint' }, `범위 화면: ${r.scope.screens.join(', ') || '없음'} · 범위 정보: ${r.scope.infos.join(', ') || '없음'}`));
   const comps = [...new Set(scs.flatMap((s) => s.steps.map((st) => st.owner)))];
   return h('div', { class: 'card' }, h('h3', null, '이 요청의 범위'),
     h('div', { class: 'kv' }, kv('시나리오', (r.scope.scenarios ?? []).join(', ') || '없음'), kv('컴포넌트', comps.length ? `${comps.join(', ')} (코드에서 계산)` : '없음'), kv('화면', r.scope.screens.join(', ') || '없음'), kv('정보', r.scope.infos.join(', ') || '없음')));
@@ -56,17 +82,25 @@ function designApproval(r: RequestView, onChange: () => void): HTMLElement {
     none ? null : h('div', { class: 'hint' }, '정보도 화면도 바뀌지 않는 요청이면 에이전트가 "설계 없음"으로 올리고, 그때는 "설계 없음 승인"만 누르면 됩니다.'));
 }
 
-/** 설계 결과: 정보 변경 칸과 화면 변경 칸(화면은 그림과 비교 보기 링크) */
-function designResult(r: RequestView): HTMLElement | null {
+/** 설계 결과: 정보 변경 칸(바뀌는 정보 상자)과 화면 변경 칸(화면은 그림과 비교 보기 링크) */
+function designResult(model: Model, r: RequestView): HTMLElement | null {
   const d = r.design;
   if (!d || d.none) return null;
-  const byInfo = [...new Set(d.changes.map((c) => c.info))];
-  const mark = (k: string): string => (k === 'add' ? '+' : k === 'remove' ? '−' : k === 'link' ? '↔' : '≈');
+  const byInfo = [...new Set(d.changes.filter((c) => c.kind !== 'link').map((c) => c.info))];
+  const links = d.changes.filter((c) => c.kind === 'link');
+  const infoBox = (name: string): HTMLElement => {
+    const cs = d.changes.filter((c) => c.info === name && c.kind !== 'link');
+    const del = new Set(cs.filter((c) => c.kind === 'remove').map((c) => c.field));
+    const base = (model.infos.find((i) => i.name === name)?.props ?? []).map((p) => h('div', { class: `f${del.has(p.name) ? ' del' : ''}` }, p.name));
+    return h('div', { class: 'ibox' }, h('b', null, name), base.slice(0, 6), base.length > 6 ? h('div', { class: 'hint' }, `외 ${base.length - 6}개`) : null,
+      cs.filter((c) => c.kind === 'add').map((c) => h('div', { class: 'f add' }, `+ ${c.field}`, c.note ? ` — ${c.note}` : '')),
+      cs.filter((c) => c.kind === 'change').map((c) => h('div', { class: 'f chg' }, `≈ ${c.field}${c.note ? ` — ${c.note}` : ''}`)));
+  };
   return h('div', { class: 'card' }, h('h3', null, '설계 결과 ', h('small', null, `정보 변경 ${d.changes.length}건 · 화면 변경 ${d.screens.length}건 — 한꺼번에 승인합니다`)),
     h('div', { class: 'grid2' },
-      byInfo.length ? h('div', { class: 'box' }, h('div', { class: 'hint' }, '정보 변경 · ', byInfo.join(', ')),
-        d.changes.map((c) => h('div', { class: `chg ${c.kind}` }, h('span', { class: 'mk' }, mark(c.kind)), h('span', null, h('b', null, c.info === c.field ? c.field : `${c.info} · ${c.field}`), c.note ? ` — ${c.note}` : '')))
-        , h('a', { class: 'lnk', href: hash('manage', `${r.id}/info`) }, '정보 변경 겹쳐 보기 ›')) : null,
+      byInfo.length || links.length ? h('div', { class: 'box' }, h('div', { class: 'hint' }, `정보 변경 · ${byInfo.join(', ') || '연결'}`), byInfo.map(infoBox),
+        links.map((c) => h('div', { class: 'chg link' }, h('span', { class: 'mk' }, '↔'), h('span', null, h('b', null, `연결 · ${c.info} → ${c.field}`), c.note ? ` — ${c.note}` : ''))),
+        h('a', { class: 'lnk', href: hash('manage', `${r.id}/info`) }, '정보 변경 겹쳐 보기 ›')) : null,
       d.screens.map((s) => h('div', { class: 'box' }, h('div', { class: 'hint' }, `화면 변경 · ${s.screen}${s.link ? ' (Claude Design)' : ''}`),
         s.after ? h('img', { class: 'shot', src: `/__spec/shots/${s.after}`, alt: `${s.screen} 변경 후` }) : null, s.note ? h('div', null, s.note) : null,
         h('a', { class: 'lnk', href: hash('manage', `${r.id}/compare`, { screen: s.screen }) }, '현행과 비교해서 보기 ›')))));
@@ -135,23 +169,23 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   const testing = r.stage === 'test' || r.stage === 'done';
   const head = pageHead({ crumb: [h('a', { href: hash('manage') }, '요청'), ` › #${r.id}`], title: r.title, meta: [chipFor(r), scopeTags(r), h('span', null, `${r.source === 'user' ? '사용자 요청' : '에이전트 발견'} · ${r.origin.channel} · ${fmt(r.origin.at)}`)] });
   const agent = h('div', { class: 'card' }, h('h3', null, '맡은 에이전트 ', h('small', null, '이 요청만 알고 일하는 에이전트입니다. 직접 대화할 수 있습니다')),
-    r.agent.name ? h('div', { class: 'rm' }, chip('ag', r.agent.name), h('span', { class: 'hint' }, r.events.length ? `마지막 기록 ${fmt(r.events[r.events.length - 1].at)}` : ''), h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, `claude attach ${r.agent.name}`), h('button', { class: 'btn sm', onclick: () => { void copyText(`claude attach ${r.agent.name}`).then(() => toast('복사했습니다')); } }, '복사'))
+    r.agent.name ? h('div', { class: 'rm' }, chip('ag', r.agent.name), h('span', { class: 'hint' }, r.events.length ? `마지막 기록 ${fmt(r.events[r.events.length - 1].at)}` : ''), h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, `claude attach ${r.agent.name}`), h('button', { class: 'btn sm', onclick: () => { void copyText(`claude attach ${r.agent.name}`).then(() => toast('복사했습니다')); } }, '복사'), h('span', { class: 'hint' }, `VS Code는 세션 목록에서 "${r.agent.name}"`))
       : h('div', { class: 'hint' }, '아직 정해지지 않았습니다. 에이전트가 이 요청을 맡으면 이름이 여기에 나옵니다.'));
   const left = [
-    stepper(r) && h('div', { class: 'card' }, stepper(r)),
+    h('div', { class: 'card' }, stepperBig(r)),
     agent,
     r.origin.text ? h('div', { class: 'card' }, h('h3', null, '요청 원문'), h('div', { class: 'quote' }, r.origin.text)) : null,
     d && !d.none ? h('div', { class: 'card' }, h('h3', null, '에이전트의 이해와 처리 방법'), h('div', { class: 'grid2' },
       h('div', { class: 'box' }, h('b', null, '이렇게 이해했습니다'), h('div', null, d.understanding)),
       h('div', { class: 'box' }, h('b', null, '이렇게 처리하겠습니다'), h('div', null, d.approach)))) : null,
-    designResult(r),
+    designResult(model, r),
     h('div', { class: 'card' }, h('h3', null, '진행 기록'), h('div', { class: 'tl' }, r.events.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`))))),
   ];
   const designSide = r.stage === 'design' && r.step === 'submitted' ? designApproval(r, onChange)
     : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.')) : null;
   // 테스트 단계에서는 범위와 겹침을 왼쪽에, 확인표를 오른쪽에 둔다(범위를 보며 확인표를 따라가게)
   const [leftAll, right] = testing
-    ? [[left[0], scopeCard(model, r), overlapCard(r, onChange), ...left.slice(1)], [testCard(model, r, onChange)]]
-    : [left, [designSide, scopeCard(model, r), overlapCard(r, onChange)]];
+    ? [[left[0], scopeCard(model, r, true), overlapCard(r, onChange, model), ...left.slice(1)], [testCard(model, r, onChange)]]
+    : [left, [designSide, scopeCard(model, r, false), overlapCard(r, onChange, model)]];
   root.append(h('div', { class: 'wrap' }, head, h('div', { class: `detail-cols${testing ? ' testing' : ''}` }, h('div', { class: `dcol${testing ? '' : ''}` }, leftAll), h('div', { class: `dcol side${testing ? ' wide' : ''}` }, right))));
 }

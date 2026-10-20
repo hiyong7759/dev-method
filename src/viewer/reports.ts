@@ -16,7 +16,8 @@ function row(r: ReportRow, onChange: () => void): HTMLElement {
     h('div', { class: 'rbody' },
       h('div', { class: 'rtitle' }, r.title, r.label ? chip(tone, r.label) : null, r.origin === 'review' && !r.decision ? rv() : null),
       h('div', { class: 'rmeta' }, areaChip, h('span', { class: 'hint' }, `${r.from}${r.at ? ` · ${fmt(r.at)}` : ''}`),
-        r.where.map((w) => (w.kind === 'screen' ? h('a', { href: hash('screen', w.name), class: 'tag c' }, w.name) : tag(w.kind === 'info' ? 'i' : '', w.name))),
+        r.where.slice(0, 3).map((w) => (w.kind === 'screen' ? h('a', { href: hash('screen', w.name), class: 'tag c' }, w.name) : tag(w.kind === 'info' ? 'i' : '', w.name))),
+        r.where.length > 3 ? h('span', { class: 'tag' }, `외 ${r.where.length - 3}`) : null,
         r.detail ? h('span', { class: 'hint' }, r.detail) : null)),
     h('div', { class: 'ract' }, r.decision ? decisionText(r) : actionButtons(r, onChange)));
 }
