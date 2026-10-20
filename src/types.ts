@@ -39,6 +39,10 @@ export interface Does {
   title: string;
   /** 잘 됐는지 보는 기준 */
   check: string;
+  /** 이 일을 하면 가는 화면(없으면 빈 글). 같은 화면이면 그 화면 안에서 끝나는 일 */
+  to: string;
+  /** 이동하며 넘기는 값 */
+  pass: string;
 }
 
 /** 화면 이동 선언 한 줄 */
@@ -808,16 +812,34 @@ export interface FlowOut {
   crossDomain: boolean;
 }
 
-/** 사용 흐름의 한 칸: 사용자가 어느 화면에서 무엇을 하고 어디로 가는가 */
+/** 사용 흐름의 한 칸 안의 일 하나: 사용자가 이 화면에서 하는 한 가지 일 */
+export interface FlowAction {
+  /** 사용자가 하는 일 */
+  title: string;
+  /** 잘 됐는지 보는 기준 */
+  check: string;
+  /** 이 일을 하면 가는 화면(없으면 이 화면 안에서 끝나는 일) */
+  to: string;
+  /** 넘기는 값 */
+  pass: string;
+  /** 앞으로 나아가는 길이 아니라 이미 지난 칸으로 돌아오는 길(순환)인가 */
+  loop: boolean;
+  /** 코드에서 이 이동이 확인됐는가 */
+  verified: boolean;
+  /** 다른 도메인의 화면으로 가는가 */
+  crossDomain: boolean;
+}
+
+/** 사용 흐름의 한 칸(화면 하나와 그 안에서 하는 일들) */
 export interface FlowStep {
   /** 화면 이름 */
   screen: string;
   /** 시작에서 몇 번째 칸인가(0이 시작) */
   depth: number;
-  /** 사용자가 이 화면에서 하는 일 */
-  does: string[];
-  /** 나가는 길 */
-  out: FlowOut[];
+  /** 이 화면에서 하는 일들 */
+  actions: FlowAction[];
+  /** 일로 적히지 않은 나가는 길(@to만 있는 이동) */
+  extra: FlowOut[];
 }
 
 /** 한 도메인 안에서 시작 화면 하나에서 이어지는 사용 흐름 한 갈래 */

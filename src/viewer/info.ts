@@ -105,8 +105,8 @@ export interface InfoMapOptions {
  * @route /__spec/#/info
  * @domain 현행
  * @why 앱이 다루는 정보와 그 관계, 어느 화면이 입력·보여줌·수정·판단을 하는지를 한눈에 보게 한다. 가리키는 정보(1)를 위에, 가리키는 쪽(N)을 아래에 놓는다.
- * @to 화면 설계서 | 오른쪽 패널의 "쓰이는 화면" 이름을 누른다 | 화면 이름
  * @does 정보 상자를 눌러 필드와 쓰이는 화면을 본다 | 오른쪽 패널에 필드와 흐름이 나온다
+ * @does 오른쪽 패널의 "쓰이는 화면" 이름을 눌러 그 화면의 설계서를 연다 | 화면 설계서가 열린다 | → 화면 설계서
  * @does 같은 상자를 다시 눌러 전체 요약으로 돌아간다 | 오른쪽 패널이 한눈에 보기로 바뀐다
  */
 export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, drawer, filter, onFilter }: InfoMapOptions): void {

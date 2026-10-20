@@ -386,10 +386,21 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 /* 사용 흐름 */
 .flow-sec{margin-bottom:28px}
 .flow-sec>h2{margin:0 0 12px;font-size:15px;color:var(--dim)}
-.lane{margin-bottom:22px}
+.lane{margin-bottom:26px;position:relative}
 .lane h3{margin:0 0 10px;font-size:15px}
 .lane h3 small{margin-left:8px;font-size:12px;font-weight:400;color:var(--dim)}
-.scard .does{font-size:12px;color:var(--dim)}
-.scard .mv.loop{color:var(--dim)}
+.lane .stages{gap:90px;position:relative;z-index:1}
+.farrows{position:absolute;left:0;top:0;pointer-events:none;z-index:0}
+.fstep{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+.fstep.focus{border:2px solid var(--accent)}
+.fhead{display:flex;align-items:center;gap:6px;width:100%;padding:10px 12px;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;cursor:pointer}
+.fhead .nm{font-size:15px;font-weight:700}
+.fhead:hover{background:var(--accent-bg)}
+.fact{display:flex;flex-direction:column;gap:2px;padding:8px 12px;font-size:12px;line-height:1.5;color:#d9d1c6;border-top:1px solid var(--line)}
+.fact:first-of-type{border-top:0}
+.fact small{color:var(--dim);font-size:11px}
+.fact.go{color:#fff;background:rgba(157,180,255,.08)}
+.fact.loop{background:rgba(138,130,114,.12)}
+.fact.warn{color:var(--amber)}
 .flow-notes{margin-top:8px;font-size:12px}
 .flow-notes summary{cursor:pointer;color:var(--dim)}

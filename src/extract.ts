@@ -55,7 +55,7 @@ interface Entity extends Partial<Record<Field, string>> {
 
 /**
  * 한 덩어리를 개체 하나로 읽는다. 태그가 없으면 null.
- * @does 사용자가 하는 일 | 확인 기준, @to 대상 화면 | 행동 | 넘기는 값, @on 이벤트: 효과
+ * @does 사용자가 하는 일 | 확인 기준 | → 가는 화면 | 넘기는 값(뒤 둘은 이 일이 다른 화면으로 가는 일일 때만), @to 대상 화면 | 행동 | 넘기는 값, @on 이벤트: 효과
  */
 function parseBlock(block: Block): (Entity & { kind: 'screen' | 'spec' }) | null {
   const entity: Entity = { kind: null, id: '', title: '', line: block.line, does: [], to: [], on: [] };
@@ -143,10 +143,14 @@ export function extractSpecs(root: string): Extracted {
         names.set(e.title, `${rel}:${e.line}`);
         const screen: ScreenTag = {
           name: e.title, why: e.why || '', basis: e.basis || '', route: e.route || '', sample: e.sample || '', domain: e.domain || '', start: e.start !== undefined,
-          does: e.does.map((d): Does => { const [title, check] = splitBar(d, 2); return { title, check }; }),
-          to: e.to.map((d): Move => { const [target, action, pass] = splitBar(d, 3); return { target, action, pass }; }),
+          does: e.does.map((d): Does => { const [title, check, go, pass] = splitBar(d, 4); return { title, check, to: go.replace(/^→\s*/, ''), pass }; }),
+          to: [],
           files: [], ...where,
         };
+        // 이동은 두 곳에서 모은다: @does 셋째 칸의 "→ 화면"(그 일의 이름이 곧 행동)과, 일과 따로 쓴 @to
+        const fromDoes = screen.does.filter((d) => d.to).map((d): Move => ({ target: d.to, action: d.title, pass: d.pass }));
+        const fromTo = e.to.map((d): Move => { const [target, action, pass] = splitBar(d, 3); return { target, action, pass }; });
+        screen.to = [...fromDoes, ...fromTo.filter((m) => !fromDoes.some((x) => x.target === m.target))];
         out.screens.push(screen);
         if (!e.why) out.warnings.push(`@screen ${e.title}에 @why가 없다 (${rel}:${e.line})`);
         if (!e.route) out.warnings.push(`@screen ${e.title}에 @route가 없다 — 실제 화면을 끼워 넣으려면 주소가 필요하다 (${rel}:${e.line})`);

@@ -15,7 +15,7 @@ import { detectNav } from './nav.js';
 import { errorText } from './cli.js';
 import type {
   Analysis, AnalyzedInfo, DomHint, Evidence, Extracted, Incoming, Model, ModelInfo, ModelScreen, NavResult, Note, Relation,
-  FlowStep, RevealStep, Role, ScreenField, Spec, UsageFlow,
+  FlowAction, FlowOut, FlowStep, RevealStep, Role, ScreenField, Spec, UsageFlow,
 } from './types.js';
 
 /** 설명 글에서 @태그가 달린 줄을 뺀 글 */
@@ -236,13 +236,15 @@ export function buildModel(scanRoot: string): Model {
       }
       const steps: FlowStep[] = [...depth.entries()].sort((a, b) => a[1] - b[1]).map(([name, d]) => {
         const sc = byName.get(name) as ModelScreen;
-        return {
-          screen: name, depth: d, does: sc.does.map((x) => x.title),
-          out: sc.to.filter((t) => t.target !== name && byName.has(t.target)).map((t) => {
-            const td = depth.get(t.target);
-            return { to: t.target, action: t.action, pass: t.pass, loop: td !== undefined && td <= d, verified: t.verified, crossDomain: ((byName.get(t.target) as ModelScreen).domain || '') !== domain };
-          }),
+        const info = (target: string): { loop: boolean; verified: boolean; crossDomain: boolean } => {
+          const td = depth.get(target);
+          const mv = sc.to.find((t) => t.target === target);
+          return { loop: td !== undefined && td <= d, verified: mv ? mv.verified : true, crossDomain: byName.has(target) && ((byName.get(target) as ModelScreen).domain || '') !== domain };
         };
+        const actions: FlowAction[] = sc.does.map((x) => ({ title: x.title, check: x.check, to: x.to, pass: x.pass, ...(x.to && x.to !== name && byName.has(x.to) ? info(x.to) : { loop: false, verified: true, crossDomain: false }) }));
+        const extra: FlowOut[] = sc.to.filter((t) => t.target !== name && byName.has(t.target) && !sc.does.some((x) => x.to === t.target))
+          .map((t) => ({ to: t.target, action: t.action, pass: t.pass, ...info(t.target) }));
+        return { screen: name, depth: d, actions, extra };
       });
       flows.push({ domain, start: st.name, steps });
     }
