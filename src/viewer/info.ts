@@ -5,13 +5,13 @@
  */
 import { h, ROLES, ROLE_LABEL } from './util.js';
 import { hash, nav } from './route.js';
-import type { InfoKind, Model, ModelInfo, RefKind } from '../types.js';
+import type { InfoKind, Model, ModelInfo, ModelProp, RefKind } from '../types.js';
 
 /** 정보 보기 구분: 전체 / 화면용 / 내부용 */
-export type InfoFilter = 'all' | InfoKind;
-const FILTER_LABEL: Record<InfoFilter, string> = { all: '전체', screen: '화면용', internal: '내부용' };
+export type InfoFilter = 'all' | InfoKind | 'review';
+const FILTER_LABEL: Record<InfoFilter, string> = { all: '전체', screen: '화면용', internal: '내부용', review: '확인 필요' };
 /** 구분에 맞는 정보만 */
-export const infosOf = (model: Model, f: InfoFilter): ModelInfo[] => (f === 'all' ? model.infos : model.infos.filter((i) => i.kind === f));
+export const infosOf = (model: Model, f: InfoFilter): ModelInfo[] => (f === 'all' ? model.infos : f === 'review' ? model.infos.filter((i) => i.flagged > 0) : model.infos.filter((i) => i.kind === f));
 
 /** 이 화면에서의 쓰임을 정보 상세 맨 위에 따로 보인다. 앱 전체의 쓰임과 섞이지 않게 한다 */
 function thisScreen(model: Model, info: ModelInfo, screenName: string, focusField: string | undefined, locNote: string | undefined): HTMLElement {
@@ -43,6 +43,19 @@ export interface DrawerOptions {
   openScreen?: (name: string) => void;
 }
 
+/** 확인이 필요한 필드를 사람이 판단하도록 돕는 글: 무엇이 걸렸는지, 지워도 되어 보이는지, 근거가 어디인지 */
+function judgeBox(info: ModelInfo, p: ModelProp): HTMLElement {
+  const found = p.strs.length > 0 || p.dupTotal > 0;
+  const verdict = !p.doc ? '존재 이유가 비어 있다 — 이 필드가 왜 있는지 적어야 한다'
+    : found ? '코드에서는 쓰는 곳을 못 찾았지만, 같은 이름이 다른 곳에 나온다 — 값이 JSON이나 글자로 쓰일 수 있어 지우기 전에 아래 곳을 본다'
+      : '코드에서도, 글자로도 쓰는 곳이 없다 — 지워도 안전해 보인다(지울지 요청으로 정한다)';
+  return h('div', { class: 'judge' },
+    h('div', { class: found || !p.doc ? 'jv warn' : 'jv ok' }, verdict),
+    h('div', { class: 'jl' }, '정의된 곳 ', h('span', { class: 'mono' }, `${info.fileSrc}:${p.line}`)),
+    p.dupTotal ? h('div', { class: 'jl' }, `같은 이름으로 다시 정의한 곳 ${p.dupTotal}개`) : null,
+    p.strs.length ? h('div', { class: 'jl' }, '글자로 나오는 곳 ', p.strs.map((s) => h('span', { class: 'mono', style: 'margin-right:8px' }, `${s.file}:${s.line}`))) : null);
+}
+
 /** 정보 상세 — 존재 이유, 관계, 정보의 흐름(입력·보여줌·수정·판단), 필드 */
 export function infoDrawer(model: Model, name: string, { focusField, currentScreen, locNote, onClose, openInfo, openScreen = (n) => nav(hash('screen', n)) }: DrawerOptions): HTMLElement {
   const open = new Set<string>(focusField ? [focusField] : []);
@@ -71,7 +84,7 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
         flowKinds.map(([r, list]) => h('div', { class: 'flowrow' }, h('span', { class: `lab role ${r}`, style: 'margin:0' }, ROLE_LABEL[r]),
           h('div', { class: 'chips', style: 'gap:6px' }, list.length ? list.map((p) => h('span', { class: 'tag', style: `cursor:${screens.has(p) ? 'pointer' : 'default'}${screens.has(p) ? '' : ';border-color:#6a5a99;border-radius:12px'}${p === currentScreen ? ';border-color:var(--accent);background:var(--accent-bg);font-weight:700' : ''}`, onclick: screens.has(p) ? () => openScreen(p) : undefined }, p + (screens.has(p) ? '' : ' (모듈)') + (p === currentScreen ? ' · 지금 화면' : ''))) : h('span', { style: 'font-size:12px;color:var(--dim2)' }, '없음'))))),
       h('div', { class: 'sec' }, h('h4', null, `필드 · ${info.props.length}`, info.flagged ? h('small', { style: 'color:var(--amber)' }, `확인 ${info.flagged}`) : null),
-        h('div', { class: 'fld' }, info.props.map((p) => {
+        h('div', { class: 'fld' }, [...info.props].sort((x, y) => Number(y.status === 'none' || !y.doc) - Number(x.status === 'none' || !x.doc)).map((p) => {
           const rolesOf = ROLES.filter((r) => p.roles[r].length);
           const flag = !p.doc ? '정리 후보 · 존재 이유 미작성' : (p.status !== 'rw' ? (p.status === 'none' ? '쓰는 곳 없음' : p.status === 'read-only' ? '쓰는 곳(입력) 없음' : '읽는 곳 없음') : '');
           const evBox = h('div', { style: `display:${open.has(p.name) ? '' : 'none'};margin-top:8px;padding:8px 10px;border-radius:6px;background:#14161f;font-size:11.5px;line-height:1.7` }, h('div', { style: 'color:var(--dim);margin-bottom:2px' }, '역할을 이렇게 읽었다 (근거)'), p.evidence && p.evidence.length ? p.evidence.map((e) => h('div', null, h('span', { class: `role ${e.role}` }, ROLE_LABEL[e.role]), `${e.who} · `, h('span', { class: 'mono' }, `${e.file}:${e.line}`), ` · ${KIND[e.kind] || e.kind}`)) : h('div', { style: 'color:var(--dim2)' }, '화면·모듈에서 쓰는 곳을 찾지 못했다'));
@@ -80,6 +93,7 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
             flag ? h('span', { class: 'flag' }, flag) : null,
             h('b', null, p.name), focusField === p.name ? h('span', { style: 'color:var(--accent);font-size:12px' }, ' · 지금 보던 필드') : null,
             h('div', { class: `d${p.doc ? '' : ' empty'}` }, p.doc || '존재 이유 미작성'),
+            p.status === 'none' || !p.doc ? judgeBox(info, p) : null,
             rolesOf.length ? h('div', { style: 'margin-top:6px' }, rolesOf.map((r) => h('span', { class: `role ${r}` }, `${ROLE_LABEL[r]} ${p.roles[r].length}`))) : null, evBox].filter((x): x is HTMLElement => x !== null));
           return row;
         })))));
@@ -188,7 +202,7 @@ export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, d
     const p = pos[i.name];
     const doc1 = i.doc ? i.doc.split(/[.。]/)[0] : '';
     const node = h('div', { class: `inode${i.unused ? ' unused' : ''}${selected === i.name ? ' sel' : ''}${selected && selected !== i.name ? ' dim' : ''}`, style: `left:${p.x}px;top:${p.y}px;height:${p.h}px`, title: `${i.name}${doc1 ? ' — ' + doc1 : ''}`, onclick: () => onSelect(i.name) },
-      h('div', { class: 'h' }, h('b', null, i.name, i.kind === 'internal' ? h('em', { class: 'kind-tag' }, '내부') : null), h('span', null, i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1)),
+      h('div', { class: 'h' }, h('b', null, i.name, i.kind === 'internal' ? h('em', { class: 'kind-tag' }, '내부') : null, i.flagged ? h('em', { class: 'kind-tag warn' }, `확인 ${i.flagged}`) : null), h('span', null, i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1)),
       h('div', { class: 'c' }, ROLES.map((r) => h('span', { class: `cnt-chip ${r}${i.flow[r].length ? '' : ' zero'}` }, `${ROLE_LABEL[r]} ${i.flow[r].length}`))));
     erd.append(node);
   }
@@ -197,7 +211,7 @@ export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, d
   if (!infos.length) erd.append(h('div', { class: 'empty-note' }, '정보를 찾지 못했다', h('br'), model.analysisError || '타입을 export한 정의가 있고 쓰이는 곳이 있어야 보인다'));
   const count = (f: InfoFilter): number => infosOf(model, f).length;
   root.append(h('div', { class: 'legend' },
-    h('div', { class: 'seg' }, (['all', 'screen', 'internal'] as InfoFilter[]).map((f) => h('button', { class: filter === f ? 'on' : '', onclick: () => onFilter(f) }, `${FILTER_LABEL[f]} ${count(f)}`))),
+    h('div', { class: 'seg' }, (['all', 'screen', 'internal', 'review'] as InfoFilter[]).filter((f) => f !== 'review' || count(f) > 0 || filter === 'review').map((f) => h('button', { class: filter === f ? 'on' : '', onclick: () => onFilter(f) }, `${FILTER_LABEL[f]} ${count(f)}`))),
     h('span', null, '관계선'), h('span', { class: 'mono' }, '──'), h('span', null, '소유 (실제 연결)'), h('span', { class: 'mono' }, '┄┄'), h('span', null, '약한 연결 (값으로만 가리킴)'),
     h('span', { style: 'margin-left:12px' }, '표시'), ROLES.map((r) => h('span', { class: `cnt-chip ${r}`, style: 'font-size:12px;padding:2px 10px' }, ROLE_LABEL[r])), h('span', { style: 'color:var(--dim)' }, '= 그 일을 하는 곳의 수')));
   root.append(h('div', { class: 'erd-wrap' }, erd, drawer ? h('aside', { class: 'side', style: 'width:420px' }, drawer) : null));

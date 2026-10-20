@@ -105,7 +105,7 @@ export function buildModel(scanRoot: string): Model {
   const infos: ModelInfo[] = kept.map((i) => ({
     name: i.name, file: i.file, fileSrc: path.relative(scanRoot, path.join(root, i.file)), line: i.line, unused: i.unused, kind: 'internal', doc: clean(i.doc),
     flow: { shown: [], input: [], modify: [], judge: [] }, flagged: 0,
-    props: i.props.map((p) => ({ name: p.name, doc: clean(p.doc), line: p.line, status: p.status, roles: { shown: [], input: [], modify: [], judge: [] }, evidence: [] })),
+    props: i.props.map((p) => ({ name: p.name, doc: clean(p.doc), line: p.line, status: p.status, dupTotal: p.evidence.dupTotal, strs: p.evidence.strs.slice(0, 4), roles: { shown: [], input: [], modify: [], judge: [] }, evidence: [] })),
   }));
   const infoByName = new Map(infos.map((i) => [i.name, i]));
 

@@ -691,6 +691,10 @@ export interface ModelProp {
   line: number;
   /** 쓰이는 모습 */
   status: PropStatus;
+  /** 같은 이름으로 다시 정의한 곳의 수(쓰이지 않는다는 판단이 틀렸을 수 있는 근거) */
+  dupTotal: number;
+  /** 필드 이름이 글자로 나오는 곳들(일부만. 값이 JSON 등으로 넘어가 코드에서 못 잡은 사용일 수 있다) */
+  strs: Place[];
   /** 역할별로 쓰는 화면이나 모듈 */
   roles: Record<Role, string[]>;
   /** 역할을 그렇게 읽은 근거들 */
