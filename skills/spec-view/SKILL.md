@@ -41,6 +41,7 @@ description: 화면·컴포넌트·정보(타입)·로직 모듈을 만들거나
    - 화면, 컴포넌트 → `rules/screen.md`
    - 화면 없는 모듈 → `rules/logic.md`
    - 태그 문법과 도구가 읽는 방식 → `rules/tools.md`
+   - 설계서 보기 화면(`src/viewer/`)을 만들거나 고칠 때 → `rules/viewer-ui.md`
 3. **변경 요청을 받았을 때**(메모, 대화): `rules/request.md`
 4. **끝낼 때**(통과해야 "테스트 요청"을 쓸 수 있다):
    1. `open <프로젝트> --no-open`으로 서버를 직접 띄운다 (사용자에게 띄우라고 하지 않는다)
