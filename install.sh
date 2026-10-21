@@ -5,6 +5,7 @@
 #   ./install.sh hooks <프로젝트>  훅 복사, git pre-commit 연결, 설치 목록에 추가
 #   ./install.sh spec <프로젝트> [소스폴더] [앱주소] [포트]  spec-view 설정(.spec/config.json), 프로젝트 이름 등록(spec-projects.txt), 경고 0 커밋 검사(git pre-commit) 연결
 #   ./install.sh browser <settings.json 경로>  크롬 등 브라우저 직접 실행을 막고 ego-browser를 쓰게 하는 Claude 훅 등록 (전역은 ~/.claude/settings.json)
+#   ./install.sh agent-hook <settings.json 경로>  담당 세션에 사용자 결정(설계 승인·반려 등)을 알려 주는 Claude 훅 등록
 #   ./install.sh check            설치 목록의 프로젝트가 원본과 같은지 보기 (바꾸지 않음)
 #   ./install.sh sync             설치본을 원본으로 덮어쓰기 (프로젝트 저장소에 변경으로 남으니 커밋은 따로)
 set -e
@@ -51,7 +52,7 @@ spec)
   CMLINE='node '"$ROOT"'/skills/spec-view/spec.mjs commit-msg "$1" "$(git rev-parse --show-toplevel)" || exit 1'
   if [ ! -f "$CM" ]; then printf '#!/bin/bash\n%s\n' "$CMLINE" > "$CM"; chmod +x "$CM"
   elif ! grep -qF 'spec.mjs commit-msg' "$CM"; then echo "$CMLINE" >> "$CM"; fi
-  [ -f "$P/.spec/.gitignore" ] || printf 'pending-shots.json\npids.json\n*.log\n' > "$P/.spec/.gitignore"
+  [ -f "$P/.spec/.gitignore" ] || printf 'pending-shots.json\npids.json\nsessions.json\n*.log\n' > "$P/.spec/.gitignore"
   touch "$ROOT/spec-projects.txt"; grep -qxF "$P" "$ROOT/spec-projects.txt" || echo "$P" >> "$ROOT/spec-projects.txt"
   echo "연결: $P"; echo "설정: $(tr -d '\n' < "$P/.spec/config.json")"
   ;;
@@ -70,6 +71,26 @@ else:
     pre.append({"matcher": "Bash|mcp__.*[Cc]hrome.*", "hooks": [{"type": "command", "command": hook}]})
     json.dump(d, open(f, "w"), ensure_ascii=False, indent=2); open(f, "a").write("\n")
     print("등록:", f)
+PY
+  ;;
+agent-hook)
+  F="$2"; [ -n "$F" ] || { echo "settings.json 경로를 주세요"; exit 1; }
+  mkdir -p "$(dirname "$F")"; [ -f "$F" ] || echo '{}' > "$F"
+  python3 - "$F" "node $ROOT/skills/spec-view/spec.mjs inbox" <<'PY'
+import json, sys
+f, cmd = sys.argv[1], sys.argv[2]
+d = json.load(open(f))
+hooks = d.setdefault("hooks", {})
+changed = False
+for event, matcher in (("PostToolUse", "Bash"), ("UserPromptSubmit", None)):
+    lst = hooks.setdefault(event, [])
+    if any(cmd in h.get("command", "") for e in lst for h in e.get("hooks", [])):
+        continue
+    entry = {"hooks": [{"type": "command", "command": cmd}]}
+    if matcher: entry["matcher"] = matcher
+    lst.append(entry); changed = True
+json.dump(d, open(f, "w"), ensure_ascii=False, indent=2); open(f, "a").write("\n")
+print("등록:" if changed else "이미 등록됨:", f)
 PY
   ;;
 check|sync)

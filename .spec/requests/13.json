@@ -1,0 +1,32 @@
+{
+  "id": 13,
+  "title": "훅으로 담당 세션에 사용자 결정 전달(#5)",
+  "source": "user",
+  "origin": {
+    "text": "훅은 동작안하는거 같으면 다시 언급할께 이건 다 된거 같고 다음 진행해",
+    "channel": "대화",
+    "at": "2026-10-21T03:39:48.589Z"
+  },
+  "scope": {
+    "screens": [
+      "관리 영역"
+    ],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T03:39:48.589Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

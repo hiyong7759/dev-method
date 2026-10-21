@@ -16,7 +16,7 @@
 
 - 구현됨: 공통 부품(chip·tag·rv·fchips·sideList·pageHead·sidePanel, `util.ts`), 상단 바(내 차례·밝기 단추만), 다크·라이트·시스템, 사용 흐름(왼쪽 도메인 목록·위쪽 칩·rv·시나리오 패널), 정보 흐름(왼쪽 도메인 목록·상자 필드 이름표·rv·정보 패널), 확인 필요 패널 한 곳(`review.ts`), 화면 설계서(개요·현행·히스토리), 요청 목록(칩·요청 없는 변경), 요청 상세(설계 승인·반려·설계 없음·겹침 순서·테스트 확인표·테스트 승인/문제 있음), 정보 변경 겹쳐 보기, 화면 전후 비교, 리포트, 용어집과 용어 툴팁
 - 서버: `request` 명령(add/design/impl/test/found/agent), `report`, `glossary`, 사용자 결정 엔드포인트(`/__spec/report/decide`, `/__spec/request/*`)
-- 아직 없음: ① 훅으로 담당 세션에 전달(#5) ② (완료) 요청 번호 없는 커밋 차단 commit-msg 훅(#7, `spec.mjs commit-msg`, `install.sh spec`이 연결) · 크롬 직접 실행 차단 훅(`hooks/claude-block-browser.sh`, `install.sh browser <settings.json>`로 등록, 이 저장소 `.claude/settings.json`에 등록함, 전역·다른 프로젝트는 사용자 확인 뒤) ③ 정보 구조 관문·메타정보(#8) ④ 분석기 유니온 타입 오탐(`HistoryStatus.before/after` 등이 확인 필요로 올라옴) ⑤ 낡은 화면 상태·메모·승인 코드(`status.ts`, `memo.ts`, finish의 상태 기록)는 화면에서만 뺐고 소스는 남아 있음
+- 아직 없음: ① (완료) 훅으로 담당 세션에 전달(#5, `spec.mjs inbox`, `install.sh agent-hook`; VS Code 확장에서의 동작은 미확인) ② (완료) 요청 번호 없는 커밋 차단 commit-msg 훅(#7, `spec.mjs commit-msg`, `install.sh spec`이 연결) · 크롬 직접 실행 차단 훅(`hooks/claude-block-browser.sh`, `install.sh browser <settings.json>`로 등록, 이 저장소 `.claude/settings.json`에 등록함, 전역·다른 프로젝트는 사용자 확인 뒤) ③ 정보 구조 관문·메타정보(#8) ④ 분석기 유니온 타입 오탐(`HistoryStatus.before/after` 등이 확인 필요로 올라옴) ⑤ 낡은 화면 상태·메모·승인 코드(`status.ts`, `memo.ts`, finish의 상태 기록)는 화면에서만 뺐고 소스는 남아 있음
 - 사용자에게 확인받을 것(내가 정한 임시 선택): "의도한 것" 기록은 `.spec/reports.json`(나)로 했다 / 영역 주소는 `#/manage/reports`, `#/manage/glossary` / 커밋 007114b는 새 구현이 대체함
 - 검증 방법: 시안과 같은 크기로 ego-browser 스크린샷을 비교한다. 요청 설계·테스트 화면은 가짜 프로젝트(스크래치패드 fixture)로 본다 — 이 저장소 요청 #1~#9에는 설계 데이터가 없다
 

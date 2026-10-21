@@ -1,0 +1,76 @@
+/**
+ * @spec inbox-hook 담당 세션에 사용자 결정 전달
+ * @why 설계 승인·반려, 테스트 승인·문제 있음, 순서 정하기는 사용자가 설계서 보기에서 하는데, 그 요청을 맡은 에이전트 세션이 모르면 일이 멈춘다. 감시기를 따로 돌리지 않고, 세션이 다음에 움직일 때(사용자가 말을 걸 때, 도구를 쓴 뒤) 훅이 새 결정을 읽어 알려 준다.
+ * @contract Claude Code 훅(PostToolUse·UserPromptSubmit)이 표준입력으로 훅 JSON을 넘긴다. 세션이 `request add`나 `request agent --id N`을 실행하면 그 세션을 요청 N의 담당으로 .spec/sessions.json에 적고(커밋하지 않는다), 이후 그 요청 파일에 사용자가 남긴 새 기록만 additionalContext로 돌려준다. 담당이 아닌 세션과 설계서 보기를 쓰지 않는 프로젝트에서는 아무것도 하지 않는다. 훅은 어떤 경우에도 세션을 막지 않는다(항상 종료 코드 0).
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { configFile } from './config.js';
+import { loadRequests } from './request.js';
+
+/** 훅이 넘기는 JSON 중 쓰는 것 */
+interface HookInput {
+  session_id?: string;
+  cwd?: string;
+  hook_event_name?: string;
+  tool_name?: string;
+  tool_input?: { command?: string };
+  tool_response?: unknown;
+}
+/** 담당 세션 기록: 세션 번호 → 맡은 요청과 어디까지 알렸는지 */
+type Sessions = Record<string, { request: number; seen: string }>;
+
+/** 알릴 사용자 기록 종류와, 에이전트가 이어서 할 일 */
+const NEXT: Record<string, (id: number, note: string) => string> = {
+  'design-approved': (id) => `구현을 시작하세요(구현이 끝나면 request impl --id ${id} → finish → request test --id ${id}).`,
+  'design-rejected': (id) => `반려 이유를 읽고 설계를 고쳐 request design --id ${id}로 다시 올리세요.`,
+  'test-approved': () => '요청이 완료됐습니다. 더 할 일이 없으면 마무리하세요.',
+  'test-problem': (id) => `같은 요청에서 고친 뒤 request test --id ${id}로 테스트를 다시 올리세요.`,
+  order: () => '끝나는 순서가 정해졌습니다. 기다려야 하면 먼저 끝나는 요청이 끝난 뒤 시작하세요.',
+};
+
+/** 훅 JSON에서 이 프로젝트 루트(.spec/config.json이 있는 가장 가까운 위 폴더) */
+function findRoot(from: string): string | null {
+  let d = path.resolve(from);
+  for (;;) {
+    if (fs.existsSync(configFile(d))) return d;
+    const up = path.dirname(d);
+    if (up === d) return null;
+    d = up;
+  }
+}
+
+/** 명령: inbox (표준입력으로 훅 JSON) */
+export async function main(): Promise<number> {
+  let input: HookInput = {};
+  try { input = JSON.parse(fs.readFileSync(0, 'utf8')) as HookInput; } catch { return 0; }
+  try {
+    const root = findRoot(input.cwd || process.cwd());
+    const sid = input.session_id;
+    if (!root || !sid) return 0;
+    const file = path.join(root, '.spec', 'sessions.json');
+    let sessions: Sessions = {};
+    try { sessions = JSON.parse(fs.readFileSync(file, 'utf8')) as Sessions; } catch { /* 처음 */ }
+    const requests = loadRequests(root);
+    const save = (): void => { fs.writeFileSync(file, JSON.stringify(sessions, null, 2) + '\n'); };
+    // 이 세션이 요청을 등록하거나 담당으로 정하면 그 요청의 담당으로 적는다(그때까지의 기록은 이미 아는 것으로 본다)
+    if (input.hook_event_name === 'PostToolUse' && input.tool_name === 'Bash') {
+      const cmd = input.tool_input?.command ?? '';
+      const out = JSON.stringify(input.tool_response ?? '');
+      const bound = cmd.match(/spec\.mjs\s+request\s+agent\b[^\n]*?--id[ =](\d+)/)?.[1] ?? (/spec\.mjs\s+request\s+add\b/.test(cmd) ? out.match(/요청 #(\d+): 등록/)?.[1] : undefined);
+      const req = bound ? requests.find((r) => r.id === Number(bound)) : undefined;
+      if (req) { sessions[sid] = { request: req.id, seen: req.events[req.events.length - 1]?.at ?? new Date().toISOString() }; save(); return 0; }
+    }
+    const mine = sessions[sid];
+    const req = mine ? requests.find((r) => r.id === mine.request) : undefined;
+    if (!mine || !req) return 0;
+    const news = req.events.filter((e) => e.by === 'user' && e.at > mine.seen && NEXT[e.kind]);
+    if (!news.length) return 0;
+    mine.seen = req.events[req.events.length - 1].at;
+    save();
+    const lines = news.map((e) => `- ${e.note} (${e.at.slice(5, 16).replace('T', ' ')}): ${NEXT[e.kind](req.id, e.note)}`);
+    const text = `[spec-view] 요청 #${req.id} "${req.title}"에 사용자가 결정했습니다.\n${lines.join('\n')}`;
+    console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: input.hook_event_name || 'UserPromptSubmit', additionalContext: text } }));
+  } catch { /* 훅은 세션을 막지 않는다 */ }
+  return 0;
+}
