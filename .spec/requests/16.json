@@ -1,0 +1,30 @@
+{
+  "id": 16,
+  "title": "화면 설계서 탭을 없애고 남은 모델 값(들어오는 길·빠진 수·경고·확인 필요 안내) 정리",
+  "source": "user",
+  "origin": {
+    "text": "남은 시안·소스 작업 계속(옛 메모·승인 탭 제거)",
+    "channel": "대화",
+    "at": "2026-10-21T14:02:47.055Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:02:47.055Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

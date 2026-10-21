@@ -1,0 +1,30 @@
+{
+  "id": 15,
+  "title": "닫힌 담당 세션을 서버가 깨우기",
+  "source": "user",
+  "origin": {
+    "text": "서버가 승인·반려 때 쉬는 세션을 깨울 수 있나",
+    "channel": "대화",
+    "at": "2026-10-21T14:00:45.729Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:00:45.729Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

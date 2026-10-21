@@ -17,7 +17,7 @@ import { loadGlossary } from './glossary.js';
 import { detectNav } from './nav.js';
 import { errorText } from './cli.js';
 import type {
-  Analysis, AnalyzedInfo, Request, ReviewItem, DomHint, Evidence, Extracted, Incoming, Model, ModelInfo, ModelScreen, NavResult, Note, Relation,
+  Analysis, AnalyzedInfo, Request, ReviewItem, DomHint, Evidence, Extracted, Model, ModelInfo, ModelScreen, NavResult, Relation,
   RevealStep, Role, ScreenField, Spec,
 } from './types.js';
 
@@ -188,26 +188,17 @@ export function buildModel(scanRoot: string): Model {
     info.flagged = info.props.filter((p) => !p.doc || p.status === 'none').length;
   });
 
-  // ── 화면으로 들어오는 길(화면 설계서의 "들어오는 길"에 쓴다) ───────────
-  const incoming: Record<string, Incoming[]> = Object.fromEntries(out.screens.map((s) => [s.name, []]));
-  let moves = 0;
-  for (const s of out.screens) for (const t of s.to) if (incoming[t.target]) { incoming[t.target].push({ from: s.name, action: t.action, pass: t.pass }); moves++; }
-
   // ── 화면별 모델 ──────────────────────────────────────
   const screens: ModelScreen[] = out.screens.map((s) => {
     const specs = specsOfScreen(s.name);
     const fields: ScreenField[] = [...screenFields[s.name].values()].map((f) => ({ ...f, roles: [...f.roles], specs: [...f.specs], doms: [...f.doms.values()] }));
-    const missing = specs.filter((x) => !x.why).length + (s.why ? 0 : 1);
-    const warns = out.warnings.filter((w) => s.files.some((f) => w.includes(`(${f}:`)));
     return {
-      ...s, to: s.to.map((t) => ({ ...t, verified: nav.edges.some((e) => e.from === s.name && e.to === t.target) || t.target === s.name })), incoming: incoming[s.name], status: status[s.name],
-      fields, missing, warnings: warns,
+      ...s, status: status[s.name], fields,
     };
   });
 
   // ── 확인 필요: 기계가 판단할 수 없어 사람이 정해야 하는 것만 올린다. 코드나 주석을 고치면 해소되는 것(메타정보 빠짐, 이동 선언 어긋남 등)은
   //    경고로 올라가 에이전트가 해소해야 커밋되므로 여기에 올리지 않는다.
-  const notes: Note[] = [];
   const domainOf = new Map(screens.map((s) => [s.name, s.domain || '']));
   const reviews: ReviewItem[] = [];
   const scenariosOfScreens = (names: string[]): string[] => out.scenarios.filter((sc) => sc.steps.some((st) => st.screens.some((n) => names.includes(n)))).map((sc) => sc.name);
@@ -239,15 +230,15 @@ export function buildModel(scanRoot: string): Model {
   const pendingCopy = memos.filter((m) => m.state === 'pending' && !m.copiedAt).length;
   return {
     project: path.basename(root), generatedAt: new Date().toISOString(),
-    screens, specs: out.specs, infos, relations, notes, reports: rows, glossary: loadGlossary(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
+    screens, specs: out.specs, infos, relations, reports: rows, glossary: loadGlossary(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
     memos: memos.map((m) => ({ ...m, stateLabel: STATE_LABEL[m.state] })),
     requests, untracked: untrackedCommits(scanRoot, rawRequests),
     summary: {
-      screens: screens.length, moves, infos: infos.length, relations: relations.length,
+      screens: screens.length, infos: infos.length, relations: relations.length,
       waiting: screens.filter((s) => ['test-requested', 'approved-changed'].includes(s.status.status)).length,
       testRequested: screens.filter((s) => s.status.status === 'test-requested').length,
       changedAfterApproval: screens.filter((s) => s.status.status === 'approved-changed').length,
-      requestsMine: requests.filter((r) => r.turn === 'user').length, memosUndelivered: pendingCopy, needCheck: out.warnings.length + notes.length, reportsOpen: openCount(rows),
+      requestsMine: requests.filter((r) => r.turn === 'user').length, memosUndelivered: pendingCopy, needCheck: out.warnings.length, reportsOpen: openCount(rows),
     },
     labels: LABEL,
   };

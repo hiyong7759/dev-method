@@ -838,30 +838,12 @@ export interface ScreenField {
   doms: DomHint[];
 }
 
-/** 어느 화면에서 이 화면으로 들어오는 길 */
-export interface Incoming {
-  /** 떠나는 화면 */
-  from: string;
-  /** 어떻게 오는가 */
-  action: string;
-  /** 넘기는 값 */
-  pass: string;
-}
-
 /** 화면 한 장에 대한 설계서 보기 모델 */
-export interface ModelScreen extends Omit<ScreenTag, 'to'> {
-  /** 나가는 길과 그것이 코드에서 확인됐는지 */
-  to: (Move & { verified: boolean })[];
-  /** 들어오는 길 */
-  incoming: Incoming[];
+export interface ModelScreen extends ScreenTag {
   /** 지금 상태 */
   status: ScreenStatus;
   /** 이 화면이 다루는 정보 필드들 */
   fields: ScreenField[];
-  /** 존재 이유가 빈 곳의 수 */
-  missing: number;
-  /** 이 화면과 관련된 경고들 */
-  warnings: string[];
 }
 
 /** 사용 시나리오의 한 단계 */
@@ -906,22 +888,10 @@ export interface Scenario {
   firstScreens: string[];
 }
 
-/** 확인 필요 안내 한 줄 */
-export interface Note {
-  /** 관련 화면 */
-  screen?: string;
-  /** 관련 정보 */
-  info?: string;
-  /** 안내 문장 */
-  text: string;
-}
-
 /** 위쪽 칩에 보여 줄 개수 모음 */
 export interface ModelSummary {
   /** 화면 수 */
   screens: number;
-  /** 화면 이동 선언 수 */
-  moves: number;
   /** 정보 수 */
   infos: number;
   /** 정보 관계 수 */
@@ -968,8 +938,6 @@ export interface Model {
   infos: ModelInfo[];
   /** 정보 관계들 */
   relations: Relation[];
-  /** 확인 필요 안내들 */
-  notes: Note[];
   /** 리포트 화면의 줄들(에이전트 발견 + 확인 필요, 처리한 것 포함) */
   reports: ReportRow[];
   /** 우리가 만든 용어들 */
