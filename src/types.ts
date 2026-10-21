@@ -270,8 +270,6 @@ export interface MemoTarget {
   neighbors?: { above?: string; below?: string };
   /** 고른 영역을 찍은 스크린샷 파일 이름 */
   shot?: string;
-  /** 설계서 보기 화면 안에서만 쓰는, 아직 올리지 않은 캡처 데이터 */
-  shotData?: string;
 }
 
 /** .spec/memos.json의 메모 하나 */
@@ -623,14 +621,6 @@ export interface NavResult {
 
 // ── 변경 이력 (history) ─────────────────────────────────
 
-/** 승인이나 테스트 요청 때 저장한 화면 스냅샷 */
-export interface Snapshot {
-  /** 스냅샷 파일 이름 */
-  shot: string;
-  /** 저장한 시각 */
-  at: string;
-}
-
 /** 한 번의 커밋에서 바뀐 덩어리 하나 */
 export interface Hunk {
   /** 바뀐 시작 줄 */
@@ -699,12 +689,6 @@ export interface HistoryCommit {
   touchedSpecs: string[];
   /** 바뀐 정보와 필드들 */
   touchedInfos: { name: string; fields: string[] }[];
-  /** 이 커밋 직전의 화면 스냅샷 */
-  before?: Snapshot | null;
-  /** 이 커밋 직후의 화면 스냅샷 */
-  after?: Snapshot | null;
-  /** 이 항목 자체에 붙은 스냅샷 */
-  shot?: string;
 }
 
 /** 이력의 상태 기록 한 건(테스트 요청, 승인, 수정 필요) */
@@ -725,12 +709,6 @@ export interface HistoryStatus {
   decisions: string[];
   /** 기각 줄들(상태 기록에는 없음) */
   rejections: string[];
-  /** 그때 저장한 화면 스냅샷 */
-  shot?: string;
-  /** 이 기록 직전의 화면 스냅샷 */
-  before?: Snapshot | null;
-  /** 이 기록 직후의 화면 스냅샷 */
-  after?: Snapshot | null;
 }
 
 /** 이력 한 건: 커밋 또는 상태 기록 */
@@ -782,8 +760,6 @@ export type InfoKind = 'screen' | 'internal';
 export interface ModelInfo {
   /** 정보 이름 */
   name: string;
-  /** 정의된 파일(프로젝트 기준) */
-  file: string;
   /** 정의된 파일(소스 폴더 기준) */
   fileSrc: string;
   /** 정의된 줄 */
@@ -828,14 +804,8 @@ export interface ScreenField {
   info: string;
   /** 필드 이름 */
   prop: string;
-  /** 필드의 설명 */
-  doc: string;
-  /** 이 화면에서 하는 일들 */
-  roles: Role[];
   /** 이 필드를 쓰는 요소들의 이름표 */
   specs: string[];
-  /** 화면에서 이 값이 그려지는 자리를 찾을 힌트들 */
-  doms: DomHint[];
 }
 
 /** 화면 한 장에 대한 설계서 보기 모델 */

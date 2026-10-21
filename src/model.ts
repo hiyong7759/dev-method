@@ -106,7 +106,7 @@ export function buildModel(scanRoot: string): Model {
   try { analysis = cachedAnalysis(root); } catch (e) { analysisError = errorText(e); }
   const kept: AnalyzedInfo[] = (analysis?.infos ?? []).filter((i) => i.props.length && !NONINFO.test(i.doc || ''));
   const infos: ModelInfo[] = kept.map((i) => ({
-    name: i.name, file: i.file, fileSrc: path.relative(scanRoot, path.join(root, i.file)), line: i.line, unused: i.unused, kind: 'internal', doc: clean(i.doc),
+    name: i.name, fileSrc: path.relative(scanRoot, path.join(root, i.file)), line: i.line, unused: i.unused, kind: 'internal', doc: clean(i.doc),
     flow: { shown: [], input: [], modify: [], judge: [] }, flagged: 0, domains: [],
     props: i.props.map((p) => ({ name: p.name, doc: clean(p.doc), line: p.line, status: p.status, dupTotal: p.evidence.dupTotal, strs: p.evidence.strs.slice(0, 4), roles: { shown: [], input: [], modify: [], judge: [] }, evidence: [] })),
   }));
@@ -191,7 +191,7 @@ export function buildModel(scanRoot: string): Model {
   // ── 화면별 모델 ──────────────────────────────────────
   const screens: ModelScreen[] = out.screens.map((s) => {
     const specs = specsOfScreen(s.name);
-    const fields: ScreenField[] = [...screenFields[s.name].values()].map((f) => ({ ...f, roles: [...f.roles], specs: [...f.specs], doms: [...f.doms.values()] }));
+    const fields: ScreenField[] = [...screenFields[s.name].values()].map((f) => ({ info: f.info, prop: f.prop, specs: [...f.specs] }));
     return {
       ...s, status: status[s.name], fields,
     };

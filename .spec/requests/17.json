@@ -1,0 +1,30 @@
+{
+  "id": 17,
+  "title": "안 쓰는 값 정리(화면 스냅샷, 캡처 데이터, 화면별 필드 부가 정보)",
+  "source": "user",
+  "origin": {
+    "text": "정리해",
+    "channel": "대화",
+    "at": "2026-10-21T14:04:58.823Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:04:58.823Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

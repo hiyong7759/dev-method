@@ -6,7 +6,7 @@
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { projectRoot } from './status.js';
-import type { HistoryCommit, HistoryItem, HistoryPlace, ModelInfo, Request, ScreenStatus, ScreenTag, Snapshot, Spec, UntrackedCommit } from './types.js';
+import type { HistoryCommit, HistoryItem, HistoryPlace, ModelInfo, Request, ScreenStatus, ScreenTag, Spec, UntrackedCommit } from './types.js';
 
 /** 커밋 메시지를 쪼개는 구분 글자 */
 const SEP = '\x1e', FIELD = '\x1f';
@@ -121,15 +121,6 @@ export function screenHistory(scanRoot: string, sc: ScreenTag, statusRec: Screen
     if (h.status === 'approved' || h.status === 'needs-fix' || h.status === 'test-requested') {
       items.push({ type: 'status', kind: h.status === 'approved' ? '승인' : h.status === 'needs-fix' ? '수정 필요' : '테스트 요청', hash: h.commit, at: h.at, author: h.by === 'user' ? '사용자' : '에이전트', title: h.note || '', decisions: [], rejections: [] });
     }
-  }
-  // 화면이 어떻게 달라졌는지: 이 커밋 직전·직후에 저장된 화면 스냅샷(테스트 요청·승인 때 저장)
-  const snaps: Snapshot[] = events.filter((h) => h.shot).map((h) => ({ shot: h.shot, at: h.at})).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
-  for (const it of items) {
-    if (it.type !== 'commit') { const m = events.find((h) => h.at === it.at && h.shot); if (m) it.shot = m.shot; continue; }
-    const t = Date.parse(it.at);
-    const commit: HistoryCommit = it;
-    commit.before = [...snaps].reverse().find((x) => Date.parse(x.at) <= t) || null;
-    commit.after = snaps.find((x) => Date.parse(x.at) > t) || null;
   }
   items.sort((a, b) => (a.at < b.at ? 1 : -1));
   return items;
