@@ -1,0 +1,30 @@
+{
+  "id": 32,
+  "title": "시안 30판: 낡은 안내 제거와 단계 점·반려 통일, 할 일 문서 정리",
+  "source": "user",
+  "origin": {
+    "text": "시안은 구현쪽으로 맞춰주고 낡은 메모 안내 모두 제거해",
+    "channel": "대화",
+    "at": "2026-10-21T15:00:26.273Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T15:00:26.273Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
