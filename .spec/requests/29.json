@@ -1,0 +1,30 @@
+{
+  "id": 29,
+  "title": "할 일 문서에 오늘 처리 결과와 시안 대조 결과 기록",
+  "source": "user",
+  "origin": {
+    "text": "전부 진행해",
+    "channel": "대화",
+    "at": "2026-10-21T14:43:47.900Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:43:47.900Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
