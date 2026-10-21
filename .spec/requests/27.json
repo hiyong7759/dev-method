@@ -1,0 +1,30 @@
+{
+  "id": 27,
+  "title": "화면에 속한 파일 찾기가 tsconfig 별칭(@/…) import도 따라가게 함",
+  "source": "user",
+  "origin": {
+    "text": "복제본 시험: 별칭 import 612곳 vs 상대 167곳",
+    "channel": "대화",
+    "at": "2026-10-21T14:42:33.546Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:42:33.546Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
