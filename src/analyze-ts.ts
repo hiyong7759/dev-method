@@ -93,6 +93,12 @@ export function analyzeTs(rootIn: string, opts: { tsconfigs?: string[] } = {}): 
     return parts.join('\n').trim();
   };
   /** 쓰기 참조가 입력(새 값을 만듦)인지 수정(있던 값을 바꿈)인지: 객체 리터럴에 ...펼침이 없으면 입력, 펼침이 있거나 대입이면 수정 */
+  /** 참조가 구조 분해(`const { a } = 값`, 함수 인자 `({ a }: 타입)`)에서 속성 이름을 꺼내 쓰는 자리인가. 언어 서비스는 이것을 쓰기로 알려 주지만 값을 읽는 것이다 */
+  const isDestructureRead = (sf: tsTypes.SourceFile | undefined, pos: number): boolean => {
+    if (!sf) return false;
+    const par = nodeAt(sf, pos).parent;
+    return !!par && ts.isBindingElement(par) && ts.isObjectBindingPattern(par.parent);
+  };
   const writeKind = (sf: tsTypes.SourceFile | undefined, pos: number): 'create' | 'update' | 'write' => {
     if (!sf) return 'write';
     const par = nodeAt(sf, pos).parent;
@@ -253,14 +259,16 @@ export function analyzeTs(rootIn: string, opts: { tsconfigs?: string[] } = {}): 
         const k = `${e.fileName}:${e.textSpan.start}`;
         if (p.seen.has(k)) return;
         p.seen.add(k);
-        const bucket = e.isWriteAccess ? p.writes : p.reads;
+        const rsf0 = program.getSourceFile(e.fileName);
+        const isWrite = !!e.isWriteAccess && !isDestructureRead(rsf0, e.textSpan.start);
+        const bucket = isWrite ? p.writes : p.reads;
         const a = areaOf(e.fileName);
         bucket[a] = (bucket[a] || 0) + 1;
         // 어느 파일에서, 읽기인지 쓰기인지(쓰기는 새로 만드는 입력인지 기존 값을 고치는 수정인지)
         const rsf = program.getSourceFile(e.fileName);
-        p.refs.push({ file: rel(e.fileName), line: rsf ? lineIn(rsf, e.textSpan.start) : 0, write: !!e.isWriteAccess, kind: e.isWriteAccess ? writeKind(rsf, e.textSpan.start) : 'read', dom: domHint(rsf, e.textSpan.start) });
+        p.refs.push({ file: rel(e.fileName), line: rsf ? lineIn(rsf, e.textSpan.start) : 0, write: isWrite, kind: isWrite ? writeKind(rsf, e.textSpan.start) : 'read', dom: domHint(rsf, e.textSpan.start) });
         // 화면이 아닌 파일의 함수가 읽는 값이면(예: 날짜로 기간 문구를 만드는 함수), 화면이 그 함수를 JSX 안에서 호출하는 자리를 '보여주는 자리'로 더한다
-        if (!e.isWriteAccess && rsf && !/\.(tsx|jsx)$/.test(e.fileName)) {
+        if (!isWrite && rsf && !/\.(tsx|jsx)$/.test(e.fileName)) {
           const fn = fnAt(rsf, e.textSpan.start);
           if (fn) {
             const fk = `${fn.file}:${fn.pos}`;

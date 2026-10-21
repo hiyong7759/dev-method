@@ -1,0 +1,30 @@
+{
+  "id": 22,
+  "title": "분석기: 구조 분해로 꺼내 쓴 필드를 읽은 것으로 세기",
+  "source": "user",
+  "origin": {
+    "text": "분석기 정확도 개선",
+    "channel": "대화",
+    "at": "2026-10-21T14:29:20.327Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:29:20.327Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
