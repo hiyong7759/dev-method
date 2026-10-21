@@ -1,0 +1,30 @@
+{
+  "id": 23,
+  "title": "할 일 문서의 낡은 항목 정리(거르기 완료, 용어집·훅 구현됨)",
+  "source": "user",
+  "origin": {
+    "text": "사용 흐름 거르기도 완료처리하고",
+    "channel": "대화",
+    "at": "2026-10-21T14:33:08.774Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:33:08.774Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
