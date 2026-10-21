@@ -124,7 +124,7 @@ function testScenario(model: Model, r: RequestView, sc: Scenario, impactOnly: bo
     branches.length ? [h('div', { class: 'hint amberT' }, '갈래 — 이번 요청이 바꾼 것만'), branches.map(stepRow)] : null);
 }
 
-/** 테스트 단계 칸: 확인표와 테스트 승인·문제 있음 */
+/** 테스트 단계 칸: 확인표와 테스트 승인·반려 */
 function testCard(model: Model, r: RequestView, onChange: () => void): HTMLElement {
   const names = r.scope.scenarios ?? [];
   const impact = new Set(r.scope.impactOnly ?? []);
@@ -142,7 +142,7 @@ function testCard(model: Model, r: RequestView, onChange: () => void): HTMLEleme
     note,
     ready ? h('div', { class: 'sp-foot' },
       h('button', { class: `btn ok${ready2 ? '' : ' off'}`, disabled: !ready2, onclick: () => act('test-approve', { id: r.id, none: false }, '테스트를 승인했습니다', onChange) }, '테스트 승인'),
-      h('button', { class: 'btn bad', onclick: () => { if (note.classList.contains('hidden')) { note.classList.remove('hidden'); note.focus(); return; } act('test-problem', { id: r.id, note: note.value }, '문제 있음으로 알렸습니다. 같은 요청에서 고칩니다', onChange); } }, '문제 있음'),
+      h('button', { class: 'btn bad', onclick: () => { if (note.classList.contains('hidden')) { note.classList.remove('hidden'); note.focus(); return; } act('test-problem', { id: r.id, note: note.value }, '반려했습니다. 같은 요청에서 고칩니다', onChange); } }, '반려'),
       scs.length ? null : h('button', { class: 'btn', onclick: () => act('test-approve', { id: r.id, none: true }, '테스트 없음으로 승인했습니다', onChange) }, '테스트 없음 승인')) : h('div', { class: 'hint' }, r.stage === 'test' ? '에이전트가 고치는 중입니다. 다시 테스트를 올리면 여기서 확인합니다.' : ''),
     r.test?.found.length ? h('div', { class: 'box dash2' }, h('b', null, `범위 밖에서 발견된 것 ${r.test.found.length}건`), h('span', { class: 'hint' }, ' 이번 테스트를 막지 않음. 리포트로 올렸으니 필요할 때 요청으로 등록하세요.'), r.test.found.map((f) => h('div', null, f.text))) : null);
 }

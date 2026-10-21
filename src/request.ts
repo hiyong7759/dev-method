@@ -262,7 +262,7 @@ export function testProblem(scanRoot: string, id: number, note: string): Request
   if (r.stage !== 'test' || r.step !== 'requested') throw new Error('승인 대기 중인 테스트가 아니다');
   if (!note?.trim()) throw new Error('무엇이 문제인지 한 줄 적어야 한다');
   move(r, 'test', 'fix');
-  return record(scanRoot, r, 'user', 'test-problem', `문제 있음: ${note.trim()}`);
+  return record(scanRoot, r, 'user', 'test-problem', `테스트 반려: ${note.trim()}`);
 }
 /** 겹치는 두 요청의 순서: first를 먼저 끝내고 other는 그 뒤에 시작한다 */
 export function setOrder(scanRoot: string, first: number, other: number): Request {

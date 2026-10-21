@@ -600,10 +600,8 @@ a.tag{text-decoration:none}
 
 .card>.chip,.card>.tag{align-self:flex-start}
 .stepper-lg{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700}
-.stepper-lg .st{display:flex;align-items:center;gap:8px;color:var(--dim)}
-.stepper-lg .st i{width:24px;height:24px;border-radius:50%;border:2px solid var(--line2);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px}
-.stepper-lg .st.d{color:var(--green)}.stepper-lg .st.d i{border-color:var(--green);background:var(--green);color:var(--on-green)}
-.stepper-lg .st.c{color:var(--amber)}.stepper-lg .st.c i{border-color:var(--amber);color:var(--amber)}
+.stepper-lg .st{display:flex;align-items:center;gap:8px;color:var(--dim2)}
+.stepper-lg .st.d{color:var(--text2)}.stepper-lg .st.c{color:var(--text)}.stepper-lg .st:not(.d):not(.c){opacity:.4}
 .stepper-lg u{flex:1;height:1px;background:var(--line);min-width:20px}
 .ibox{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:10px 12px;display:flex;flex-direction:column;gap:6px}
 .ibox b{font-size:14px}

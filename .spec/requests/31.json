@@ -1,0 +1,30 @@
+{
+  "id": 31,
+  "title": "테스트 반려로 이름 통일, 요청 상세 단계 표시를 점으로 통일",
+  "source": "user",
+  "origin": {
+    "text": "승인/반려가 익숙한데, 설계 구현 테스트 완료는 모두 점·색으로 일치시키는 게 좋겠다",
+    "channel": "대화",
+    "at": "2026-10-21T14:57:54.093Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:57:54.093Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
