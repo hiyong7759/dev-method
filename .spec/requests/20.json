@@ -1,0 +1,30 @@
+{
+  "id": 20,
+  "title": "규칙 문서에 세션 깨우기와 설정 항목 반영",
+  "source": "user",
+  "origin": {
+    "text": "남은 시안·소스 작업 계속",
+    "channel": "대화",
+    "at": "2026-10-21T14:25:18.972Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:25:18.972Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
