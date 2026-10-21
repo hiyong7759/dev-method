@@ -68,7 +68,7 @@ export function detectNav(scanRoot: string, root: string, out: Extracted = extra
 
   /** 주소(또는 주소 모양)에 맞는 화면 */
   const byPattern = (pattern: string): ScreenTag | null =>
-    out.screens.find((s) => s.route === pattern) || out.screens.filter((s) => s.route && rx(s.route).test(pattern)).sort((a, b) => b.route.length - a.route.length)[0] || null;
+    out.screens.find((s) => s.routes.includes(pattern)) || out.screens.map((s) => ({ s, hit: s.routes.filter((r) => rx(r).test(pattern)).sort((a, b) => b.length - a.length)[0] })).filter((x) => x.hit).sort((a, b) => b.hit.length - a.hit.length)[0]?.s || null;
   const edges: NavEdge[] = [];
   for (const sc of out.screens) {
     for (const rel of sc.files) {

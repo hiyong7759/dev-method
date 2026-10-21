@@ -54,7 +54,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
     const pathname = new URL(req.url || '/', 'http://x').pathname;
     let to = '/__spec/#/flow';
     if (pathname !== '/') {
-      const hit = extractSpecs(scanRoot).screens.filter((s) => s.route && rx(s.route).test(pathname)).sort((a, b) => b.route.length - a.route.length)[0];
+      const hit = extractSpecs(scanRoot).screens.map((s) => ({ s, r: s.routes.filter((x) => rx(x).test(pathname)).sort((a, b) => b.length - a.length)[0] })).filter((x) => x.r).sort((a, b) => b.r.length - a.r.length)[0]?.s;
       if (hit) to = `/__spec/#/screen/${encodeURIComponent(hit.name)}?at=${encodeURIComponent(pathname)}`;
     }
     res.writeHead(302, { location: to, 'cache-control': 'no-store' });

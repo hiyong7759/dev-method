@@ -67,8 +67,10 @@ export interface ScreenTag {
   why: string;
   /** 그렇게 정한 근거 */
   basis: string;
-  /** 화면의 주소 모양(예: /trips/:tripId) */
+  /** 화면의 주소 모양(예: /trips/:tripId). @route에 적었거나 <Route> 선언에서 읽은 첫 주소 */
   route: string;
+  /** 이 화면이 열리는 주소 모양 전부(@route 하나이거나, <Route> 선언에서 읽은 것들) */
+  routes: string[];
   /** 실제 화면을 끼워 보일 예시 주소 */
   sample: string;
   /** 사용 흐름에서 묶어 보이는 분야(도메인) 이름 */

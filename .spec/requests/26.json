@@ -1,0 +1,30 @@
+{
+  "id": 26,
+  "title": "<Route> 선언에서 화면 주소를 읽고 한 화면이 주소 여러 개를 갖게 함",
+  "source": "user",
+  "origin": {
+    "text": "복제본 시험 도구 문제 4·5번",
+    "channel": "대화",
+    "at": "2026-10-21T14:41:11.321Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:41:11.321Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

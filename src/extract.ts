@@ -7,6 +7,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { screenFiles } from './files.js';
+import { readJsxRoutes } from './routes.js';
+import { projectRoot } from './project.js';
 import { parseArgs } from './cli.js';
 import { buildScenarios } from './scenarios.js';
 import type { Does, Extracted, Move, OnEffect, OpenAct, OpenStep, ScreenTag, Spec, SpecKind } from './types.js';
@@ -153,14 +155,13 @@ export function extractSpecs(root: string): Extracted {
         if (dup) { out.warnings.push(`@screen ${e.title} 중복: ${dup}, ${rel}:${e.line}`); continue; }
         names.set(e.title, `${rel}:${e.line}`);
         const screen: ScreenTag = {
-          name: e.title, why: e.why || '', basis: e.basis || '', route: e.route || '', sample: e.sample || '', domain: e.domain || '', start: e.start !== undefined,
+          name: e.title, why: e.why || '', basis: e.basis || '', route: e.route || '', routes: e.route ? [e.route] : [], sample: e.sample || '', domain: e.domain || '', start: e.start !== undefined,
           does: e.does.map(parseDoes),
           to: e.to.map((d): Move => { const [target, action, pass] = splitBar(d, 3); return { target, action, pass }; }),
           files: [], ...where,
         };
         out.screens.push(screen);
         if (!e.why) out.warnings.push(`@screen ${e.title}에 @why가 없다 (${rel}:${e.line})`);
-        if (!e.route) out.warnings.push(`@screen ${e.title}에 @route가 없다 — 실제 화면을 끼워 넣으려면 주소가 필요하다 (${rel}:${e.line})`);
       } else {
         const dup = ids.get(e.id);
         if (dup) { out.warnings.push(`@spec ${e.id} 중복: ${dup}, ${rel}:${e.line}`); continue; }
@@ -191,6 +192,16 @@ export function extractSpecs(root: string): Extracted {
     sc.files = screenFiles(path.join(root, sc.file)).map((f) => path.relative(root, f));
     for (const t of sc.to) if (!known.has(t.target)) out.warnings.push(`@screen ${sc.name}의 @to 대상 "${t.target}"이 없는 화면이다 (${sc.file}:${sc.line})`);
   }
+  // @route가 없는 화면은 <Route> 선언에서 주소를 읽어 채운다: 화면 파일이 element 파일이거나, element 파일이 화면 파일을 바로 import하면 그 화면의 주소다
+  const lacking = out.screens.filter((s) => !s.route);
+  if (lacking.length) {
+    const jsx = readJsxRoutes(root, projectRoot(root));
+    for (const sc of lacking) {
+      const mine = [...new Set(jsx.filter((r) => r.file === sc.file || r.imports.includes(sc.file)).map((r) => r.path))];
+      if (mine.length) { sc.route = mine[0]; sc.routes = mine; }
+    }
+  }
+  for (const sc of out.screens) if (!sc.route) out.warnings.push(`@screen ${sc.name}에 @route가 없다 — 실제 화면을 끼워 넣으려면 주소가 필요하다 (${sc.file}:${sc.line})`);
   for (const sp of out.specs) {
     sp.screens = out.screens.filter((sc) => sc.files.includes(sp.file)).map((sc) => sc.name);
     if (sp.kind === 'dom' && !sp.screens.length) out.warnings.push(`@spec ${sp.id}는 어느 @screen에도 속하지 않는다 — 화면 파일에서 import로 닿아야 한다 (${sp.file}:${sp.line})`);
