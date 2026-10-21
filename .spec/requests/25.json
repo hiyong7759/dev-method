@@ -1,0 +1,30 @@
+{
+  "id": 25,
+  "title": "설치 옵션 --no-register와 추적 중인 .env 파일 차단",
+  "source": "user",
+  "origin": {
+    "text": "복제본 시험 도구 문제 1·2번",
+    "channel": "대화",
+    "at": "2026-10-21T14:38:28.993Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:38:28.993Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

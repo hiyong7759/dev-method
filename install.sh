@@ -3,12 +3,14 @@
 # 훅은 프로젝트에 복사해 쓰므로 원본을 고치면 설치본이 낡는다. 설치한 프로젝트를 installed-projects.txt에 적어 두고 check/sync로 맞춘다.
 #   ./install.sh links            ~/.claude/skills에 스킬 심볼릭 링크 만들기 (새 기기)
 #   ./install.sh hooks <프로젝트>  훅 복사, git pre-commit 연결, 설치 목록에 추가
-#   ./install.sh spec <프로젝트> [소스폴더] [앱주소] [포트]  spec-view 설정(.spec/config.json), 프로젝트 이름 등록(spec-projects.txt), 경고 0 커밋 검사(git pre-commit) 연결
+#   ./install.sh spec <프로젝트> [소스폴더] [앱주소] [포트] [--no-register]  spec-view 설정(.spec/config.json), 프로젝트 이름 등록(spec-projects.txt), 경고 0 커밋 검사(git pre-commit) 연결. 추적 중인 .env 파일이 있으면 비밀 값 차단 훅도 함께 연결. --no-register는 이 저장소의 spec-projects.txt·installed-projects.txt를 건드리지 않는다(시험 복제본용)
 #   ./install.sh browser <settings.json 경로>  크롬 등 브라우저 직접 실행을 막고 ego-browser를 쓰게 하는 Claude 훅 등록 (전역은 ~/.claude/settings.json)
 #   ./install.sh agent-hook <settings.json 경로>  담당 세션에 사용자 결정(설계 승인·반려 등)을 알려 주는 Claude 훅 등록
 #   ./install.sh check            설치 목록의 프로젝트가 원본과 같은지 보기 (바꾸지 않음)
 #   ./install.sh sync             설치본을 원본으로 덮어쓰기 (프로젝트 저장소에 변경으로 남으니 커밋은 따로)
 set -e
+# --no-register: 이 저장소의 등록 목록 파일을 고치지 않는다(다른 곳에서 시험할 때)
+NOREG=""; ARGS=(); for a in "$@"; do if [ "$a" = "--no-register" ]; then NOREG=1; else ARGS+=("$a"); fi; done; set -- "${ARGS[@]}"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 LIST="$ROOT/installed-projects.txt"
 # 원본 훅: 이름=원본 경로
@@ -33,7 +35,7 @@ hooks)
   LINE='"$(git rev-parse --show-toplevel)"/tools/hooks/pre-commit-secrets.sh || exit 1'
   if [ ! -f "$HOOK" ]; then printf '#!/bin/bash\n%s\n' "$LINE" > "$HOOK"; chmod +x "$HOOK"
   elif ! grep -qF pre-commit-secrets.sh "$HOOK"; then echo "$LINE" >> "$HOOK"; fi
-  touch "$LIST"; grep -qxF "$P" "$LIST" || echo "$P" >> "$LIST"
+  [ -n "$NOREG" ] || { touch "$LIST"; grep -qxF "$P" "$LIST" || echo "$P" >> "$LIST"; }
   echo "설치: $P"
   echo "남은 일: $P/.claude/settings.json에 PreToolUse(Bash) 훅 등록 (git-multisession 스킬 참고)"
   ;;
@@ -53,7 +55,11 @@ spec)
   if [ ! -f "$CM" ]; then printf '#!/bin/bash\n%s\n' "$CMLINE" > "$CM"; chmod +x "$CM"
   elif ! grep -qF 'spec.mjs commit-msg' "$CM"; then echo "$CMLINE" >> "$CM"; fi
   [ -f "$P/.spec/.gitignore" ] || printf 'pids.json\nsessions.json\n*.log\n' > "$P/.spec/.gitignore"
-  touch "$ROOT/spec-projects.txt"; grep -qxF "$P" "$ROOT/spec-projects.txt" || echo "$P" >> "$ROOT/spec-projects.txt"
+  [ -n "$NOREG" ] || { touch "$ROOT/spec-projects.txt"; grep -qxF "$P" "$ROOT/spec-projects.txt" || echo "$P" >> "$ROOT/spec-projects.txt"; }
+  # 이미 git이 추적 중인 .env 파일은 .gitignore에 있어도 `git add -A`에 딸려 올라가므로, 비밀 값 차단 훅을 함께 연결한다
+  if (cd "$P" && git ls-files | grep -E '(^|/)\.env($|\.)' | grep -qvE '\.(example|sample|template)$'); then
+    echo "추적 중인 .env 파일이 있다 — 비밀 값 차단 훅도 연결한다"; bash "$0" hooks "$P" ${NOREG:+--no-register}
+  fi
   echo "연결: $P"; echo "설정: $(tr -d '\n' < "$P/.spec/config.json")"
   ;;
 browser)

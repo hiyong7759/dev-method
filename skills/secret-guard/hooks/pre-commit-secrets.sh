@@ -8,8 +8,8 @@ DIFF=$(git diff --cached --no-color -U0 --diff-filter=ACMR)
 [ -z "$DIFF" ] && exit 0
 FOUND=""
 
-# .env 파일 자체 (예시 파일은 허용)
-ENV_FILES=$(git diff --cached --name-only --diff-filter=ACR | grep -E '(^|/)\.env($|\.)' | grep -vE '\.(example|sample|template)$')
+# .env 파일 자체 (예시 파일은 허용). 이미 추적 중인 .env를 고친 것(M)도 막는다
+ENV_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '(^|/)\.env($|\.)' | grep -vE '\.(example|sample|template)$')
 [ -n "$ENV_FILES" ] && FOUND+="[.env 파일]\n$ENV_FILES\n"
 
 # 추가된 줄만 (+++ 머리줄 제외)
