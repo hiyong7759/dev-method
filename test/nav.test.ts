@@ -77,4 +77,6 @@ test('입력값으로 그려지지 않는 컴포넌트는 그 화면의 컴포�
   fs.writeFileSync(path.join(src, 'g.tsx'), screen('구성', '/g') + `import V from './V';\nexport const G = () => <V section="g" />;\n`);
   const r = extractSpecs(src);
   assert.deepEqual(r.specs.find((s) => s.id === 'only-part')?.screens, ['내']);
+  assert.deepEqual(r.screens.find((s) => s.name === '구성')?.hidden, ['Only.tsx']);
+  assert.deepEqual(r.screens.find((s) => s.name === '내')?.hidden, []);
 });

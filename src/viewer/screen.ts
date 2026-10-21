@@ -155,33 +155,59 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
 
   // ── 화면 위 표시(컴포넌트 이름표) ──
   const frameDoc = (): Document | null => { try { return iframe.contentDocument; } catch { return null; } };
-  /** 선택자에 맞는 모든 요소를 감싸는 하나의 사각형 */
-  function unionRect(doc: Document, selector: string): Box | null {
+  /** 선택자에 맞는 요소마다의 사각형(보이지 않는 것은 뺀다) */
+  function boxesOf(doc: Document, selector: string): Box[] {
     let els: Element[];
-    try { els = [...doc.querySelectorAll(selector)]; } catch { return null; }
-    if (!els.length) return null;
-    let l = 1e9, t = 1e9, r = -1e9, b = -1e9;
-    for (const e of els) { const q = e.getBoundingClientRect(); if (!q.width && !q.height) continue; l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom); }
-    return r < l ? null : { left: l, top: t, right: r, bottom: b };
+    try { els = [...doc.querySelectorAll(selector)]; } catch { return []; }
+    const out: Box[] = [];
+    for (const e of els) { const q = e.getBoundingClientRect(); if (q.width || q.height) out.push({ left: q.left, top: q.top, right: q.right, bottom: q.bottom }); }
+    return out;
   }
-  const rects = (): { s: Spec; r: Box }[] => {
+  /** 사각형들을 모두 감싸는 하나의 사각형 */
+  const union = (bs: Box[]): Box | null => bs.length ? { left: Math.min(...bs.map((b) => b.left)), top: Math.min(...bs.map((b) => b.top)), right: Math.max(...bs.map((b) => b.right)), bottom: Math.max(...bs.map((b) => b.bottom)) } : null;
+  /** 같은 부품이 이만큼 많으면 하나씩 그리지 않고 한 틀로 묶어 "× n"만 보인다 */
+  const MAX_SEPARATE = 6;
+  const rects = (): { s: Spec; boxes: Box[] }[] => {
     const doc = frameDoc();
     if (!doc) return [];
-    return ordered().filter((s) => s.kind === 'dom' && s.anchor).map((s) => ({ s, r: unionRect(doc, s.anchor.slice(4)) })).filter((x): x is { s: Spec; r: Box } => x.r !== null);
+    return ordered().filter((s) => s.kind === 'dom' && s.anchor).map((s) => ({ s, boxes: boxesOf(doc, s.anchor.slice(4)) })).filter((x) => x.boxes.length);
   };
+  const contains = (a: Box, b: Box): boolean => a.left <= b.left + 1 && a.top <= b.top + 1 && a.right >= b.right - 1 && a.bottom >= b.bottom - 1 && (a.right - a.left > b.right - b.left + 2 || a.bottom - a.top > b.bottom - b.top + 2);
+  /** 부품 안의 부품: 이 부품의 틀을 통째로 품은 다른 부품의 수 */
+  const depths = (): Map<string, number> => {
+    const all = rects().map((x) => ({ id: x.s.id, u: union(x.boxes) as Box }));
+    return new Map(all.map((x) => [x.id, all.filter((y) => y.id !== x.id && contains(y.u, x.u)).length]));
+  };
+  c.depthOf = (id) => depths().get(id) ?? 0;
+  c.countOf = (id) => rects().find((x) => x.s.id === id)?.boxes.length ?? 0;
+  let lastSig = '';
   function track(): void {
     if (!alive) return;
     const ids = new Set<string>(c.tab === 'now' ? ordered().filter((s) => s.kind === 'dom').map((s) => s.id) : c.active ? [c.active] : []);
-    const have = new Map([...marks.querySelectorAll<HTMLElement>('.mbox')].map((e) => [e.dataset.id as string, e]));
-    for (const { s, r } of rects()) {
+    const have = new Map([...marks.querySelectorAll<HTMLElement>('.mbox')].map((e) => [e.dataset.key as string, e]));
+    const all = rects();
+    const unions = new Map(all.map((x) => [x.s.id, union(x.boxes) as Box]));
+    for (const { s, boxes } of all) {
       if (!ids.has(s.id)) continue;
-      let e = have.get(s.id);
-      if (!e) { e = h('div', { class: 'mbox', dataset: { id: s.id } }, h('span', { class: 'mbadge' }, s.title)); marks.append(e); }
-      have.delete(s.id);
-      e.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.right - r.left}px;height:${r.bottom - r.top}px`;
-      e.classList.toggle('on', c.active === s.id); e.classList.toggle('dim', !!c.active && c.active !== s.id);
+      const parts = boxes.length > 1 && boxes.length <= MAX_SEPARATE ? boxes : [unions.get(s.id) as Box];
+      const nested = [...unions].some(([id, u]) => id !== s.id && contains(u, unions.get(s.id) as Box));
+      parts.forEach((r, i) => {
+        const key = `${s.id}#${i}`;
+        let e = have.get(key);
+        if (!e) { e = h('div', { class: 'mbox', dataset: { id: s.id, key } }, h('span', { class: 'mbadge', title: s.title }, String(c.num(s.id)))); marks.append(e); }
+        have.delete(key);
+        e.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.right - r.left}px;height:${r.bottom - r.top}px`;
+        e.classList.toggle('on', c.active === s.id); e.classList.toggle('dim', !!c.active && c.active !== s.id); e.classList.toggle('in', nested);
+        // 같은 부품이 여러 곳이면 첫 틀에 "× n"을 붙인다(묶어 그린 때는 전체 개수)
+        const many = boxes.length > 1 && i === 0 ? boxes.length : 0;
+        const cnt = e.querySelector('.mcount');
+        if (many && !cnt) e.append(h('span', { class: 'mcount' }, `× ${many}`)); else if (many && cnt) cnt.textContent = `× ${many}`; else if (!many && cnt) cnt.remove();
+      });
     }
     have.forEach((e) => e.remove());
+    // 부품이 화면에 나타나거나 겹침이 바뀌면(화면이 늦게 뜰 때 등) 오른쪽 목록의 "화면에 n곳"·들여쓰기를 다시 그린다
+    const sig = all.map((x) => `${x.s.id}:${x.boxes.length}:${[...unions].filter(([id, u]) => id !== x.s.id && contains(u, unions.get(x.s.id) as Box)).length}`).join('|');
+    if (sig !== lastSig) { lastSig = sig; if (c.tab === 'now' && !c.drawer) render(); }
     raf = requestAnimationFrame(track);
   }
   raf = requestAnimationFrame(track);

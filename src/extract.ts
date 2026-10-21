@@ -160,7 +160,7 @@ export function extractSpecs(root: string): Extracted {
           name: e.title, why: e.why || '', basis: e.basis || '', route: e.route || '', routes: e.route ? [e.route] : [], sample: e.sample || '', domain: e.domain || '', start: e.start !== undefined,
           does: e.does.map(parseDoes),
           to: e.to.map((d): Move => { const [target, action, pass] = splitBar(d, 3); return { target, action, pass }; }),
-          files: [], ...where,
+          files: [], hidden: [], ...where,
         };
         out.screens.push(screen);
         if (!e.why) out.warnings.push(`@screen ${e.title}에 @why가 없다 (${rel}:${e.line})`);
@@ -213,7 +213,8 @@ export function extractSpecs(root: string): Extracted {
         const entries = jsx.filter((r) => r.file && sc.routes.includes(r.path));
         if (!entries.length) continue;
         const dead = pruneByProps(ts, root, options, entries).files;
-        sc.files = sc.files.filter((f) => f === sc.file || !dead.has(f));
+        sc.hidden = sc.files.filter((f) => f !== sc.file && dead.has(f));
+        sc.files = sc.files.filter((f) => !sc.hidden.includes(f));
       }
     } catch { /* typescript가 없으면 파일 단위로 둔다 */ }
   }

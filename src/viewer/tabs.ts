@@ -47,10 +47,13 @@ export function overview(c: ScreenCtx): HTMLElement {
 /** 현행 탭: 지금 소스에서 읽은 구조(컴포넌트와 로직) */
 export function nowTab(c: ScreenCtx): HTMLElement {
   const dom = c.specs.filter((s) => s.kind !== 'logic'), logic = c.specs.filter((s) => s.kind === 'logic');
+  const hidden = new Set(c.sc().hidden ?? []);
+  const hiddenComps = c.model.specs.filter((s) => s.kind === 'dom' && hidden.has(s.file) && !c.specs.some((x) => x.id === s.id));
   const card = (s: Spec): HTMLElement => {
     const infos = infosOfComp(c, s);
-    return h('button', { class: `ccard${c.active === s.id ? ' on' : ''}`, onclick: () => { void c.pickComp(s.id); } },
-      h('b', null, s.title), h('div', { class: 'hint' }, infos.length ? `정보: ${infos.map((i) => i.info).join(' · ')}` : '정보 없음', ` · 소스 ${s.file.split('/').pop()}:${s.line}`));
+    const n = c.countOf(s.id), d = Math.min(c.depthOf(s.id), 2);
+    return h('button', { class: `ccard${c.active === s.id ? ' on' : ''}${d ? ` d${d}` : ''}`, onclick: () => { void c.pickComp(s.id); } },
+      h('b', null, s.kind === 'dom' ? h('span', { class: 'nn' }, String(c.num(s.id))) : null, s.title, n > 1 ? h('span', { class: 'tag', style: 'margin-left:8px' }, `화면에 ${n}곳`) : null), h('div', { class: 'hint' }, infos.length ? `정보: ${infos.map((i) => i.info).join(' · ')}` : '정보 없음', ` · 소스 ${s.file.split('/').pop()}:${s.line}`));
   };
   const picked = c.specs.find((s) => s.id === c.active);
   const detail = picked ? (() => {
@@ -62,8 +65,9 @@ export function nowTab(c: ScreenCtx): HTMLElement {
         ...(picked.kind === 'dom' && picked.reveal && !c.isOnScreen(picked.id) ? [h('span', null, '나타남'), h('span', null, `처음에는 숨어 있다 — ${picked.reveal.map(stepLabel).join(' → ')}`, h('div', null, h('button', { class: 'btn sm', onclick: async () => { const ok = await c.revealSpec(picked.id); if (!ok) toast('화면에서 열지 못했다'); c.render(); } }, '화면에서 열어 보기')))] : [])));
   })() : null;
   return h('div', { class: 'tabcol' },
-    h('div', { class: 'hint' }, '소스에서 읽은 지금의 구조입니다. 항목을 누르면 화면의 해당 자리가 표시됩니다.'),
+    h('div', { class: 'hint' }, '소스에서 읽은 지금의 구조입니다. 화면에는 부품마다 번호가 붙고, 항목을 누르면 그 자리가 굵게 표시됩니다. 부품 안의 부품은 들여 씁니다.'),
     dom.map(card), dom.length ? null : h('div', { class: 'hint' }, '이 화면에서 찾은 컴포넌트가 없습니다.'),
+    hiddenComps.length ? h('div', { class: 'fold' }, h('b', null, `이 화면에는 그려지지 않는 것 ${hiddenComps.length}`), ` — 같은 소스를 쓰는 다른 구분에서만 나오는 ${hiddenComps.map((x) => `"${x.title}"`).join(', ')}`) : null,
     logic.length ? [sectionTitle('로직 (화면에 없음)'), logic.map(card)] : null, detail);
 }
 

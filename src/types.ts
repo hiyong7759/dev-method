@@ -87,6 +87,8 @@ export interface ScreenTag {
   line: number;
   /** 이 화면 파일에서 상대 import로 닿는 파일들(소스 폴더 기준). 화면에 속한 요소를 찾는 범위 */
   files: string[];
+  /** import로는 닿지만 이 화면의 입력값으로는 그려지지 않는 파일들(같은 컴포넌트를 입력값만 달리해 여러 화면이 나눠 쓰는 경우) */
+  hidden: string[];
 }
 
 /** 컴포넌트의 이벤트와 그 효과 한 쌍 */

@@ -46,6 +46,10 @@ export interface ScreenCtx {
   sc(): ModelScreen;
   /** 요소의 번호(1부터, 없으면 0) */
   num(id: string): number;
+  /** 부품 안의 부품 깊이(바깥 부품 0, 그 안 1…). 실제 화면의 틀 겹침으로 잰다 */
+  depthOf(id: string): number;
+  /** 실제 화면에서 이 부품이 보이는 곳의 수(안 보이면 0) */
+  countOf(id: string): number;
   /** 오른쪽 패널을 다시 그린다 */
   render(): void;
   /** 탭을 바꾼다 */
