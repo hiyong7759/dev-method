@@ -46,6 +46,7 @@
 .bul.fnd{background:var(--teal)}
 .bul.nrq{background:var(--red)}
 .bul.fin{background:var(--dim)}
+.bul.cmp{background:var(--green)}
 .buls{display:inline-flex;gap:5px;align-items:center;flex:none}
 .fc .bul{margin-right:6px;vertical-align:-1px}
 .sidepanel.rail{width:44px;padding:12px 0;align-items:center;gap:12px;overflow:hidden}
@@ -410,9 +411,9 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .mg-req .rt{font-weight:700;font-size:15px;line-height:1.4;display:flex;align-items:center;gap:8px}
 .rm{margin-top:6px;color:var(--dim);font-size:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .mg-st{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim2)}
-.mg-st span{display:flex;align-items:center;gap:4px}.mg-st i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.mg-st>span{display:flex;align-items:center;gap:5px}
 .mg-st u{width:12px;height:1px;background:var(--line);display:inline-block}
-.mg-st .d i{background:var(--green)}.mg-st .d{color:var(--green)}.mg-st .c i{background:var(--amber)}.mg-st .c{color:var(--amber);font-weight:700}
+.mg-st>.d{color:var(--text2)}.mg-st>.c{color:var(--text);font-weight:700}.mg-st>span:not(.d):not(.c){opacity:.4}
 .ract{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
 .btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--text);font-size:13px;font-weight:700;min-height:36px;cursor:pointer}
 .btn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}

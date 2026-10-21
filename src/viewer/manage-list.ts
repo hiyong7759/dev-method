@@ -9,7 +9,7 @@ import { stepper, chipFor, scopeTags } from './manage-parts.js';
 import type { Model, RequestView } from '../types.js';
 
 /** 요청 카드의 구분 점: 지금 단계(설계·구현·테스트)와 에이전트 발견 여부. 거르기 칩의 점과 짝이다 */
-const STAGE_BUL: Record<string, { kind: BulKind; label: string }> = { design: { kind: 'des', label: '설계 단계' }, impl: { kind: 'imp', label: '구현 단계' }, test: { kind: 'tst', label: '테스트 단계' } };
+const STAGE_BUL: Record<string, { kind: BulKind; label: string }> = { design: { kind: 'des', label: '설계 단계' }, impl: { kind: 'imp', label: '구현 단계' }, test: { kind: 'tst', label: '테스트 단계' }, done: { kind: 'cmp', label: '완료' } };
 const bulsOf = (r: RequestView): { kind: BulKind; label: string }[] => [...(STAGE_BUL[r.stage] ? [STAGE_BUL[r.stage]] : []), ...(r.source === 'report' ? [{ kind: 'fnd' as BulKind, label: '에이전트 발견' }] : [])];
 
 /** 목록의 요청 한 줄 */
@@ -51,6 +51,7 @@ export function manageList(root: HTMLElement, { model, kind, onChange }: { model
     { key: 'design', label: '설계 단계', bul: 'des' as BulKind | undefined, list: all.filter((r) => r.stage === 'design') },
     { key: 'impl', label: '구현 단계', bul: 'imp' as BulKind | undefined, list: all.filter((r) => r.stage === 'impl') },
     { key: 'test', label: '테스트 단계', bul: 'tst' as BulKind | undefined, list: all.filter((r) => r.stage === 'test') },
+    { key: 'done', label: '완료', bul: 'cmp' as BulKind | undefined, list: all.filter((r) => r.stage === 'done') },
     { key: 'report', label: '에이전트 발견', bul: 'fnd' as BulKind | undefined, list: all.filter((r) => r.source === 'report') },
     { key: 'untracked', label: '요청 없는 변경', bul: 'nrq' as BulKind | undefined, list: [] as RequestView[] },
   ];
@@ -65,7 +66,7 @@ export function manageList(root: HTMLElement, { model, kind, onChange }: { model
     : [all.length ? null : h('div', { class: 'empty-note' }, '아직 요청이 없습니다. 에이전트에게 변경을 요청하면 여기에 올라옵니다.'),
       section('내 차례', `${mine.length}건 — 내가 승인하거나 반려해야 진행됩니다`, mine),
       section('에이전트 차례', `${agent.length}건`, agent),
-      ended.length ? h('details', { class: 'mg-sec' }, h('summary', null, chip('ok', '완료'), h('span', null, `끝난 요청 ${ended.length}건`), h('span', { class: 'grow' }), h('span', { class: 'hint' }, '펼쳐서 보기 ›')), h('div', { class: 'mg-list', style: 'margin-top:10px' }, ended.map(row))) : null];
+      ended.length ? h('details', { class: 'mg-sec' }, h('summary', null, buls([{ kind: 'cmp', label: '완료' }]), h('b', null, '완료'), h('span', null, `끝난 요청 ${ended.length}건`), h('span', { class: 'grow' }), h('span', { class: 'hint' }, '펼쳐서 보기 ›')), h('div', { class: 'mg-list', style: 'margin-top:10px' }, ended.map(row))) : null];
   root.append(h('div', { class: 'wrap' },
     pageHead({ title: '요청', lead: '현재를 바꾸는 일을 한곳에서 관리합니다. 요청 하나가 화면 몇 개를 건드려도 하나로 다룹니다.' }),
     filterChips(KINDS.map((k) => ({ key: k.key, label: k.label, bul: k.bul, count: counts(k) })), cur.key, (k) => nav(hash('manage', '', { kind: k || undefined }))),
