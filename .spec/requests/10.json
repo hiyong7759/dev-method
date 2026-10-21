@@ -1,0 +1,32 @@
+{
+  "id": 10,
+  "title": "훅: 요청 번호 없는 커밋 차단과 크롬 직접 실행 차단",
+  "source": "user",
+  "origin": {
+    "text": "훅작업 바로해 / 무조건 크롬 쓰지말고 에고 브라우저 쓰도록 강제 하는 훅도 필요",
+    "channel": "대화",
+    "at": "2026-10-21T03:29:21.223Z"
+  },
+  "scope": {
+    "screens": [
+      "관리 영역"
+    ],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T03:29:21.223Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

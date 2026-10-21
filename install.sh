@@ -4,12 +4,14 @@
 #   ./install.sh links            ~/.claude/skills에 스킬 심볼릭 링크 만들기 (새 기기)
 #   ./install.sh hooks <프로젝트>  훅 복사, git pre-commit 연결, 설치 목록에 추가
 #   ./install.sh spec <프로젝트> [소스폴더] [앱주소] [포트]  spec-view 설정(.spec/config.json), 프로젝트 이름 등록(spec-projects.txt), 경고 0 커밋 검사(git pre-commit) 연결
+#   ./install.sh browser <settings.json 경로>  크롬 등 브라우저 직접 실행을 막고 ego-browser를 쓰게 하는 Claude 훅 등록 (전역은 ~/.claude/settings.json)
 #   ./install.sh check            설치 목록의 프로젝트가 원본과 같은지 보기 (바꾸지 않음)
 #   ./install.sh sync             설치본을 원본으로 덮어쓰기 (프로젝트 저장소에 변경으로 남으니 커밋은 따로)
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 LIST="$ROOT/installed-projects.txt"
 # 원본 훅: 이름=원본 경로
+BROWSER="$ROOT/hooks/claude-block-browser.sh"
 BLOCK="$ROOT/skills/git-multisession/hooks/claude-block-git.sh"
 SECRETS="$ROOT/skills/secret-guard/hooks/pre-commit-secrets.sh"
 
@@ -44,9 +46,31 @@ spec)
   elif grep -qF 'spec.mjs precommit' "$HOOK"; then :
   elif grep -qF 'spec-view/precommit.mjs' "$HOOK"; then grep -vF 'spec-view/precommit.mjs' "$HOOK" > "$HOOK.new" && echo "$LINE" >> "$HOOK.new" && mv "$HOOK.new" "$HOOK" && chmod +x "$HOOK"
   else echo "$LINE" >> "$HOOK"; fi
+  # 커밋 메시지에 요청 번호가 없으면 막는다(요청이 하나라도 있는 프로젝트만, 병합·되돌리기 제외)
+  CM="$P/.git/hooks/commit-msg"
+  CMLINE='node '"$ROOT"'/skills/spec-view/spec.mjs commit-msg "$1" "$(git rev-parse --show-toplevel)" || exit 1'
+  if [ ! -f "$CM" ]; then printf '#!/bin/bash\n%s\n' "$CMLINE" > "$CM"; chmod +x "$CM"
+  elif ! grep -qF 'spec.mjs commit-msg' "$CM"; then echo "$CMLINE" >> "$CM"; fi
   [ -f "$P/.spec/.gitignore" ] || printf 'pending-shots.json\npids.json\n*.log\n' > "$P/.spec/.gitignore"
   touch "$ROOT/spec-projects.txt"; grep -qxF "$P" "$ROOT/spec-projects.txt" || echo "$P" >> "$ROOT/spec-projects.txt"
   echo "연결: $P"; echo "설정: $(tr -d '\n' < "$P/.spec/config.json")"
+  ;;
+browser)
+  # 사용: ./install.sh browser <settings.json 경로>  (이미 등록돼 있으면 그대로 둔다)
+  F="$2"; [ -n "$F" ] || { echo "settings.json 경로를 주세요 (전역: ~/.claude/settings.json)"; exit 1; }
+  mkdir -p "$(dirname "$F")"; [ -f "$F" ] || echo '{}' > "$F"
+  python3 - "$F" "$BROWSER" <<'PY'
+import json, sys
+f, hook = sys.argv[1], sys.argv[2]
+d = json.load(open(f))
+pre = d.setdefault("hooks", {}).setdefault("PreToolUse", [])
+if any(hook in h.get("command", "") for e in pre for h in e.get("hooks", [])):
+    print("이미 등록됨:", f)
+else:
+    pre.append({"matcher": "Bash|mcp__.*[Cc]hrome.*", "hooks": [{"type": "command", "command": hook}]})
+    json.dump(d, open(f, "w"), ensure_ascii=False, indent=2); open(f, "a").write("\n")
+    print("등록:", f)
+PY
   ;;
 check|sync)
   [ -f "$LIST" ] || { echo "설치 목록 없음"; exit 0; }

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|mcp__.*[Cc]hrome.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Volumes/macex/workspace/dev-method/hooks/claude-block-browser.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
