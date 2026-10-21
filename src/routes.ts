@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import type * as tsTypes from 'typescript';
+import { literalProps } from './propflow.js';
 
 type TsModule = typeof tsTypes;
 
@@ -19,6 +20,10 @@ export interface JsxRoute {
   file: string;
   /** element 컴포넌트 이름 */
   component: string;
+  /** element에 글자·숫자·참거짓으로 넘긴 입력값(예: section="personal"). 화면마다 다른 부분을 가르는 데 쓴다 */
+  props: Record<string, string | number | boolean>;
+  /** element에 {...} 펼침 속성이 있어 입력값을 다 알 수 없음 */
+  spread: boolean;
   /** 그 파일이 바로 import하는 파일들(소스 폴더 기준). 얇은 껍데기 파일이 진짜 화면 파일을 불러오는 경우에 화면과 짝짓는 데 쓴다 */
   imports: string[];
   /** 이 주소를 감싸는 컴포넌트 이름들(바깥부터). 예: PrivateRoute, Layout */
@@ -44,6 +49,15 @@ function joinPath(parent: string, child: string): string {
   return `${parent.replace(/\/$/, '')}/${child}`.replace(/\/+/g, '/');
 }
 
+/** 프로젝트 tsconfig의 컴파일 옵션(별칭 @/ 등). 없으면 빈 옵션 */
+export function tsOptionsOf(ts: TsModule, projectRoot: string): tsTypes.CompilerOptions {
+  try {
+    const cfg = ts.readConfigFile(path.join(projectRoot, 'tsconfig.json'), ts.sys.readFile);
+    if (!cfg.error) return ts.parseJsonConfigFileContent(cfg.config, ts.sys, projectRoot).options;
+  } catch { /* 설정이 없으면 상대 경로만 따라간다 */ }
+  return {};
+}
+
 /** 소스 폴더의 <Route> 선언을 읽어 주소 → 파일 목록을 만든다 */
 export function readJsxRoutes(scanRoot: string, projectRoot: string): JsxRoute[] {
   let ts: TsModule;
@@ -51,12 +65,7 @@ export function readJsxRoutes(scanRoot: string, projectRoot: string): JsxRoute[]
   const files = filesWithRoutes(scanRoot);
   if (!files.length) return [];
   // 프로젝트 tsconfig의 별칭(@/ 등)을 파일 위치 찾기에 쓴다
-  let options: tsTypes.CompilerOptions = {};
-  try {
-    const cfgPath = path.join(projectRoot, 'tsconfig.json');
-    const cfg = ts.readConfigFile(cfgPath, ts.sys.readFile);
-    if (!cfg.error) options = ts.parseJsonConfigFileContent(cfg.config, ts.sys, projectRoot).options;
-  } catch { /* 설정이 없으면 상대 경로만 따라간다 */ }
+  const options = tsOptionsOf(ts, projectRoot);
   const rel = (f: string): string => path.relative(scanRoot, f);
   const out: JsxRoute[] = [];
 
@@ -99,15 +108,15 @@ export function readJsxRoutes(scanRoot: string, projectRoot: string): JsxRoute[]
       if (ts.isJsxExpression(v) && v.expression && ts.isStringLiteralLike(v.expression)) return v.expression.text;
       return null;
     };
-    /** element={<이름 …/>} 에서 바깥 컴포넌트 이름 */
-    const elementName = (a: tsTypes.JsxAttribute | undefined): string => {
+    /** element={<이름 …/>} 에서 바깥 컴포넌트의 여는 태그 */
+    const elementTag = (a: tsTypes.JsxAttribute | undefined): tsTypes.JsxOpeningLikeElement | null => {
       const v = a?.initializer;
-      if (!v || !ts.isJsxExpression(v) || !v.expression) return '';
+      if (!v || !ts.isJsxExpression(v) || !v.expression) return null;
       let e: tsTypes.Expression = v.expression;
       while (ts.isParenthesizedExpression(e)) e = e.expression;
-      if (ts.isJsxSelfClosingElement(e)) return e.tagName.getText();
-      if (ts.isJsxElement(e)) return e.openingElement.tagName.getText();
-      return '';
+      if (ts.isJsxSelfClosingElement(e)) return e;
+      if (ts.isJsxElement(e)) return e.openingElement;
+      return null;
     };
 
     const walk = (node: tsTypes.Node, parent: string, wrappers: string[]): void => {
@@ -119,10 +128,11 @@ export function readJsxRoutes(scanRoot: string, projectRoot: string): JsxRoute[]
       if (opening && opening.tagName.getText() === 'Route') {
         const p = textOf(attr(opening, 'path'));
         const isIndex = !!attr(opening, 'index');
-        const comp = elementName(attr(opening, 'element'));
+        const tag = elementTag(attr(opening, 'element'));
+        const comp = tag ? tag.tagName.getText() : '';
         if (p != null) here = joinPath(parent, p);
         const target = (p != null || isIndex) ? here : '';
-        if (target && comp) out.push({ path: target, file: where.get(comp) ?? '', component: comp, imports: [], wrappers });
+        if (target && comp) out.push({ path: target, file: where.get(comp) ?? '', component: comp, ...literalProps(ts, tag as tsTypes.JsxOpeningLikeElement), imports: [], wrappers });
         // 주소가 없는 <Route element=…>는 레이아웃·보호 장치이고, 주소가 있어도 자식이 있으면 그 element는 아래를 감싼다
         if (comp && (children.length > 0)) wr = [...wrappers, comp];
       } else if (opening) {

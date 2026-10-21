@@ -52,3 +52,17 @@ test('삼항식의 두 갈래와 location 대입·assign 이동도 읽는다', (
   assert.deepEqual(r.edges.map((e) => `${e.from}→${e.to}`).sort(), ['가→나', '가→다', '가→라']);
   assert.deepEqual(r.warnings, []);
 });
+
+test('한 컴포넌트가 입력값으로 여러 화면을 맡으면, 그 화면에 그려지는 부분의 이동만 센다', () => {
+  const { root, src } = tempTsProject();
+  fs.writeFileSync(path.join(src, 'App.tsx'), `import Vacation from './Vacation';\nexport const App = () => (<Routes>\n<Route path="/v/me" element={<Vacation section="personal" />} />\n<Route path="/v/group" element={<Vacation section="group" />} />\n</Routes>);\n`);
+  fs.writeFileSync(path.join(src, 'Vacation.tsx'), `import { HomeLink } from './HomeLink';\nexport default function Vacation({ section }: { section: string }) {\n  const isMe = section === 'personal';\n  const go = () => navigate('/apply');\n  if (section === 'nope') return <div />;\n  return (<div>{isMe && <button onClick={go}>신청</button>}{section === 'group' ? <i /> : <HomeLink />}</div>);\n}\n`);
+  fs.writeFileSync(path.join(src, 'HomeLink.tsx'), `export const HomeLink = () => <a onClick={() => navigate('/home')}>홈</a>;\n`);
+  fs.writeFileSync(path.join(src, 'me.tsx'), screen('내 휴가', '/v/me', '신청 | 신청 단추\n * @to 홈 | 홈 링크') + `import Vacation from './Vacation';\nexport const Me = () => <Vacation section="personal" />;\n`);
+  fs.writeFileSync(path.join(src, 'group.tsx'), screen('구성원 휴가', '/v/group') + `import Vacation from './Vacation';\nexport const Group = () => <Vacation section="group" />;\n`);
+  fs.writeFileSync(path.join(src, 'apply.tsx'), screen('신청', '/apply'));
+  fs.writeFileSync(path.join(src, 'home.tsx'), screen('홈', '/home'));
+  const r = detectNav(src, root);
+  assert.deepEqual(r.edges.map((e) => `${e.from}→${e.to}`).sort(), ['내 휴가→신청', '내 휴가→홈']);
+  assert.deepEqual(r.warnings, []);
+});

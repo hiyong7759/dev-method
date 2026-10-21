@@ -1,7 +1,7 @@
 /**
  * @spec nav-check 화면 이동 선언과 코드 대조
  * @why 이동을 @to 태그로 손으로 적으면 코드와 어긋나도 모르므로, 코드에서 이동을 읽어 선언과 대조해 어긋남을 경고로 올린다.
- * @basis 타입 라우트 정의를 쓰는 프로젝트를 기준으로 네 가지를 읽는다: ④ 주소를 만드는 도우미 hash('보는 곳', 대상)(설정의 hashHelpers) — 화면 주소가 #/…인 앱용. ① 라우트 도우미 호출 toPath('이름', …) — ROUTES 객체의 이름 → 주소 ② JSX의 to="/주소"(Link, Navigate 등) ③ navigate("/주소") 호출.
+ * @basis 타입 라우트 정의를 쓰는 프로젝트를 기준으로 네 가지를 읽는다: ④ 주소를 만드는 도우미 hash('보는 곳', 대상)(설정의 hashHelpers) — 화면 주소가 #/…인 앱용. ① 라우트 도우미 호출 toPath('이름', …) — ROUTES 객체의 이름 → 주소 ② JSX의 to="/주소"(Link, Navigate 등) ③ navigate("/주소") 호출(삼항식의 두 갈래, location 대입 포함). 한 컴포넌트가 입력값으로 여러 화면을 맡으면 라우트가 넘긴 입력값으로 그려지지 않는 부분을 뺀다(propflow).
  * @contract 읽히지 않는 이동(주소를 변수로 조립하는 등)은 라우트 도우미로 바꿔 쓰거나 이 검사의 경고로 남는다. 설정은 프로젝트 .spec/config.json의 "navigation": { "routes": "ROUTES", "helpers": ["toPath"] }다. 프로젝트에 typescript가 설치돼 있어야 읽는다.
  */
 import fs from 'node:fs';
@@ -11,6 +11,8 @@ import type * as tsTypes from 'typescript';
 import { extractSpecs } from './extract.js';
 import { parseArgs } from './cli.js';
 import { readConfig } from './config.js';
+import { readJsxRoutes, tsOptionsOf } from './routes.js';
+import { pruneByProps, isPruned, type Pruned } from './propflow.js';
 import type { Extracted, NavEdge, NavResult, ScreenTag } from './types.js';
 
 type TsModule = typeof tsTypes;
@@ -82,13 +84,20 @@ export function detectNav(scanRoot: string, root: string, out: Extracted = extra
     return out.screens.find((s) => s.routes.includes(pattern)) || out.screens.map((s) => ({ s, hit: s.routes.filter((r) => rx(r).test(pattern)).sort((a, b) => b.length - a.length)[0] })).filter((x) => x.hit).sort((a, b) => b.hit.length - a.hit.length)[0]?.s || null;
   };
   const edges: NavEdge[] = [];
+  // 한 컴포넌트가 입력값(prop)으로 여러 화면을 맡으면, 그 화면에서 실제로 그려지는 부분의 이동만 센다
+  const jsxRoutes = out.screens.some((s) => s.routes.length) ? readJsxRoutes(scanRoot, root) : [];
+  const options = jsxRoutes.length ? tsOptionsOf(ts, root) : {};
   for (const sc of out.screens) {
+    const entries = jsxRoutes.filter((r) => r.file && sc.routes.includes(r.path));
+    const pruned: Pruned | null = entries.length ? pruneByProps(ts, scanRoot, options, entries) : null;
     for (const rel of sc.files) {
       if (!/\.(tsx?|jsx?)$/.test(rel)) continue;
+      if (pruned?.files.has(rel)) continue;
       const sf = parse(path.join(scanRoot, rel));
       if (!sf) continue;
       const lineOf = (n: tsTypes.Node): number => sf.getLineAndCharacterOfPosition(n.getStart()).line + 1;
       const add = (pattern: string | null, n: tsTypes.Node, how: string): void => {
+        if (isPruned(pruned, rel, n.getStart())) return;
         const to = pattern && byPattern(pattern);
         if (to) edges.push({ from: sc.name, to: to.name, file: rel, line: lineOf(n), how });
       };
