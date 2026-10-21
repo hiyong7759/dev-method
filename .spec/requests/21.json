@@ -1,0 +1,30 @@
+{
+  "id": 21,
+  "title": "도구 자동 시험 추가(요청 흐름·커밋 번호 검사·담당 세션 전달·세션 깨우기)",
+  "source": "user",
+  "origin": {
+    "text": "남은 작업 중 도구 자체 시험 만들기",
+    "channel": "대화",
+    "at": "2026-10-21T14:26:40.034Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:26:40.034Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
