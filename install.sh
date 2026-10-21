@@ -54,7 +54,7 @@ spec)
   CMLINE='node '"$ROOT"'/skills/spec-view/spec.mjs commit-msg "$1" "$(git rev-parse --show-toplevel)" || exit 1'
   if [ ! -f "$CM" ]; then printf '#!/bin/bash\n%s\n' "$CMLINE" > "$CM"; chmod +x "$CM"
   elif ! grep -qF 'spec.mjs commit-msg' "$CM"; then echo "$CMLINE" >> "$CM"; fi
-  [ -f "$P/.spec/.gitignore" ] || printf 'pids.json\nsessions.json\n*.log\n' > "$P/.spec/.gitignore"
+  [ -f "$P/.spec/.gitignore" ] || printf 'pids.json\nsessions.json\n*.log\nreview-shots/\n' > "$P/.spec/.gitignore"
   [ -n "$NOREG" ] || { touch "$ROOT/spec-projects.txt"; grep -qxF "$P" "$ROOT/spec-projects.txt" || echo "$P" >> "$ROOT/spec-projects.txt"; }
   # 이미 git이 추적 중인 .env 파일은 .gitignore에 있어도 `git add -A`에 딸려 올라가므로, 비밀 값 차단 훅을 함께 연결한다
   if (cd "$P" && git ls-files | grep -E '(^|/)\.env($|\.)' | grep -qvE '\.(example|sample|template)$'); then
