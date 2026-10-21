@@ -43,8 +43,8 @@ export const rv = (text: Kid = '확인 필요', onclick?: () => void): HTMLEleme
 
 /** 구분 점의 뜻. 모양과 색이 정해져 있고(style.css의 .bul), 한 화면 안에서는 같은 점이 둘이 되지 않게 쓴다 */
 export type BulKind = 'ing' | 'rev' | 'br' | 'scr' | 'int' | 'des' | 'imp' | 'tst' | 'fnd' | 'nrq' | 'fin' | 'cmp';
-/** 점의 모양(색은 뜻마다 css에 있다). 비워 두면 동그라미 */
-const BUL_SHAPE: Partial<Record<BulKind, string>> = { rev: 'tri', br: 'dia', int: 'sq', imp: 'sq', tst: 'dia', fnd: 'hex', nrq: 'star', fin: 'star', cmp: 'tri' };
+/** 점의 모양(색은 뜻마다 css에 있다). 비워 두면 동그라미 = 끝남·온전함. 진행 단계는 꼭지점이 늘수록 끝에 가깝다: 설계 ▲(3) → 구현 ■(4) → 테스트 ⬢(6) → 완료 ●. ◆는 갈림·발견, ★은 예외 */
+const BUL_SHAPE: Partial<Record<BulKind, string>> = { ing: 'sq', rev: 'tri', br: 'dia', int: 'sq', des: 'tri', imp: 'sq', tst: 'hex', fnd: 'dia', nrq: 'star' };
 /** 구분 점 하나 */
 export const bul = (kind: BulKind): HTMLSpanElement => h('span', { class: `bul ${kind}${BUL_SHAPE[kind] ? ` ${BUL_SHAPE[kind]}` : ''}` });
 /** 카드에 두는 점들(글자 없이 점만, 마우스를 올리면 뜻이 뜬다). 해당하는 구분이 없으면 아무것도 그리지 않는다 */

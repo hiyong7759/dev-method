@@ -1,0 +1,32 @@
+{
+  "id": 11,
+  "title": "구분 점 모양에 뜻 부여(설계 ▲ → 구현 ■ → 테스트 ⬢ → 완료 ●)",
+  "source": "user",
+  "origin": {
+    "text": "설계랑 완료랑 점을 바꿔주자 꼭지점이 적을수록 미완, 완료는 원, 점에도 의미 부여",
+    "channel": "대화",
+    "at": "2026-10-21T03:33:22.842Z"
+  },
+  "scope": {
+    "screens": [
+      "관리 영역"
+    ],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T03:33:22.842Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
