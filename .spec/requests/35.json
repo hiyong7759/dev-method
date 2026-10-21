@@ -1,0 +1,30 @@
+{
+  "id": 35,
+  "title": "화면 현행 탭: 부품 번호·겹침·화면에 n곳·그려지지 않는 것 표시",
+  "source": "user",
+  "origin": {
+    "text": "복제본 공유 컴포넌트 문제와 '화면 안에 컴포넌트가 잘 보이도록' 요청(시안 32판 승인)",
+    "channel": "대화",
+    "at": "2026-10-21T23:15:06.629Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T23:15:06.629Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

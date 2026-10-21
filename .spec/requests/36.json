@@ -1,0 +1,30 @@
+{
+  "id": 36,
+  "title": "검토 보고용 캡처 절차(바꾼 부분만, 이전과 나란히)",
+  "source": "user",
+  "origin": {
+    "text": "'검토할 때 캡처해서 보고하고 이전과 비교' 요청",
+    "channel": "대화",
+    "at": "2026-10-21T23:15:06.744Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T23:15:06.744Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

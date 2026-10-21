@@ -1,0 +1,30 @@
+{
+  "id": 34,
+  "title": "입력값(prop)으로 갈라지는 화면: 그려지는 부분의 이동만 읽기",
+  "source": "user",
+  "origin": {
+    "text": "복제본 도구 문제 10번(공유 컴포넌트 이동이 모든 화면에 붙음)",
+    "channel": "대화",
+    "at": "2026-10-21T22:48:53.682Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T22:48:53.682Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

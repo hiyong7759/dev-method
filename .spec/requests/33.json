@@ -1,0 +1,30 @@
+{
+  "id": 33,
+  "title": "화면 이동 읽기: 삼항식·location 이동 지원",
+  "source": "user",
+  "origin": {
+    "text": "복제본 도구 문제 6·12번",
+    "channel": "대화",
+    "at": "2026-10-21T22:37:18.408Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T22:37:18.408Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
