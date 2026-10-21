@@ -1,7 +1,7 @@
 /**
  * @spec data-shapes 도구가 주고받는 데이터의 모양
  * @why 소스 주석을 읽는 쪽(extract), 타입을 분석하는 쪽(analyze-ts), 상태·메모·요청을 저장하는 쪽, 설계서 보기 화면이 같은 데이터를 서로 다르게 이해하지 않도록, 모양을 한곳에서 한 번만 정한다.
- * @contract 이 파일의 모양을 바꾸면 그것을 만드는 파일(extract, analyze-ts, nav, status, memo, request, history, model)과 그려 주는 viewer/ 아래 파일이 함께 맞아야 한다. 타입 검사(npm run typecheck)가 어긋난 곳을 알려 준다.
+ * @contract 이 파일의 모양을 바꾸면 그것을 만드는 파일(extract, analyze-ts, nav, status, request, history, model)과 그려 주는 viewer/ 아래 파일이 함께 맞아야 한다. 타입 검사(npm run typecheck)가 어긋난 곳을 알려 준다.
  */
 
 // ── 소스 주석 태그에서 읽은 것 (extract) ─────────────────────
@@ -223,83 +223,6 @@ export interface ScreenStatus {
   changedSinceRecord: boolean;
   /** 지금까지 바뀐 기록 전체 */
   history: StatusEvent[];
-}
-
-// ── 메모 (memo) ─────────────────────────────────────
-
-/** 메모의 진행: 대기, 응답됨, 반영됨, 확인 완료 */
-export type MemoState = 'pending' | 'answered' | 'applied' | 'confirmed';
-
-/** 화면 위 사각형(화면 페이지 좌표) */
-export interface Rect {
-  /** 왼쪽 위 가로 위치 */
-  x: number;
-  /** 왼쪽 위 세로 위치 */
-  y: number;
-  /** 너비 */
-  w: number;
-  /** 높이 */
-  h: number;
-}
-
-/** 고른 영역에서 가장 가까운 컴포넌트 */
-export interface NearestSpec {
-  /** 컴포넌트 제목 */
-  title: string;
-  /** 소스 위치(파일:줄) */
-  file?: string;
-}
-
-/** 메모가 가리키는 곳: 컴포넌트, 고른 영역, 빈 영역, 화면 전체 */
-export interface MemoTarget {
-  /** 어떤 곳을 가리키나 */
-  type: 'component' | 'region' | 'empty' | 'screen';
-  /** 컴포넌트 이름표(컴포넌트를 가리킬 때) */
-  spec?: string;
-  /** 컴포넌트 제목 */
-  title?: string;
-  /** 소스 위치(파일:줄) */
-  file?: string;
-  /** 고른 영역의 자리와 크기 */
-  rect?: Rect;
-  /** 메모를 남길 때 열려 있던 화면 주소 */
-  route?: string;
-  /** 영역에서 가장 가까운 컴포넌트 */
-  nearest?: NearestSpec;
-  /** 빈 영역의 위·아래에 있는 요소 */
-  neighbors?: { above?: string; below?: string };
-  /** 고른 영역을 찍은 스크린샷 파일 이름 */
-  shot?: string;
-}
-
-/** .spec/memos.json의 메모 하나 */
-export interface Memo {
-  /** 메모 번호 */
-  id: number;
-  /** 어느 화면에 남겼나 */
-  screen: string;
-  /** 가리키는 곳 */
-  target: MemoTarget;
-  /** 종류(예: 오류). 없으면 일반 메모 */
-  kind: string;
-  /** 사용자가 쓴 한 줄 */
-  text: string;
-  /** 남긴 시각 */
-  at: string;
-  /** 남긴 쪽(항상 사용자) */
-  by: 'user';
-  /** 진행 상태 */
-  state: MemoState;
-  /** 에이전트에게 전달하려 복사한 시각(아직이면 null) */
-  copiedAt: string | null;
-  /** 남길 때의 소스 버전 */
-  commitAtWrite: string;
-  /** 에이전트의 답 */
-  reply?: { text: string; at: string; commit: string };
-  /** 고친 뒤의 반영 기록 */
-  applied?: { at: string; commit: string; change: string };
-  /** 사용자가 확인 완료로 바꾼 시각 */
-  confirmedAt?: string;
 }
 
 // ── 변경 요청 (request) ─────────────────────────────────
@@ -875,7 +798,6 @@ export interface ModelSummary {
   /** 내 차례인 요청 수 */
   requestsMine: number;
   /** 에이전트에게 아직 전달하지 않은 메모 수 */
-  memosUndelivered: number;
   /** 확인이 필요한 곳의 수 */
   needCheck: number;
   /** 아직 처리하지 않은 리포트 수 */
@@ -918,8 +840,6 @@ export interface Model {
   warnings: string[];
   /** 정보 분석이 실패했을 때의 이유 */
   analysisError: string;
-  /** 메모들 */
-  memos: (Memo & { stateLabel: string })[];
   /** 변경 요청들 */
   requests: RequestView[];
   /** 요청 번호 없이 남은 커밋들(첫 요청이 생긴 뒤의 것만) */

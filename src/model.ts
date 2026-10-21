@@ -9,7 +9,6 @@ import path from 'node:path';
 import { extractSpecs } from './extract.js';
 import { analyzeTs } from './analyze-ts.js';
 import { allStatus, projectRoot, LABEL } from './status.js';
-import { loadMemos, STATE_LABEL } from './memo.js';
 import { loadRequests, describeRequests } from './request.js';
 import { untrackedCommits } from './history.js';
 import { loadReports, reportRows, openCount } from './report.js';
@@ -90,7 +89,6 @@ export function buildModel(scanRoot: string): Model {
   const root = projectRoot(scanRoot);
   const rel = (f: string): string => path.relative(scanRoot, path.join(root, f)); // 분석 경로(프로젝트 루트 기준) → 소스 폴더 기준
   const status = allStatus(scanRoot, out);
-  const memos = loadMemos(scanRoot).memos;
   let revealMap: Record<string, Record<string, RevealStep[]>> = {};
   try { revealMap = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'reveal.json'), 'utf8')); } catch { /* 없음 */ }
   for (const sp of out.specs) {
@@ -227,18 +225,16 @@ export function buildModel(scanRoot: string): Model {
   const componentsOf = (r: Request): string[] => [...new Set(out.scenarios.filter((sc) => (r.scope.scenarios ?? []).includes(sc.name)).flatMap((sc) => sc.steps.map((st) => st.owner)))];
   const rawRequests = loadRequests(scanRoot);
   const requests = describeRequests(rawRequests, componentsOf);
-  const pendingCopy = memos.filter((m) => m.state === 'pending' && !m.copiedAt).length;
   return {
     project: path.basename(root), generatedAt: new Date().toISOString(),
     screens, specs: out.specs, infos, relations, reports: rows, glossary: loadGlossary(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
-    memos: memos.map((m) => ({ ...m, stateLabel: STATE_LABEL[m.state] })),
     requests, untracked: untrackedCommits(scanRoot, rawRequests),
     summary: {
       screens: screens.length, infos: infos.length, relations: relations.length,
       waiting: screens.filter((s) => ['test-requested', 'approved-changed'].includes(s.status.status)).length,
       testRequested: screens.filter((s) => s.status.status === 'test-requested').length,
       changedAfterApproval: screens.filter((s) => s.status.status === 'approved-changed').length,
-      requestsMine: requests.filter((r) => r.turn === 'user').length, memosUndelivered: pendingCopy, needCheck: out.warnings.length, reportsOpen: openCount(rows),
+      requestsMine: requests.filter((r) => r.turn === 'user').length, needCheck: out.warnings.length, reportsOpen: openCount(rows),
     },
     labels: LABEL,
   };

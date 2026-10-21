@@ -1,0 +1,30 @@
+{
+  "id": 18,
+  "title": "옛 메모 기능 제거(저장·서버 경로·명령·모델 값)",
+  "source": "user",
+  "origin": {
+    "text": "남은 시안·소스 작업 계속",
+    "channel": "대화",
+    "at": "2026-10-21T14:20:14.957Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:20:14.957Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

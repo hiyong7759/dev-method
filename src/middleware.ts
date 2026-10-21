@@ -11,14 +11,12 @@ import { transformSync } from 'esbuild';
 import { extractSpecs } from './extract.js';
 import { buildModel } from './model.js';
 import { allStatus, setStatus, setCheck, specDir } from './status.js';
-import { addMemo, confirmMemo, markCopied, exportText, loadMemos } from './memo.js';
 import { screenHistory } from './history.js';
 import { decide } from './report.js';
 import { addRequest, recordUntracked, approveDesign, rejectDesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
 import { wakeOwner } from './wake.js';
 import { errorText } from './cli.js';
 import { ROOT_DIR, SKILL_DIR, VIEWER_DIR } from './paths.js';
-import type { MemoTarget } from './types.js';
 
 /** 파일 확장자별 응답 종류 */
 const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
@@ -125,15 +123,6 @@ export function specHandler(scanRoot: string): SpecHandler {
         if (url === '/__spec/request/test-problem') { const r = testProblem(scanRoot, Number(b.id), String(b.note || '')); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
         if (url === '/__spec/request/order') { const r = setOrder(scanRoot, Number(b.first), Number(b.other)); wakeOwner(scanRoot, Number(b.other)); return json(res, r); }
         if (url === '/__spec/check') return json(res, setCheck(scanRoot, b.screen as string, Number(b.index), !!b.done));
-        if (url === '/__spec/memo') return json(res, addMemo(scanRoot, { screen: b.screen as string, target: b.target as MemoTarget, text: b.text as string, kind: b.kind as string | undefined }));
-        if (url === '/__spec/memo/confirm') return json(res, confirmMemo(scanRoot, b.id as number));
-        if (url === '/__spec/export') {
-          const screen = b.screen as string | undefined;
-          const text = exportText(scanRoot, { screen, scriptDir: SKILL_DIR });
-          const ids = loadMemos(scanRoot).memos.filter((m) => m.state === 'pending' && (!screen || m.screen === screen)).map((m) => m.id);
-          if (b.mark) markCopied(scanRoot, ids);
-          return json(res, { text, ids });
-        }
       }
       res.statusCode = 404;
       res.end('없음');
