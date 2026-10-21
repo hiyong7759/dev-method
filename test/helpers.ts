@@ -15,3 +15,11 @@ export function tempProject(config: Record<string, unknown> = {}): { root: strin
   fs.writeFileSync(path.join(root, '.spec', 'config.json'), JSON.stringify({ src: 'src', ...config }));
   return { root, src: path.join(root, 'src') };
 }
+
+/** TypeScript 분석이 되는 임시 프로젝트: tsconfig와 이 저장소의 node_modules 링크를 더한다 */
+export function tempTsProject(config: Record<string, unknown> = {}): { root: string; src: string } {
+  const p = tempProject(config);
+  fs.symlinkSync(path.resolve('node_modules'), path.join(p.root, 'node_modules'));
+  fs.writeFileSync(path.join(p.root, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, target: 'es2022', module: 'esnext', moduleResolution: 'bundler', noEmit: true }, include: ['src'] }));
+  return p;
+}

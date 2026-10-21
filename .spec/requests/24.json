@@ -1,0 +1,30 @@
+{
+  "id": 24,
+  "title": "커밋 전 검사에 기준선 방식 추가(기존 프로젝트 도입용)",
+  "source": "user",
+  "origin": {
+    "text": "복제본 시험 도구 문제 3번: 주석 없는 기존 프로젝트는 커밋이 전부 막힘",
+    "channel": "대화",
+    "at": "2026-10-21T14:38:28.915Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:38:28.915Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
