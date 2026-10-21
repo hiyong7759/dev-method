@@ -10,15 +10,17 @@
 - 단계마다 작게 보여 주고 확인받는다. 기준을 사용자가 안 줬으면 내가 정하지 말고 먼저 묻는다
 - 길게 늘어놓지 않는다. 큰 방향부터 짧게. 한국어, 쉬운 말, 코드 용어는 풀어서
 
-## 지금 상태 (시안 승인 뒤 구현 완료분, 컴팩팅 뒤 여기부터 읽는다)
+## 지금 상태 (컴팩팅 뒤 여기부터 읽는다)
 
-시안(캔버스 보드 1~15, 밝기 단추 포함)에 맞춰 구현했다. 화면·부품은 `rules/viewer-ui.md`와 시안 보드 1이 기준이다.
+시안(캔버스 보드 1~15)과 소스가 맞다(마지막 시안 버전 29). 화면·부품은 `rules/viewer-ui.md`(규칙 10개)와 시안 보드 1이 기준이다. 시안을 고칠 때는 `scratchpad/gen/`의 파이썬 스크립트(build4~8, preview.py는 ego-browser로 그림, layout.py)를 쓴다(스크래치패드가 사라졌으면 캔버스를 읽어 다시 만든다).
 
-- 구현됨: 공통 부품(chip·tag·rv·fchips·sideList·pageHead·sidePanel, `util.ts`), 상단 바(내 차례·밝기 단추만), 다크·라이트·시스템, 사용 흐름(왼쪽 도메인 목록·위쪽 칩·rv·시나리오 패널), 정보 흐름(왼쪽 도메인 목록·상자 필드 이름표·rv·정보 패널), 확인 필요 패널 한 곳(`review.ts`), 화면 설계서(개요·현행·히스토리), 요청 목록(칩·요청 없는 변경), 요청 상세(설계 승인·반려·설계 없음·겹침 순서·테스트 확인표·테스트 승인/문제 있음), 정보 변경 겹쳐 보기, 화면 전후 비교, 리포트, 용어집과 용어 툴팁
+- 구현됨(이번 묶음): 구분 점(bul: 칩에는 점+글자, 카드에는 점만; 모양으로도 구분; 진행 단계 ▲설계→■구현→⬢테스트→●완료로 꼭지점이 늘고 명도는 완료에 가까울수록 대비가 커짐), 갈래=분홍, 오른쪽 패널은 모두 `sidePanel()` 하나(눌러서 여는 것=✕, 늘 떠 있는 것=접기 토글 »), 요청 목록 진행 표시·완료 칩
+- 훅: ① 요청 번호 없는 커밋 차단 `commit-msg`(`spec.mjs commit-msg`, `install.sh spec`이 연결, 이 저장소에만 연결함) ② 크롬 등 직접 실행 차단 `hooks/claude-block-browser.sh`(`install.sh browser`, 이 저장소 `.claude/settings.json`에만 등록) ③ 담당 세션에 사용자 결정 전달 `spec.mjs inbox`(`install.sh agent-hook`, 이 저장소에만 등록, VS Code 확장에서의 동작은 미확인)
 - 서버: `request` 명령(add/design/impl/test/found/agent), `report`, `glossary`, 사용자 결정 엔드포인트(`/__spec/report/decide`, `/__spec/request/*`)
-- 아직 없음: ① (완료) 훅으로 담당 세션에 전달(#5, `spec.mjs inbox`, `install.sh agent-hook`; VS Code 확장에서의 동작은 미확인) ② (완료) 요청 번호 없는 커밋 차단 commit-msg 훅(#7, `spec.mjs commit-msg`, `install.sh spec`이 연결) · 크롬 직접 실행 차단 훅(`hooks/claude-block-browser.sh`, `install.sh browser <settings.json>`로 등록, 이 저장소 `.claude/settings.json`에 등록함, 전역·다른 프로젝트는 사용자 확인 뒤) ③ 정보 구조 관문·메타정보(#8) ④ 분석기 유니온 타입 오탐(`HistoryStatus.before/after` 등이 확인 필요로 올라옴) ⑤ 낡은 화면 상태·메모·승인 코드(`status.ts`, `memo.ts`, finish의 상태 기록)는 화면에서만 뺐고 소스는 남아 있음
-- 사용자에게 확인받을 것(내가 정한 임시 선택): "의도한 것" 기록은 `.spec/reports.json`(나)로 했다 / 영역 주소는 `#/manage/reports`, `#/manage/glossary` / 커밋 007114b는 새 구현이 대체함
-- 검증 방법: 시안과 같은 크기로 ego-browser 스크린샷을 비교한다. 요청 설계·테스트 화면은 가짜 프로젝트(스크래치패드 fixture)로 본다 — 이 저장소 요청 #1~#9에는 설계 데이터가 없다
+- 아직 없음: ① 분석기 유니온 타입 오탐(`HistoryStatus.before/after` 등이 확인 필요로 올라옴, 확인 필요 17건) ② 낡은 화면 상태·메모·승인 코드(`status.ts`, `memo.ts`, finish의 상태 기록)는 화면에서만 뺐고 소스는 남아 있음 ③ 정보 구조 관문·메타정보(#8) ④ 현행 탭 컴포넌트의 확인 필요 표시(코드로 계산할 방법 없음)
+- 사용자에게 확인받을 것: 전역 브라우저 차단 훅 등록(`./install.sh browser ~/.claude/settings.json`) / 훅·commit-msg를 pupai·cozaway·chungbuk-twin에 설치 / "의도한 것" 기록은 `.spec/reports.json`(내가 임시로 정함) / 영역 주소는 `#/manage/reports`, `#/manage/glossary` / 접힌 패널 세로 제목을 눕힐지
+- 검증 방법: 시안과 같은 크기로 ego-browser 스크린샷을 비교한다(`scratchpad/gen/cmp.sh 보드이름…`, 임시 프로젝트 fixture는 포트 5292). 브라우저는 ego-browser만 쓴다
+- **진행 중인 실험(세션 깨우기)**: 서버가 쉬는 세션을 외부에서 깨우는 방법을 확인 중이다. 쓰고 버린 세션에서는 `claude -p "/compact" --resume <세션번호>`로 압축이 되고, 이어서 `--resume … -p "문서를 읽고 이어서 해"`로 깨울 수 있었다(압축 뒤에도 기억 유지, 호출당 약 0.02~0.06달러, haiku). **아직 모르는 것**: 이미 열려 있는 세션을 동시에 깨우면 어떻게 되는지(지금 세션에 시도하다가 권한 검사가 "세션 기록 변조"로 막았다 — 사용자가 허용하거나 직접 `/compact`를 해야 한다), VS Code 확장 세션, 비대화형의 권한 설정. 방향: 승인·반려 순간에 서버가 닫힌 세션만 "압축 → 문서 확인 지시"로 깨운다(열린 세션은 훅 방식 유지)
 
 ## 지금 구현과 시안·일관성이 어긋난 곳 (정리 대상)
 

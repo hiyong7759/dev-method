@@ -1,0 +1,32 @@
+{
+  "id": 14,
+  "title": "작업 상태 문서 정리(세션 깨우기 실험 기록 포함)",
+  "source": "user",
+  "origin": {
+    "text": "필요하면 정리부터 하고",
+    "channel": "대화",
+    "at": "2026-10-21T03:47:36.935Z"
+  },
+  "scope": {
+    "screens": [
+      "관리 영역"
+    ],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T03:47:36.935Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
