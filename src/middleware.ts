@@ -15,6 +15,7 @@ import { addMemo, confirmMemo, markCopied, exportText, loadMemos } from './memo.
 import { screenHistory } from './history.js';
 import { decide } from './report.js';
 import { addRequest, recordUntracked, approveDesign, rejectDesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
+import { wakeOwner } from './wake.js';
 import { errorText } from './cli.js';
 import { ROOT_DIR, SKILL_DIR, VIEWER_DIR } from './paths.js';
 import type { MemoTarget } from './types.js';
@@ -116,12 +117,13 @@ export function specHandler(scanRoot: string): SpecHandler {
           return json(res, decide(scanRoot, id, { state, request, reason: b.reason ? String(b.reason) : undefined }));
         }
         if (url === '/__spec/request/record') return json(res, recordUntracked(scanRoot, String(b.hash || ''), String(b.title || '')));
-        if (url === '/__spec/request/design-approve') return json(res, approveDesign(scanRoot, Number(b.id)));
-        if (url === '/__spec/request/design-reject') return json(res, rejectDesign(scanRoot, Number(b.id), String(b.note || '')));
+        // 결정이 저장되면 그 요청을 맡은 세션이 닫혀 있을 때만 깨운다(열린 세션은 inbox 훅이 알린다)
+        if (url === '/__spec/request/design-approve') { const r = approveDesign(scanRoot, Number(b.id)); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
+        if (url === '/__spec/request/design-reject') { const r = rejectDesign(scanRoot, Number(b.id), String(b.note || '')); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
         if (url === '/__spec/request/test-check') return json(res, checkTest(scanRoot, Number(b.id), String(b.key || ''), !!b.done));
-        if (url === '/__spec/request/test-approve') return json(res, approveTest(scanRoot, Number(b.id), !!b.none));
-        if (url === '/__spec/request/test-problem') return json(res, testProblem(scanRoot, Number(b.id), String(b.note || '')));
-        if (url === '/__spec/request/order') return json(res, setOrder(scanRoot, Number(b.first), Number(b.other)));
+        if (url === '/__spec/request/test-approve') { const r = approveTest(scanRoot, Number(b.id), !!b.none); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
+        if (url === '/__spec/request/test-problem') { const r = testProblem(scanRoot, Number(b.id), String(b.note || '')); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
+        if (url === '/__spec/request/order') { const r = setOrder(scanRoot, Number(b.first), Number(b.other)); wakeOwner(scanRoot, Number(b.other)); return json(res, r); }
         if (url === '/__spec/check') return json(res, setCheck(scanRoot, b.screen as string, Number(b.index), !!b.done));
         if (url === '/__spec/memo') return json(res, addMemo(scanRoot, { screen: b.screen as string, target: b.target as MemoTarget, text: b.text as string, kind: b.kind as string | undefined }));
         if (url === '/__spec/memo/confirm') return json(res, confirmMemo(scanRoot, b.id as number));

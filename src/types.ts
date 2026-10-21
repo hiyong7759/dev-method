@@ -1006,6 +1006,8 @@ export interface ProjectConfig {
   start?: string;
   /** 설계 디자인을 요청마다 모아 두는 Claude Design 캔버스 주소 */
   designCanvas?: string;
+  /** true면 사용자가 결정했을 때 닫혀 있는 담당 세션을 서버가 깨운다(비용이 들어 기본은 꺼짐) */
+  wake?: boolean;
   /** 화면 이동을 읽는 방법: 라우트 표의 이름과 이동 도우미 함수들 */
   navigation?: {
     /** 이름 → 주소가 적힌 라우트 표의 변수 이름 */
