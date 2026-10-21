@@ -67,8 +67,11 @@ export function detectNav(scanRoot: string, root: string, out: Extracted = extra
   }
 
   /** 주소(또는 주소 모양)에 맞는 화면 */
-  const byPattern = (pattern: string): ScreenTag | null =>
-    out.screens.find((s) => s.routes.includes(pattern)) || out.screens.map((s) => ({ s, hit: s.routes.filter((r) => rx(r).test(pattern)).sort((a, b) => b.length - a.length)[0] })).filter((x) => x.hit).sort((a, b) => b.hit.length - a.hit.length)[0]?.s || null;
+  const byPattern = (addr: string): ScreenTag | null => {
+    // 일반 주소 뒤의 ?질문=값 은 화면을 가르지 않는다(/board/write?id=1 은 /board/write 화면). #/…로 화면을 가르는 주소는 그대로 둔다
+    const pattern = addr.includes('#/') ? addr : addr.split('?')[0] || addr;
+    return out.screens.find((s) => s.routes.includes(pattern)) || out.screens.map((s) => ({ s, hit: s.routes.filter((r) => rx(r).test(pattern)).sort((a, b) => b.length - a.length)[0] })).filter((x) => x.hit).sort((a, b) => b.hit.length - a.hit.length)[0]?.s || null;
+  };
   const edges: NavEdge[] = [];
   for (const sc of out.screens) {
     for (const rel of sc.files) {

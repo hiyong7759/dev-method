@@ -1,0 +1,30 @@
+{
+  "id": 28,
+  "title": "이동 읽기: 주소 뒤 ?질문=값을 떼고 화면을 맞춤",
+  "source": "user",
+  "origin": {
+    "text": "복제본 시험 중 발견(navigate('/board/write?…')가 게시물 상세로 잘못 이어짐)",
+    "channel": "대화",
+    "at": "2026-10-21T14:43:30.660Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:43:30.660Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
