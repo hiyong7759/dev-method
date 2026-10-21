@@ -117,10 +117,25 @@ export function detectNav(scanRoot: string, root: string, out: Extracted = extra
       if (!found.some((e) => e.from === sc.name && e.to === t.target)) warnings.push(`@screen ${sc.name}의 @to ${t.target}: 코드에서 이동을 찾지 못했다 — toPath('…') 같은 라우트 도우미 호출이나 to="/주소"로 써야 읽힌다 (${sc.file}:${sc.line})`);
     }
   }
+  // 선언되지 않은 이동. 여러 화면이 함께 쓰는 파일(껍데기가 같은 화면을 불러 쓰는 경우 등)에서 읽은 이동은 어느 화면의 것인지 코드로 가를 수 없으므로,
+  // 같은 자리·같은 대상은 한 묶음으로 보고 묶음 안의 어느 화면이든 @to로 선언했으면 맞는 것으로, 아무도 안 했으면 경고를 한 번만 낸다
+  const groups = new Map<string, { edge: NavEdge; screens: string[]; declared: boolean }>();
   for (const e of found) {
     if (e.from === e.to) continue;
-    const sc = out.screens.find((s) => s.name === e.from);
-    if (sc && !sc.to.some((t) => t.target === e.to)) warnings.push(`선언되지 않은 이동 ${e.from} → ${e.to} (${e.file}:${e.line} ${e.how}) — @screen ${e.from}에 @to로 쓴다`);
+    const sc = out.screens.find((x) => x.name === e.from);
+    if (!sc) continue;
+    const key = `${e.file === sc.file ? `${sc.name}|` : ''}${e.file}:${e.line}>${e.to}`;
+    const g = groups.get(key) ?? { edge: e, screens: [], declared: false };
+    g.screens.push(e.from);
+    if (sc.to.some((t) => t.target === e.to)) g.declared = true;
+    groups.set(key, g);
+  }
+  for (const { edge: e, screens, declared } of groups.values()) {
+    if (declared) continue;
+    const where = `${e.file}:${e.line} ${e.how}`;
+    warnings.push(screens.length === 1
+      ? `선언되지 않은 이동 ${e.from} → ${e.to} (${where}) — @screen ${e.from}에 @to로 쓴다`
+      : `선언되지 않은 이동 ${screens.join('·')} → ${e.to} (${where}) — 이 화면들이 함께 쓰는 파일이라 어느 화면의 이동인지 코드로 가를 수 없다. 해당하는 화면에 @to로 쓴다(하나라도 쓰면 맞는 것으로 본다)`);
   }
   return { edges: found, warnings, routes: Object.fromEntries(table) };
 }

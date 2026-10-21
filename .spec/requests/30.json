@@ -1,0 +1,30 @@
+{
+  "id": 30,
+  "title": "이동 읽기: 여러 화면이 함께 쓰는 파일의 이동 경고를 한 번으로 묶기",
+  "source": "user",
+  "origin": {
+    "text": "복제본 같은 파일 쓰는 화면들 작업해주고",
+    "channel": "대화",
+    "at": "2026-10-21T14:51:43.848Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:51:43.848Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
