@@ -7,7 +7,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { screenFiles } from './files.js';
-import { readJsxRoutes } from './routes.js';
+import { createRequire } from 'node:module';
+import { readJsxRoutes, tsOptionsOf } from './routes.js';
+import { pruneByProps } from './propflow.js';
 import { projectRoot } from './project.js';
 import { parseArgs } from './cli.js';
 import { buildScenarios } from './scenarios.js';
@@ -194,12 +196,26 @@ export function extractSpecs(root: string): Extracted {
   }
   // @route가 없는 화면은 <Route> 선언에서 주소를 읽어 채운다: 화면 파일이 element 파일이거나, element 파일이 화면 파일을 바로 import하면 그 화면의 주소다
   const lacking = out.screens.filter((s) => !s.route);
-  if (lacking.length) {
-    const jsx = readJsxRoutes(root, projectRoot(root));
+  const jsx = lacking.length || out.screens.some((s) => s.routes.length) ? readJsxRoutes(root, projectRoot(root)) : [];
+  {
     for (const sc of lacking) {
       const mine = [...new Set(jsx.filter((r) => r.file === sc.file || r.imports.includes(sc.file)).map((r) => r.path))];
       if (mine.length) { sc.route = mine[0]; sc.routes = mine; }
     }
+  }
+  // 한 컴포넌트가 입력값으로 여러 화면을 맡으면, 그 화면에 그려지지 않는 컴포넌트 파일은 그 화면에서 뺀다
+  if (jsx.length) {
+    try {
+      const pr = projectRoot(root);
+      const ts = createRequire(path.join(pr, 'package.json'))('typescript') as Parameters<typeof tsOptionsOf>[0];
+      const options = tsOptionsOf(ts, pr);
+      for (const sc of out.screens) {
+        const entries = jsx.filter((r) => r.file && sc.routes.includes(r.path));
+        if (!entries.length) continue;
+        const dead = pruneByProps(ts, root, options, entries).files;
+        sc.files = sc.files.filter((f) => f === sc.file || !dead.has(f));
+      }
+    } catch { /* typescript가 없으면 파일 단위로 둔다 */ }
   }
   for (const sc of out.screens) if (!sc.route) out.warnings.push(`@screen ${sc.name}에 @route가 없다 — 실제 화면을 끼워 넣으려면 주소가 필요하다 (${sc.file}:${sc.line})`);
   for (const sp of out.specs) {

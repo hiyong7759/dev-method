@@ -66,3 +66,15 @@ test('한 컴포넌트가 입력값으로 여러 화면을 맡으면, 그 화면
   assert.deepEqual(r.edges.map((e) => `${e.from}→${e.to}`).sort(), ['내 휴가→신청', '내 휴가→홈']);
   assert.deepEqual(r.warnings, []);
 });
+
+test('입력값으로 그려지지 않는 컴포넌트는 그 화면의 컴포넌트가 아니다', async () => {
+  const { extractSpecs } = await import('../src/extract.js');
+  const { root, src } = tempTsProject();
+  fs.writeFileSync(path.join(src, 'App.tsx'), `import V from './V';\nexport const App = () => (<Routes>\n<Route path="/me" element={<V section="me" />} />\n<Route path="/g" element={<V section="g" />} />\n</Routes>);\n`);
+  fs.writeFileSync(path.join(src, 'V.tsx'), `import { Only } from './Only';\nexport default function V({ section }: { section: string }) { return <div>{section === 'me' && <Only />}</div>; }\n`);
+  fs.writeFileSync(path.join(src, 'Only.tsx'), `/**\n * @spec only-part 내 휴가에만 있는 부분\n * @why 시험용\n */\nexport const Only = () => <b />;\n`);
+  fs.writeFileSync(path.join(src, 'me.tsx'), screen('내', '/me') + `import V from './V';\nexport const Me = () => <V section="me" />;\n`);
+  fs.writeFileSync(path.join(src, 'g.tsx'), screen('구성', '/g') + `import V from './V';\nexport const G = () => <V section="g" />;\n`);
+  const r = extractSpecs(src);
+  assert.deepEqual(r.specs.find((s) => s.id === 'only-part')?.screens, ['내']);
+});
