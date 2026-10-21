@@ -3,7 +3,7 @@
  * @why 요청 목록과 요청 상세가 같은 진행 표시·상태 이름표·범위 이름표를 쓰므로, 두 화면이 다르게 보이지 않게 한 곳에 둔다.
  * @contract model.requests의 항목 모양(types.ts의 RequestView: 요청 파일 + describeRequests가 붙이는 stepLabel, turn, overlaps)에 기대어 그린다. 그 모양이 바뀌면 이 파일도 고친다.
  */
-import { h, chip, tag } from './util.js';
+import { h, chip, tag, type Kid } from './util.js';
 import type { RequestStage, RequestView } from '../types.js';
 
 /** 요청이 거치는 네 단계(진행 표시의 순서) */
@@ -23,4 +23,9 @@ export const scopeTags = (r: RequestView): HTMLSpanElement[] => [...r.scope.scre
 export function stepperBig(r: RequestView): HTMLDivElement {
   const cur = STAGES.findIndex(([k]) => k === r.stage);
   return h('div', { class: 'stepper-lg' }, STAGES.map(([, l], i) => [i ? h('u') : null, h('span', { class: `st ${r.stage === 'done' || cur > i ? 'd' : cur === i ? 'c' : ''}` }, h('i', null, i + 1), l)]));
+}
+
+/** 본문(왼쪽, 스크롤) + 늘 떠 있는 오른쪽 패널을 한 줄에 놓는다. 요청 상세·정보 변경·비교·테스트가 같은 배치를 쓴다 */
+export function withPanel(main: Kid, panel: HTMLElement): HTMLElement {
+  return h('div', { class: 'with-panel' }, h('div', { class: 'wp-main' }, main), panel);
 }

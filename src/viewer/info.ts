@@ -3,7 +3,7 @@
  * @why 정보가 어느 화면에서 입력되고 보이고 바뀌고 판단되는지를, 어디서 열든 같은 모양의 상세 패널과 한눈에 보는 관계도로 보여 준다. 정보를 따로 문서로 쓰지 않아도 코드에서 읽은 것이 그대로 보이게 한다.
  * @contract model.infos, model.relations, model.screens[].fields를 그대로 그린다. 관계도는 창 폭에 맞춰 상자를 줄바꿈해 놓으므로, 창 폭이 바뀌면 부르는 쪽(app.ts)이 다시 그려야 한다. 오른쪽 패널은 항상 열려 있다(고르기 전에는 한눈에 보기).
  */
-import { h, ROLES, ROLE_LABEL, filterChips, sideList, pageHead, sidePanel, chip, tag, rv } from './util.js';
+import { h, ROLES, ROLE_LABEL, filterChips, sideList, pageHead, sidePanel, chip, tag, rv, type BulKind } from './util.js';
 import { reviewPanel } from './review.js';
 import { buildErd } from './erd.js';
 import { hash, nav } from './route.js';
@@ -11,6 +11,8 @@ import type { InfoKind, Model, ModelInfo, ModelProp, RefKind } from '../types.js
 
 /** 정보 보기 구분: 전체 / 화면용 / 내부용 */
 export type InfoFilter = 'all' | InfoKind | 'review';
+/** 정보 거르기 칩의 점(상자 이름 앞의 점과 짝) */
+const FILTER_BUL: Partial<Record<InfoFilter, BulKind>> = { screen: 'scr', internal: 'int', review: 'rev' };
 const FILTER_LABEL: Record<InfoFilter, string> = { all: '전체', screen: '화면용', internal: '내부용', review: '확인 필요' };
 /** 구분에 맞는 정보만 */
 export const infosOf = (model: Model, f: InfoFilter): ModelInfo[] => (f === 'all' ? model.infos : f === 'review' ? model.infos.filter((i) => i.flagged > 0) : model.infos.filter((i) => i.kind === f));
@@ -99,11 +101,11 @@ export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, d
   const domOf = (i: ModelInfo): string[] => (i.domains.length ? i.domains : ['기타']);
   const infos = infosOf(model, filter).filter((i) => !domain || domOf(i).includes(domain));
   const availW = (root.clientWidth || window.innerWidth) - 200 - 380 - 150; // 왼쪽 목록과 오른쪽 패널은 항상 있어 폭을 미리 뺀다(고르면 상자가 움직이는 일이 없게)
-  const erd = buildErd(model, { infos, selected, availW, onSelect, openReview });
+  const erd = buildErd(model, { infos, selected, availW, onSelect, openReview, bullets: true });
   const count = (f: InfoFilter): number => infosOf(model, f).filter((i) => !domain || domOf(i).includes(domain)).length;
   const allDomains = [...new Set(model.infos.flatMap(domOf))];
   const list = sideList('도메인으로 보기', [{ key: '', label: '전체', count: model.infos.length }, ...allDomains.map((d) => ({ key: d, label: d, count: model.infos.filter((i) => domOf(i).includes(d)).length }))], domain, onDomain);
-  const chips = filterChips((['all', 'screen', 'internal', 'review'] as InfoFilter[]).filter((f) => f !== 'review' || count(f) > 0 || filter === 'review').map((f) => ({ key: f, label: FILTER_LABEL[f], count: count(f) })), filter, onFilter);
+  const chips = filterChips((['all', 'screen', 'internal', 'review'] as InfoFilter[]).filter((f) => f !== 'review' || count(f) > 0 || filter === 'review').map((f) => ({ key: f, label: FILTER_LABEL[f], count: count(f), bul: FILTER_BUL[f] })), filter, onFilter);
   const legend = h('div', { class: 'legend2' }, h('span', { class: 'sw-box' }), h('span', null, '화면용 정보'), h('span', { class: 'sw-box dashed' }), h('span', null, '내부용 정보(어느 화면에도 보이지 않음)'), rv('확인 필요'), h('span', null, '눌러서 판단'));
   const panel = review ? reviewPanel(model.reports.filter((r) => r.review && r.review.info === review.name), { title: review.name, onClose: review.onClose, onDone: review.onDone }) : drawer;
   root.append(h('div', { class: 'map-body' }, list,

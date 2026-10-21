@@ -10,7 +10,7 @@ import type { GlossaryTerm } from '../types.js';
 /** 용어 표시를 하지 않는 곳: 입력칸, 코드, 단추·링크·제목·이름표처럼 눌러야 하거나 이름인 자리, 상단 바 */
 const SKIP = 'script,style,textarea,input,select,code,pre,button,a,h1,h2,h3,h4,.top,.tabs,.chip,.tag,.pill,.rv,.fc,.noterm,.term,.termtip,.mono,.rid,.rt,.rtitle';
 /** 용어 하나는 한 덩어리(오른쪽 패널, 본문 한 쪽) 안에서 처음 나온 한 번만 표시한다(같은 말이 줄마다 점선이면 어지럽다) */
-const REGION = '.sidepanel,.side,.wrap,.pg';
+const REGION = '.sidepanel,.wrap,.pg';
 let tip: HTMLElement | null = null;
 const closeTip = (): void => { tip?.remove(); tip = null; };
 

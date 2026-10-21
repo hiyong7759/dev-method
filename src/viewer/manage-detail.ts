@@ -3,10 +3,10 @@
  * @why 요청 하나의 원문, 에이전트의 설계, 범위, 겹침, 진행 기록을 한 화면에 모아 "왜 이 일이 있고 어디까지 왔나"를 따라가게 한다. 설계 단계에서는 설계를 승인·반려하고, 테스트 단계에서는 사용 시나리오 확인표로 테스트를 승인한다. 승인은 사용자만 한다.
  * @contract model.requests의 항목 모양(types.ts의 RequestView)에 기대어 그린다. 승인·반려·순서·체크는 서버의 /__spec/request/*로 보낸 뒤 onChange로 화면을 다시 그린다.
  */
-import { h, post, pageHead, chip, tag, fmt, toast, errorText, copyText } from './util.js';
+import { h, post, pageHead, chip, tag, fmt, toast, errorText, copyText, sidePanel } from './util.js';
 import type { Kid } from './util.js';
 import { hash, nav } from './route.js';
-import { stepperBig, chipFor, scopeTags } from './manage-parts.js';
+import { stepperBig, chipFor, scopeTags, withPanel } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
 import type { Model, RequestView, Scenario, ScenarioStep } from '../types.js';
 
@@ -187,5 +187,6 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   const [leftAll, right] = testing
     ? [[left[0], scopeCard(model, r, true), overlapCard(r, onChange, model), ...left.slice(1)], [testCard(model, r, onChange)]]
     : [left, [designSide, scopeCard(model, r, false), overlapCard(r, onChange, model)]];
-  root.append(h('div', { class: 'wrap' }, head, h('div', { class: `detail-cols${testing ? ' testing' : ''}` }, h('div', { class: `dcol${testing ? '' : ''}` }, leftAll), h('div', { class: `dcol side${testing ? ' wide' : ''}` }, right))));
+  root.append(withPanel(h('div', { class: 'wrap' }, head, h('div', { class: 'dcol' }, leftAll)),
+    sidePanel({ title: testing ? '사용 시나리오 테스트' : `요청 #${r.id}`, fold: 'request', body: right })));
 }

@@ -41,9 +41,22 @@ export const tag = (kind: 'c' | 'i' | '', text: Kid): HTMLSpanElement => h('span
 /** 확인 필요 표시. 어디서나 같은 모양이고, 누르면 같은 확인 필요 패널이 열린다(onclick을 안 주면 표시만) */
 export const rv = (text: Kid = '확인 필요', onclick?: () => void): HTMLElement => h(onclick ? 'button' : 'span', { class: 'rv', onclick: onclick ? (e: Event) => { e.stopPropagation(); onclick(); } : undefined }, text);
 
-/** 보기를 거르는 칩 한 줄(fchips). 위쪽 칩 = 상태·종류. 하나만 고르고, 넘치면 줄바꿈된다 */
-export function filterChips<K extends string>(items: { key: K; label: string; count: number }[], current: K, pick: (k: K) => void): HTMLElement {
-  return h('div', { class: 'fchips' }, items.map((i) => h('button', { class: `fc${current === i.key ? ' on' : ''}`, onclick: () => pick(i.key) }, i.label, h('small', null, i.count))));
+/** 구분 점의 뜻. 모양과 색이 정해져 있고(style.css의 .bul), 한 화면 안에서는 같은 점이 둘이 되지 않게 쓴다 */
+export type BulKind = 'ing' | 'rev' | 'br' | 'scr' | 'int' | 'des' | 'imp' | 'tst' | 'fnd' | 'nrq' | 'fin';
+/** 점의 모양(색은 뜻마다 css에 있다). 비워 두면 동그라미 */
+const BUL_SHAPE: Partial<Record<BulKind, string>> = { rev: 'tri', br: 'dia', int: 'sq', imp: 'sq', tst: 'dia', fnd: 'hex', nrq: 'star', fin: 'star' };
+/** 구분 점 하나 */
+export const bul = (kind: BulKind): HTMLSpanElement => h('span', { class: `bul ${kind}${BUL_SHAPE[kind] ? ` ${BUL_SHAPE[kind]}` : ''}` });
+/** 카드에 두는 점들(글자 없이 점만, 마우스를 올리면 뜻이 뜬다). 해당하는 구분이 없으면 아무것도 그리지 않는다 */
+export function buls(kinds: { kind: BulKind; label: string }[]): HTMLElement | null {
+  if (!kinds.length) return null;
+  const label = kinds.map((k) => k.label).join(' · ');
+  return h('span', { class: 'buls', title: label, 'aria-label': label, role: 'img' }, kinds.map((k) => bul(k.kind)));
+}
+
+/** 보기를 거르는 칩 한 줄(fchips). 위쪽 칩 = 상태·종류. 하나만 고르고, 넘치면 줄바꿈된다. 칩에 점(bul)을 주면 같은 구분의 카드 점과 짝이 된다 */
+export function filterChips<K extends string>(items: { key: K; label: string; count: number; bul?: BulKind }[], current: K, pick: (k: K) => void): HTMLElement {
+  return h('div', { class: 'fchips' }, items.map((i) => h('button', { class: `fc${current === i.key ? ' on' : ''}`, onclick: () => pick(i.key) }, i.bul ? bul(i.bul) : null, i.label, h('small', null, i.count))));
 }
 
 /** 왼쪽 분류 목록(side-list). 분류(도메인처럼 프로젝트마다 달라지는 것)로 거를 때 쓴다 */
@@ -69,23 +82,45 @@ export function pageHead({ crumb, title, lead, meta, actions }: PageHeadOptions)
   return h('header', { class: 'ph' }, actions ? h('div', { class: 'phrow' }, main, h('div', { style: 'display:flex;gap:8px;flex:none' }, actions)) : main);
 }
 
-/** 오른쪽 패널(sidepanel): 제목+닫기 / 본문 칸들 / 아래 단추. 폭은 380 고정 */
+/** 오른쪽 패널(sidepanel): 제목(+닫기·접기) / 본문 칸들 / 아래 단추. 폭은 380 고정.
+ *  눌러서 여는 패널은 onClose(✕)를, 늘 떠 있는 패널은 fold(접기 토글 »)를 준다. 둘을 섞지 않는다 */
 export interface SidePanelOptions {
   /** 패널 제목 */
   title: Kid;
+  /** 제목 옆 이름표 */
+  badge?: Kid;
   /** 제목 아래 한 줄 설명 */
   sub?: Kid;
-  /** 닫기(✕). 없으면 닫기 단추를 그리지 않는다 */
+  /** 눌러서 여는 패널: 닫기(✕). 없으면 닫기 단추를 그리지 않는다 */
   onClose?: () => void;
+  /** 늘 떠 있는 패널: 접은 상태를 브라우저에 기억할 이름. 주면 접기 토글(»)이 생기고, 접으면 좁은 띠(«)가 된다 */
+  fold?: string;
   /** 본문 칸들 */
   body: Kid;
   /** 아래 단추 줄 */
   foot?: Kid;
 }
-export function sidePanel({ title, sub, onClose, body, foot }: SidePanelOptions): HTMLElement {
-  return h('aside', { class: 'sidepanel' },
-    h('div', { class: 'sp-head' }, h('h3', null, title), onClose ? h('button', { class: 'sp-x', onclick: onClose, 'aria-label': '닫기' }, '✕') : null),
-    sub ? h('div', { class: 'hint' }, sub) : null, body, foot ? h('div', { class: 'sp-foot' }, foot) : null);
+/** 접은 상태를 읽고 쓴다(브라우저 저장소가 막혀 있어도 화면은 돌아가게) */
+const foldKey = (k: string): string => `spec.fold.${k}`;
+const folded = (k: string): boolean => { try { return localStorage.getItem(foldKey(k)) === '1'; } catch { return false; } };
+const setFolded = (k: string, v: boolean): void => { try { localStorage.setItem(foldKey(k), v ? '1' : '0'); } catch { /* 저장 못 해도 화면은 그대로 */ } };
+export function sidePanel({ title, badge, sub, onClose, fold, body, foot }: SidePanelOptions): HTMLElement {
+  const el = h('aside', { class: 'sidepanel' });
+  const toggle = (to: boolean): HTMLElement => h('button', { class: 'sp-x tg', 'aria-label': to ? '패널 접기' : '패널 펼치기', title: to ? '패널 접기' : '패널 펼치기', onclick: () => { setFolded(fold as string, to); draw(); } }, to ? '»' : '«');
+  const draw = (): void => {
+    if (fold && folded(fold)) {
+      el.className = 'sidepanel rail';
+      el.replaceChildren(toggle(false), h('span', { class: 'rt' }, title));
+      return;
+    }
+    el.className = 'sidepanel';
+    const parts = h('div', null,
+      h('div', { class: 'sp-head' }, h('h3', null, title), badge ?? null, onClose ? h('button', { class: 'sp-x', onclick: onClose, 'aria-label': '닫기' }, '✕') : null, fold ? toggle(true) : null),
+      sub ? h('div', { class: 'hint' }, sub) : null, body, foot ? h('div', { class: 'sp-foot' }, foot) : null);
+    el.replaceChildren(...Array.from(parts.childNodes));
+  };
+  draw();
+  return el;
 }
 
 /** 잡은 오류에서 사람이 읽을 글만 꺼낸다(src/cli.ts에도 같은 것이 있다: 화면 코드는 바깥 폴더를 못 불러온다) */

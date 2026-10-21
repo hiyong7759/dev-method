@@ -3,7 +3,8 @@
  * @why 설계를 승인하기 전에 "정보가 지금 관계도에서 어떻게 바뀌는지"와 "화면이 지금 모습에서 어떻게 달라지는지"를 눈으로 비교하게 한다. 승인하면 이 모습이 요청에 그대로 남아 나중에 히스토리에서 다시 볼 수 있다.
  * @contract 요청의 설계(types.ts의 RequestDesign)를 읽어 그린다. 정보 변경은 현행 관계도(erd.ts) 위에 얹고, 화면 변경은 에이전트가 올린 변경 후 그림과 지금 화면 그림을 비교한다.
  */
-import { h, pageHead, chip } from './util.js';
+import { h, pageHead, chip, sidePanel } from './util.js';
+import { withPanel } from './manage-parts.js';
 import { buildErd } from './erd.js';
 import { hash, nav } from './route.js';
 import type { DesignChange, Model, RequestView } from '../types.js';
@@ -41,7 +42,7 @@ export function manageInfoOverlay(root: HTMLElement, { model, r }: { model: Mode
   const near = new Set(touched);
   for (const rel of model.relations) { if (touched.has(rel.from)) near.add(rel.to); if (touched.has(rel.to)) near.add(rel.from); }
   const erd = buildErd(model, {
-    infos: model.infos.filter((i) => near.has(i.name)), availW: Math.min(root.clientWidth || innerWidth, 1240) - 420 - 48,
+    infos: model.infos.filter((i) => near.has(i.name)), availW: Math.min((root.clientWidth || innerWidth) - 380, 1240) - 56,
     dimOthers: (i) => mode !== 'now' && !touched.has(i.name),
     decorate: (i) => {
       if (mode === 'now' || !touched.has(i.name)) return null;
@@ -62,11 +63,12 @@ export function manageInfoOverlay(root: HTMLElement, { model, r }: { model: Mode
     h('div', { class: 'card snap' }, h('h3', null, '스냅샷'), h('div', null, `설계 승인을 하면 지금 이 모습(현행과 변경)이 요청 #${r.id}에 그대로 저장됩니다. 나중에 히스토리에서 "이 요청으로 정보가 이렇게 바뀌었다"를 다시 볼 수 있습니다.`),
       h('button', { class: 'btn', onclick: () => nav(hash('manage', String(r.id))) }, '‹ 요청 상세로 돌아가기')),
   ];
-  root.append(h('div', { class: 'wrap' },
+  root.append(withPanel(h('div', { class: 'wrap' },
     pageHead({ crumb: [h('a', { href: hash('manage') }, '요청'), ' › ', h('a', { href: hash('manage', String(r.id)) }, `#${r.id}`), ' › 정보 변경'], title: `${[...touched][0] ?? '정보'} 정보가 이렇게 바뀝니다`, lead: `요청 #${r.id}가 정보에 가져오는 변화를 지금 관계도 위에 겹쳐 봅니다.`,
       actions: modeSeg([['now', '현행만'], ['overlay', '변경 겹쳐 보기'], ['after', '변경 후']], mode, (k) => setQuery(r.id, 'info', { mode: k })) }),
     h('div', { class: 'legend2' }, h('span', { class: 'sw-box' }), h('span', null, '현행(그대로)'), h('span', { class: 'sw-box g' }), h('span', null, '추가'), h('span', { class: 'sw-box a' }), h('span', null, '바뀌는 정보'), h('span', { class: 'sw-box r' }), h('span', null, '삭제')),
-    h('div', { class: 'detail-cols ov' }, h('div', { class: 'erd-wrap' }, erd), h('div', { class: 'dcol side' }, side))));
+    h('div', { class: 'erd-wrap' }, erd)),
+    sidePanel({ title: '정보 변경 요약', fold: 'info-overlay', body: side })));
 }
 
 /**
@@ -95,15 +97,13 @@ export function manageCompare(root: HTMLElement, { r, screen }: { r: RequestView
     range.addEventListener('input', () => { top.style.opacity = String(Number(range.value) / 100); });
     view.append(h('div', { class: 'blend' }, img(d.before, '현행'), top), h('div', { class: 'blendbar' }, h('span', { class: 'hint' }, '현행'), range, h('span', { class: 'hint' }, '변경 후')));
   } else view.append(h('div', { class: 'sbs' }, h('div', null, h('div', { class: 'hint' }, '현행'), img(d.before, '현행')), h('div', null, h('div', { class: 'hint' }, '변경 후'), img(d.after, '변경 후'))));
-  root.append(h('div', { class: 'wrap' },
+  root.append(withPanel(h('div', { class: 'wrap' },
     pageHead({ crumb: [h('a', { href: hash('manage') }, '요청'), ' › ', h('a', { href: hash('manage', String(r.id)) }, `#${r.id}`), ` › 화면 변경 · ${d.screen}`], title: `${d.screen} 화면이 이렇게 바뀝니다`, lead: `요청 #${r.id} 설계에서 승인한 화면 디자인을 지금 화면과 네 가지 방식으로 비교합니다.`,
       actions: modeSeg([['before', '현행'], ['after', '변경 후'], ['side', '나란히'], ['blend', '겹쳐 보기']], mode, (k) => setQuery(r.id, 'compare', { mode: k, screen: d.screen })) }),
-    h('div', { class: 'detail-cols' },
-      h('div', { class: 'dcol' }, h('div', { class: 'box' }, CAP[mode] ?? ''), view),
-      h('div', { class: 'dcol side' },
-        h('div', { class: 'card' }, h('h3', null, '바뀌는 것'), h('div', { class: 'tagrow' }, chip('ok', `추가 ${d.counts.add}`), chip('me', `바뀜 ${d.counts.change}`), chip('bad', `삭제 ${d.counts.remove}`)), d.note ? h('div', null, d.note) : null,
-          d.link ? h('a', { class: 'lnk', href: d.link, target: '_blank', rel: 'noopener' }, 'Claude Design에서 열기 ↗') : null),
-        h('div', { class: 'card' }, h('h3', null, '이 비교는 이렇게 만들어집니다'), h('div', null, '현행은 에이전트가 실제 화면을 그대로 찍어 오고, 변경 후는 같은 화면 위에 디자인으로 고쳐 그린 것입니다. 승인하면 이 비교가 요청에 저장되어 나중에 히스토리에서 같은 모습으로 다시 볼 수 있습니다.'),
-          h('button', { class: 'btn', onclick: () => nav(hash('manage', String(r.id))) }, '‹ 요청 상세로 돌아가기')),
-        null))));
+    h('div', { class: 'dcol' }, h('div', { class: 'box' }, CAP[mode] ?? ''), view)),
+    sidePanel({ title: '비교 설명', fold: 'compare', body: [
+      h('div', { class: 'card' }, h('h3', null, '바뀌는 것'), h('div', { class: 'tagrow' }, chip('ok', `추가 ${d.counts.add}`), chip('me', `바뀜 ${d.counts.change}`), chip('bad', `삭제 ${d.counts.remove}`)), d.note ? h('div', null, d.note) : null,
+        d.link ? h('a', { class: 'lnk', href: d.link, target: '_blank', rel: 'noopener' }, 'Claude Design에서 열기 ↗') : null),
+      h('div', { class: 'card' }, h('h3', null, '이 비교는 이렇게 만들어집니다'), h('div', null, '현행은 에이전트가 실제 화면을 그대로 찍어 오고, 변경 후는 같은 화면 위에 디자인으로 고쳐 그린 것입니다. 승인하면 이 비교가 요청에 저장되어 나중에 히스토리에서 같은 모습으로 다시 볼 수 있습니다.'),
+        h('button', { class: 'btn', onclick: () => nav(hash('manage', String(r.id))) }, '‹ 요청 상세로 돌아가기'))] })));
 }

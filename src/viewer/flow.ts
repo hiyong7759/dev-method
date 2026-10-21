@@ -3,7 +3,7 @@
  * @why 사용자가 앱으로 이루려는 일(사용 시나리오)을 단계 순서대로, 갈라지는 길과 되돌아가는 길까지 한눈에 보게 한다. 화면이 아니라 일이 기준이라, 한 화면 안의 패널이나 오버레이, 여러 화면에 걸친 일을 같은 모양으로 그린다.
  * @contract model.scenarios(extract가 @does의 시나리오#단계·다음 단계·조건에서 계산)를 그대로 그린다. 기본 흐름은 가로 한 줄, 갈래는 갈라지는 단계 아래, 되돌아가는 길은 위쪽 점선 곡선이다. 여기서는 흐름을 새로 계산하지 않는다.
  */
-import { h, filterChips, sideList, pageHead, chip, tag, rv, sidePanel } from './util.js';
+import { h, filterChips, sideList, pageHead, chip, tag, rv, sidePanel, buls, type BulKind } from './util.js';
 import { reviewPanel } from './review.js';
 import { hash, nav } from './route.js';
 import type { Model, ReportRow, RequestView, Scenario, ScenarioStep } from '../types.js';
@@ -40,7 +40,7 @@ function drawArrows(area: HTMLElement, sc: Scenario): void {
   const svg = document.createElementNS(SVG, 'svg');
   svg.setAttribute('class', 'farrows');
   svg.setAttribute('width', String(area.scrollWidth)); svg.setAttribute('height', String(area.scrollHeight));
-  svg.innerHTML = '<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style="fill:var(--accent)"/></marker><marker id="ahl" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style="fill:var(--dim2)"/></marker><marker id="aha" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style="fill:var(--amber)"/></marker></defs>';
+  svg.innerHTML = '<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style="fill:var(--accent)"/></marker><marker id="ahl" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style="fill:var(--dim2)"/></marker><marker id="aha" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" style="fill:var(--pink)"/></marker></defs>';
   const el = (id: string): DOMRect | null => area.querySelector(`[data-id="${CSS.escape(id)}"]`)?.getBoundingClientRect() ?? null;
   const put = (d: string, color: string, marker: string, dashed: boolean): void => {
     const p = document.createElementNS(SVG, 'path');
@@ -70,12 +70,12 @@ function drawArrows(area: HTMLElement, sc: Scenario): void {
         const between = [...area.querySelectorAll('[data-id]')].some((o) => { const r = o.getBoundingClientRect(); return o !== area.querySelector(`[data-id="${CSS.escape(e.to)}"]`) && Math.abs(r.left - a.left) < 6 && r.top > a.bottom - 1 && r.bottom < b.top + 1; });
         if (between) {
           const gx = X(a.right) + 20, y1 = Y(a.top + a.height / 2), y2 = Y(b.top + b.height / 2);
-          put(`M${X(a.right)} ${y1} L${gx} ${y1} L${gx} ${y2} L${X(b.right)} ${y2}`, 'var(--amber)', 'aha', false);
-        } else put(`M${X(a.left + a.width / 2)} ${Y(a.bottom)} L${X(b.left + b.width / 2)} ${Y(b.top)}`, 'var(--amber)', 'aha', false);
+          put(`M${X(a.right)} ${y1} L${gx} ${y1} L${gx} ${y2} L${X(b.right)} ${y2}`, 'var(--pink)', 'aha', false);
+        } else put(`M${X(a.left + a.width / 2)} ${Y(a.bottom)} L${X(b.left + b.width / 2)} ${Y(b.top)}`, 'var(--pink)', 'aha', false);
       } else if (b.left > a.left) {
         // 오른쪽 열로 간다(기본 흐름이거나 갈래에서 합류)
         const x1 = X(a.right), y1 = Y(a.top + a.height / 2), x2 = X(b.left), y2 = Y(b.top + b.height / 2), dx = Math.max(24, (x2 - x1) / 2);
-        put(`M${x1} ${y1} C${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`, st.main ? 'var(--accent)' : 'var(--amber)', st.main ? 'ah' : 'aha', false);
+        put(`M${x1} ${y1} C${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`, st.main ? 'var(--accent)' : 'var(--pink)', st.main ? 'ah' : 'aha', false);
       }
     }
   }
@@ -105,7 +105,9 @@ function scenarioCard(model: Model, sc: Scenario, picked: boolean, pick: () => v
   const reviews = reviewsOf(model, sc);
   const reqs = requestsOf(model, sc);
   const card = h('div', { class: `scn${picked ? ' picked' : ''}`, onclick: pick },
-    h('div', { class: 'scn-h' }, h('span', { class: 'scn-t' }, sc.name),
+    h('div', { class: 'scn-h' },
+      buls([...(reqs.length ? [{ kind: 'ing' as BulKind, label: '요청 진행 중' }] : []), ...(reviews.length ? [{ kind: 'rev' as BulKind, label: '확인 필요' }] : []), ...(hasBranch(sc) ? [{ kind: 'br' as BulKind, label: '갈래 있음' }] : [])]),
+      h('span', { class: 'scn-t' }, sc.name),
       reqs.map((r) => chip(r.turn === 'user' ? 'me' : 'ag', `요청 #${r.id} ${r.stepLabel}`)),
       chip('dim', `단계 ${mains.length}${sc.steps.length > mains.length ? ` · 갈래 ${sc.steps.length - mains.length}` : ''}`),
       h('span', { class: 'grow' }),
@@ -157,18 +159,18 @@ function scenarioPanel(model: Model, sc: Scenario, onClose: () => void): HTMLEle
 export function flowView(root: HTMLElement, { model, domain, kind, selected, review, onChange }: { model: Model; domain: string; kind: string; selected: string; review: string; onChange: () => void }): void {
   const go = (p: Record<string, string | undefined>): void => nav(hash('flow', '', { domain: domain || undefined, kind: kind || undefined, sc: selected || undefined, ...p }));
   const doms = [...new Set(model.scenarios.map((s) => s.domain).filter(Boolean))];
-  const KINDS: { key: string; label: string; test: (s: Scenario) => boolean }[] = [
+  const KINDS: { key: string; label: string; bul?: BulKind; test: (s: Scenario) => boolean }[] = [
     { key: '', label: '전체', test: () => true },
-    { key: 'request', label: '요청 진행 중', test: (s) => requestsOf(model, s).length > 0 },
-    { key: 'review', label: '확인 필요', test: (s) => reviewsOf(model, s).length > 0 },
-    { key: 'branch', label: '갈래 있음', test: hasBranch },
+    { key: 'request', label: '요청 진행 중', bul: 'ing', test: (s) => requestsOf(model, s).length > 0 },
+    { key: 'review', label: '확인 필요', bul: 'rev', test: (s) => reviewsOf(model, s).length > 0 },
+    { key: 'branch', label: '갈래 있음', bul: 'br', test: hasBranch },
   ];
   const byDomain = model.scenarios.filter((s) => !domain || s.domain === domain);
   const test = KINDS.find((k) => k.key === kind) ?? KINDS[0];
   const shown = byDomain.filter(test.test);
   const groups = [...new Set(shown.map((s) => s.domain))];
   const list = sideList('도메인으로 보기', [{ key: '', label: '전체', count: model.scenarios.length }, ...doms.map((d) => ({ key: d, label: d, count: model.scenarios.filter((s) => s.domain === d).length }))], domain, (d) => go({ domain: d || undefined, sc: undefined, review: undefined }));
-  const chips = filterChips(KINDS.map((k) => ({ key: k.key, label: k.label, count: byDomain.filter(k.test).length })), kind, (k) => go({ kind: k || undefined }));
+  const chips = filterChips(KINDS.map((k) => ({ key: k.key, label: k.label, bul: k.bul, count: byDomain.filter(k.test).length })), kind, (k) => go({ kind: k || undefined }));
   const picked = model.scenarios.find((s) => s.name === selected);
   const reviewing = review ? model.scenarios.find((s) => s.name === review) : undefined;
   const panel = reviewing

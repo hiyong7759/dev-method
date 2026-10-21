@@ -33,7 +33,7 @@ export function glossaryView(root: HTMLElement, { model, term }: { model: Model;
             h('div', { class: 'termtip static' }, h('b', null, model.glossary[0]?.term ?? '설계 승인'), h('div', null, model.glossary[0]?.meaning ?? ''), h('span', { class: 'lnk' }, '용어집에서 보기 ›'))),
           h('div', { class: 'hint' }, '용어에 마우스를 올리면(휴대폰은 한 번 누르면) 짧은 설명과 용어집 링크가 나옵니다.')),
         h('div', { class: 'card' }, h('h3', null, '무엇을 올리고 무엇을 안 올리나'),
-          h('ul', { class: 'bul' },
+          h('ul', { class: 'glist' },
             h('li', null, '올립니다: 이 방법과 도구에서 우리가 만든 말(설계 승인, 겹침, 요청 없는 변경 등)'),
             h('li', null, '올리지 않습니다: 일반 개발 용어, 화면에서 보이는 일반 단어'),
             h('li', null, '사람이 보는 글은 일상 말을 쓰고, 소스 태그나 도구 이름 같은 안쪽 이름은 그대로 둡니다'),

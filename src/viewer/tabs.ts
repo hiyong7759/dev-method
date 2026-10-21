@@ -4,8 +4,8 @@
  * @contract 각 탭은 screen.ts가 만든 제어 객체(ctx.ts의 ScreenCtx)를 받아 요소를 만들어 돌려준다. 상태를 바꾼 뒤에는 c.render()로 다시 그린다.
  */
 import { stepLabel } from './steps.js';
-import { h, get, post, fmt, errorText, filterChips, chip, tag, toast } from './util.js';
-import type { Kid } from './util.js';
+import { h, get, post, fmt, errorText, filterChips, chip, tag, toast, buls } from './util.js';
+import type { Kid, BulKind } from './util.js';
 import { hash, nav } from './route.js';
 import type { ScreenCtx } from './ctx.js';
 import type { HistoryItem, RequestView, Scenario, Spec } from '../types.js';
@@ -70,6 +70,17 @@ export function nowTab(c: ScreenCtx): HTMLElement {
 // ── 히스토리 ─────────────────────────────────────────
 /** 거르기 이름 */
 const HFILTERS = ['전체', '설계', '테스트', '변경(커밋)'] as const;
+/** 거르기 칩의 점(카드의 점과 짝) */
+const HBUL: Record<string, BulKind> = { 설계: 'des', 테스트: 'tst', '변경(커밋)': 'imp', '요청 없는 변경': 'nrq' };
+/** 요청 카드의 구분 점: 설계·구현(커밋)·테스트가 있거나 지금 그 단계인 것 */
+function bulsOfRequest(r: RequestView): { kind: BulKind; label: string }[] {
+  const has = (k: string): boolean => r.events.some((e) => e.kind === k);
+  return [
+    ...(r.stage === 'design' || has('design-approved') ? [{ kind: 'des' as BulKind, label: '설계' }] : []),
+    ...(r.stage === 'impl' || r.commits?.length ? [{ kind: 'imp' as BulKind, label: '변경(커밋)' }] : []),
+    ...(r.stage === 'test' || has('test-approved') ? [{ kind: 'tst' as BulKind, label: '테스트' }] : []),
+  ];
+}
 /** 요청 한 건의 기록 타임라인: 요청, 설계 승인, 구현, 테스트 승인 */
 function requestTimeline(r: RequestView): HTMLElement {
   const d = r.design;
@@ -103,17 +114,17 @@ export function history(c: ScreenCtx): HTMLElement {
       const f = c.hFilter;
       const list = mine.filter((r) => (f === '설계' ? r.stage === 'design' : f === '테스트' ? r.stage === 'test' : f === '변경(커밋)' ? !!r.commits?.length : f !== '요청 없는 변경'));
       const open = new Set<number>(JSON.parse(sessionStorage.getItem('hopen') || '[]'));
-      chipsEl.replaceChildren(filterChips([...HFILTERS.map((k) => ({ key: k as string, label: k, count: k === '전체' ? mine.length : mine.filter((r) => (k === '설계' ? r.stage === 'design' : k === '테스트' ? r.stage === 'test' : !!r.commits?.length)).length })), { key: '요청 없는 변경', label: '요청 없는 변경', count: untracked.length }], f, (k) => { c.hFilter = k; draw(); }));
+      chipsEl.replaceChildren(filterChips([...HFILTERS.map((k) => ({ key: k as string, label: k, count: k === '전체' ? mine.length : mine.filter((r) => (k === '설계' ? r.stage === 'design' : k === '테스트' ? r.stage === 'test' : !!r.commits?.length)).length })), { key: '요청 없는 변경', label: '요청 없는 변경', count: untracked.length }].map((k) => ({ ...k, bul: HBUL[k.key] })), f, (k) => { c.hFilter = k; draw(); }));
       holder.replaceChildren(...[
         ...(f === '요청 없는 변경' ? [] : list.map((r) => {
           const ended = r.stage === 'done';
           const isOpen = open.has(r.id);
           return h('div', { class: `hcard${r.turn === 'user' ? ' mine' : ''}` },
             h('button', { class: 'hhead', onclick: () => { if (ended) { if (isOpen) open.delete(r.id); else open.add(r.id); sessionStorage.setItem('hopen', JSON.stringify([...open])); draw(); } else nav(hash('manage', String(r.id))); } },
-              h('span', { class: 'rid' }, `#${r.id}`), h('b', null, r.title), h('span', { class: 'grow' }), chip(r.turn === 'user' ? 'me' : r.turn === 'agent' ? 'ag' : 'ok', r.stepLabel), ended ? h('span', { class: 'hint' }, fmt(r.events[r.events.length - 1].at).slice(0, 5)) : null),
+              buls(bulsOfRequest(r)), h('span', { class: 'rid' }, `#${r.id}`), h('b', null, r.title), h('span', { class: 'grow' }), chip(r.turn === 'user' ? 'me' : r.turn === 'agent' ? 'ag' : 'ok', r.stepLabel), ended ? h('span', { class: 'hint' }, fmt(r.events[r.events.length - 1].at).slice(0, 5)) : null),
             ended && isOpen ? requestTimeline(r) : null);
         })),
-        ...(f === '전체' || f === '요청 없는 변경' ? untracked.map((u) => h('div', { class: 'hcard untr' }, h('div', { class: 'rm' }, chip('me', '요청 없는 변경'), h('b', null, u.title)),
+        ...(f === '전체' || f === '요청 없는 변경' ? untracked.map((u) => h('div', { class: 'hcard untr' }, h('div', { class: 'rm' }, buls([{ kind: 'nrq', label: '요청 없는 변경' }]), h('b', null, u.title)),
           h('div', { class: 'hint' }, `${fmt(u.at)} · ${u.author} · `, h('span', { class: 'code' }, u.hash)), h('div', { class: 'hint' }, '커밋에 요청 번호가 없어 이렇게 남았습니다. ',
             h('button', { class: 'btn sm', onclick: () => { post('/__spec/request/record', { hash: u.hash, title: u.title }).then(() => { toast('요청으로 기록했습니다'); }).catch((e: unknown) => toast(errorText(e))); } }, '요청으로 기록')))) : []),
       ]);

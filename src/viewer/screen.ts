@@ -3,7 +3,7 @@
  * @why 왼쪽은 실제로 동작하는 화면(iframe), 오른쪽은 개요·현행·히스토리 패널로, 화면을 눌러 보면서 그 화면의 존재 이유·하는 일·구조·변경 이력을 한자리에서 확인하게 한다. 정보를 고르면 같은 정보 상세 패널이 열린다.
  * @contract 상태와 동작을 ctx.ts의 ScreenCtx 객체 하나에 모아 탭들(tabs.ts)에 넘긴다. 화면 안에서 다른 화면으로 가면 이 화면 설계서도 그 화면으로 따라간다(go 콜백으로 주소를 바꾼다). 메모와 화면 승인은 없다(변경은 요청 단위로 한다).
  */
-import { h, matchScreen, chip } from './util.js';
+import { h, matchScreen, chip, sidePanel } from './util.js';
 import { infoDrawer } from './info.js';
 import { runStep } from './steps.js';
 import { overview, nowTab, history } from './tabs.js';
@@ -73,10 +73,10 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   const live = h('div', { class: 'live' },
     h('div', { class: 'livebar' }, h('span', { class: 'badge-live' }, '실제 화면'), urlEl, h('span', { class: 'grow' }), okEl),
     h('div', { class: 'stage' }, iframe, marks));
-  const side = h('aside', { class: 'side' });
-  const shead = h('div', { class: 'shead' }), banners = h('div', { class: 'banners' }), tabsEl = h('div', { class: 'tabs' });
+  // 오른쪽 패널은 공통 패널 틀(늘 떠 있는 패널이라 접기 토글). 다시 그릴 때마다 틀째 바꿔 끼운다
+  let side: HTMLElement = h('aside', { class: 'sidepanel' });
+  const banners = h('div', { class: 'banners' }), tabsEl = h('div', { class: 'tabs' });
   const tbody = h('div', { class: 'tbody' });
-  side.append(shead, banners, tabsEl, tbody);
   root.append(live, side);
 
   // ── 실제 화면 ──
@@ -101,40 +101,31 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   // ── 표시 ──
   /** 이 화면을 범위로 하는 진행 중인 요청들 */
   const requestsHere = (): Model['requests'] => c.model.requests.filter((r) => r.stage !== 'done' && r.stage !== 'cancelled' && r.scope.screens.includes(c.name));
-  function headEl(): HTMLElement {
-    const sc = c.sc();
-    const reqs = requestsHere();
-    const el = h('div', { class: 'ph pp' }, h('div', { class: 'r1' }, h('span', { class: 'nm' }, sc.name), reqs.length ? chip('ag', `요청 진행 중 ${reqs.length}건`) : null),
-      h('p', { class: 'lead' }, sc.why || '존재 이유 미작성', sc.route ? [' · ', h('span', { class: 'mono' }, sc.route)] : null));
-    return el;
-  }
   function bannerEl(): HTMLElement | null {
     const mine = requestsHere().filter((r) => r.turn === 'user');
     if (!mine.length) return null;
     const r = mine[0];
     return h('div', { class: 'mybar' }, h('b', null, '내 차례'), h('span', null, `#${r.id} ${r.stepLabel}`), h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => nav(hash('manage', String(r.id))) }, '관리에서 열기 ›'));
   }
-  function body(): void {
-    c.specs = ordered();
-    tbody.replaceChildren();
-    if (c.drawer) {
-      [shead, banners, tabsEl].forEach((n) => n.classList.add('hidden'));
-      tbody.style.padding = '0';
-      const d = infoDrawer(c.model, c.drawer.info, { currentScreen: c.name, onClose: () => { c.drawer = null; render(); }, openInfo: (n) => { c.drawer = { info: n }; render(); }, openScreen: (n) => { c.drawer = null; c.go(n); } });
-      tbody.replaceChildren(d);
-      return;
-    }
-    [shead, banners, tabsEl].forEach((n) => n.classList.remove('hidden'));
-    tbody.style.padding = '';
-    const views: Record<TabName, (ctx: ScreenCtx) => HTMLElement> = { overview, now: nowTab, history };
-    tbody.append(views[c.tab](c));
-  }
+  /** 오른쪽 패널을 다시 그린다. 정보 상세를 열었으면 그 패널(눌러서 여는 패널)이 통째로 대신 들어온다 */
   function render(): void {
-    shead.replaceChildren(headEl());
-    const b = bannerEl();
-    banners.replaceChildren(...(b ? [b] : []));
-    tabsEl.replaceChildren(...TABS.map(([k, l]) => h('button', { class: c.tab === k ? 'sel' : '', onclick: () => c.setTab(k) }, l)));
-    body();
+    let next: HTMLElement;
+    if (c.drawer) {
+      next = infoDrawer(c.model, c.drawer.info, { currentScreen: c.name, onClose: () => { c.drawer = null; render(); }, openInfo: (n) => { c.drawer = { info: n }; render(); }, openScreen: (n) => { c.drawer = null; c.go(n); } });
+    } else {
+      const sc = c.sc();
+      const reqs = requestsHere();
+      const b = bannerEl();
+      c.specs = ordered();
+      banners.replaceChildren(...(b ? [b] : []));
+      tabsEl.replaceChildren(...TABS.map(([k, l]) => h('button', { class: c.tab === k ? 'sel' : '', onclick: () => c.setTab(k) }, l)));
+      const views: Record<TabName, (ctx: ScreenCtx) => HTMLElement> = { overview, now: nowTab, history };
+      tbody.replaceChildren(views[c.tab](c));
+      next = sidePanel({ title: sc.name, badge: reqs.length ? chip('ag', `요청 진행 중 ${reqs.length}건`) : null, fold: 'screen',
+        sub: [sc.why || '존재 이유 미작성', sc.route ? [' · ', h('span', { class: 'mono' }, sc.route)] : null], body: [banners, tabsEl, tbody] });
+    }
+    side.replaceWith(next);
+    side = next;
     status();
   }
   c.render = render;
