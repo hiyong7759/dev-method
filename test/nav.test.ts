@@ -41,3 +41,14 @@ test('여러 화면이 함께 쓰는 파일의 이동은 한 번만 경고하고
   fs.writeFileSync(path.join(src, '가.tsx'), screen('가', '/a', '신청 | 신청 단추를 누른다') + `import { go } from './shared';\nexport const a = go;\n`);
   assert.deepEqual(detectNav(src, root).warnings, []);
 });
+
+test('삼항식의 두 갈래와 location 대입·assign 이동도 읽는다', () => {
+  const { root, src } = tempTsProject();
+  fs.writeFileSync(path.join(src, 'a.tsx'), screen('가', '/a', '나 | 단추\n * @to 다 | 단추\n * @to 라 | 단추') + `export const a = (navigate: (p: string) => void, ok: boolean): void => { navigate(ok ? '/b?x=1' : '/c'); window.location.href = '/d'; };\n`);
+  fs.writeFileSync(path.join(src, 'b.tsx'), screen('나', '/b'));
+  fs.writeFileSync(path.join(src, 'c.tsx'), screen('다', '/c'));
+  fs.writeFileSync(path.join(src, 'd.tsx'), screen('라', '/d'));
+  const r = detectNav(src, root);
+  assert.deepEqual(r.edges.map((e) => `${e.from}→${e.to}`).sort(), ['가→나', '가→다', '가→라']);
+  assert.deepEqual(r.warnings, []);
+});

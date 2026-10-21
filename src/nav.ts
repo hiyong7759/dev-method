@@ -46,6 +46,15 @@ export function detectNav(scanRoot: string, root: string, out: Extracted = extra
     return null;
   };
 
+  /** 글자 상수를 모두 읽는다. 삼항식(a ? '/x' : '/y')은 두 갈래를 다 돌려준다 */
+  const strsOf = (n: tsTypes.Node | undefined): string[] => {
+    if (!n) return [];
+    if (ts.isParenthesizedExpression(n)) return strsOf(n.expression);
+    if (ts.isConditionalExpression(n)) return [...strsOf(n.whenTrue), ...strsOf(n.whenFalse)];
+    const v = strOf(n);
+    return v == null ? [] : [v];
+  };
+
   // 라우트 표: 이름 → 주소 패턴
   const table = new Map<string, string>();
   for (const sc of out.screens) for (const rel of sc.files) {
@@ -94,11 +103,12 @@ export function detectNav(scanRoot: string, root: string, out: Extracted = extra
             // 대상이 글자 상수면(예: 'reports') 그대로, 변수면 :x로 둔다. 글자 상수여야 고정 주소(#/manage/reports)와 맞춰 볼 수 있다
             if (view) add(`${hashPrefix}#/${view}${lit === '' ? '' : `/${lit ?? ':x'}`}`, n, `${callee}('${view}')`);
           } else if (helpers.has(callee)) { const key = strOf(n.arguments[0]); const addr = key ? table.get(key) : undefined; if (key && addr) add(addr, n, `${callee}('${key}')`); }
-          else if (callee === 'navigate' || callee === 'nav') { const v = strOf(n.arguments[0]); if (v && v.startsWith('/')) add(v, n, `${callee}("${v}")`); }
+          else if (callee === 'navigate' || callee === 'nav' || ((callee === 'assign' || callee === 'replace') && /location$/.test(ts.isPropertyAccessExpression(n.expression) ? n.expression.expression.getText() : ''))) { for (const v of strsOf(n.arguments[0])) if (v.startsWith('/')) add(v, n, `${callee}("${v}")`); }
+        } else if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && /(^|\.)location(\.href)?$/.test(n.left.getText())) {
+          for (const v of strsOf(n.right)) if (v.startsWith('/')) add(v, n, `location = "${v}"`);
         } else if (ts.isJsxAttribute(n) && ts.isIdentifier(n.name) && n.name.text === 'to' && n.initializer) {
           const e = ts.isJsxExpression(n.initializer) ? n.initializer.expression : n.initializer;
-          const v = strOf(e);
-          if (v && v.startsWith('/')) add(v, n, `to="${v}"`);
+          for (const v of strsOf(e)) if (v.startsWith('/')) add(v, n, `to="${v}"`);
         }
         ts.forEachChild(n, visit);
       };
