@@ -1,0 +1,30 @@
+{
+  "id": 19,
+  "title": "옛 화면 상태·승인 기록(status) 제거",
+  "source": "user",
+  "origin": {
+    "text": "남은 시안·소스 작업 계속",
+    "channel": "대화",
+    "at": "2026-10-21T14:24:25.406Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T14:24:25.406Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

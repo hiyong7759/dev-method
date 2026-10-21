@@ -3,7 +3,7 @@
  * @why 화면 파일마다 요소 만들기, 서버 부르기, 주소 맞추기, 표시용 글을 따로 만들면 서로 달라지므로 한 곳에 둔다.
  * @contract finish(src/finish.ts)가 화면 이름 맞추기(matchScreen)를 같이 쓴다. 브라우저에서 돌 수 있는 코드만 둔다.
  */
-import type { Model, ModelScreen, Role, ScreenStatus } from '../types.js';
+import type { Model, ModelScreen, Role } from '../types.js';
 
 /** 이벤트 처리기(on클릭 등)들 */
 type Handlers = { [K in keyof GlobalEventHandlersEventMap as `on${K}`]?: (e: GlobalEventHandlersEventMap[K]) => void };
@@ -150,13 +150,6 @@ export const fmt = (iso: string): string => { const d = new Date(iso); const p =
 export const ROLE_LABEL: Record<Role, string> = { input: '입력', shown: '보임', modify: '수정', judge: '판단' };
 /** 정보가 하는 일을 보이는 순서 */
 export const ROLES: Role[] = ['input', 'shown', 'modify', 'judge'];
-
-/** 화면 상태 이름표의 색 */
-const STATUS_TONE: Record<string, Tone> = { dev: 'dim', 'test-requested': 'ag', 'needs-fix': 'bad', approved: 'ok', 'approved-changed': 'me', memo: 'dim' };
-/** 화면 상태를 알리는 작은 이름표 */
-export function statusChip(st: Pick<ScreenStatus, 'status' | 'label'>, extra = ''): HTMLSpanElement {
-  return chip(STATUS_TONE[st.status] ?? 'dim', st.label, extra);
-}
 
 let toastTimer = 0;
 /** 화면 아래에 잠깐 뜨는 안내 */

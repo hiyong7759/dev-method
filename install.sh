@@ -52,7 +52,7 @@ spec)
   CMLINE='node '"$ROOT"'/skills/spec-view/spec.mjs commit-msg "$1" "$(git rev-parse --show-toplevel)" || exit 1'
   if [ ! -f "$CM" ]; then printf '#!/bin/bash\n%s\n' "$CMLINE" > "$CM"; chmod +x "$CM"
   elif ! grep -qF 'spec.mjs commit-msg' "$CM"; then echo "$CMLINE" >> "$CM"; fi
-  [ -f "$P/.spec/.gitignore" ] || printf 'pending-shots.json\npids.json\nsessions.json\n*.log\n' > "$P/.spec/.gitignore"
+  [ -f "$P/.spec/.gitignore" ] || printf 'pids.json\nsessions.json\n*.log\n' > "$P/.spec/.gitignore"
   touch "$ROOT/spec-projects.txt"; grep -qxF "$P" "$ROOT/spec-projects.txt" || echo "$P" >> "$ROOT/spec-projects.txt"
   echo "연결: $P"; echo "설정: $(tr -d '\n' < "$P/.spec/config.json")"
   ;;

@@ -48,7 +48,6 @@ export async function main(argv: string[]): Promise<number | undefined> {
 
   const results: Result[] = [];
   const reveal: Record<string, Record<string, RevealStep[]>> = {}; // 화면 이름 → { 컴포넌트 id → 누르는 순서 } (눌러야 나타나는 컴포넌트를 검사가 직접 찾아 기록)
-  const snaps: Record<string, string> = {}; // 화면 이름 → 저장한 화면 스냅샷 파일 (모두 통과하면 status set test-requested가 기록에 붙인다)
   // warn: 못 맞혀도 막지 않는 항목(검사의 한계 때문에 틀릴 수 있는 것). 경고로 알리고 보고에 쓰게 한다
   const step = (name: string, ok: boolean, detail = '', { warn = false } = {}): void => {
     results.push({ name, ok: ok || warn, warned: !ok && warn, detail });
@@ -110,13 +109,6 @@ export async function main(argv: string[]): Promise<number | undefined> {
           step(`${route} 화면 설계서 "${sc.name}"가 열린다`, shown === sc.name, shown ? '' : '화면 설계서가 열리지 않았다');
           const body = (await page.frameLocator('iframe').locator('body').innerText().catch(() => '')).trim();
           step(`${route} 실제 화면이 열리고 오류가 없다`, errors.length === 0 && body.length > 0, errors.length ? errors.slice(0, 2).join(' / ') : body.length ? '' : '화면 본문이 비어 있다');
-          // 변경 전·후 비교용 화면 스냅샷: 설계서 표시가 없는 실제 화면만 저장한다
-          try {
-            const dir = path.join(root, '.spec', 'shots'); fs.mkdirSync(dir, { recursive: true });
-            const name = `ver-${tag}-${Date.now()}.png`;
-            await page.locator('.stage').screenshot({ path: path.join(dir, name) });
-            snaps[sc.name] = name;
-          } catch { /* 스냅샷 실패는 검사 실패가 아니다 */ }
           await page.locator('.tabs button', { hasText: '컴포넌트' }).click(); await page.waitForTimeout(700);
           const mine: Spec[] = model.specs.filter((x) => x.screens.includes(sc.name) && x.kind === 'dom' && x.anchor);
           let frame: Frame | undefined = page.frames().find((f) => f !== page.mainFrame());
@@ -194,9 +186,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
     fs.mkdirSync(path.dirname(f), { recursive: true });
     fs.writeFileSync(f, JSON.stringify({ ...old, ...reveal }, null, 2) + '\n');
   }
-  if (ok && Object.keys(snaps).length) { fs.mkdirSync(path.join(root, '.spec'), { recursive: true }); fs.writeFileSync(path.join(root, '.spec', 'pending-shots.json'), JSON.stringify(snaps)); }
   console.log(`\n스크린샷: ${out}`);
   const warns = results.filter((r) => r.warned).length;
-  console.log(ok ? `결과: 통과${warns ? ` (경고 ${warns}건 — 막지 않지만 보고에 쓴다)` : ''} — 스크린샷을 눈으로 본 뒤 "테스트 요청"을 쓴다(저장한 화면 스냅샷이 테스트 요청 기록에 붙는다)` : '결과: 실패 — 상태는 "개발 중". 테스트 요청을 내지 않는다');
+  console.log(ok ? `결과: 통과${warns ? ` (경고 ${warns}건 — 막지 않지만 보고에 쓴다)` : ''} — 스크린샷을 눈으로 본 뒤 "request test"로 테스트를 올린다` : '결과: 실패 — 상태는 "개발 중". 테스트 요청을 내지 않는다');
   return ok ? 0 : 1;
 }

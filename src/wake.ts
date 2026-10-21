@@ -9,7 +9,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { readConfig } from './config.js';
 import { loadRequests } from './request.js';
-import { projectRoot } from './status.js';
+import { projectRoot } from './project.js';
 
 /** 이 시간 안에 세션 기록이 바뀌었으면 열려 있는 세션으로 본다 */
 const OPEN_MS = 10 * 60 * 1000;

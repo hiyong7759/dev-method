@@ -10,7 +10,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { transformSync } from 'esbuild';
 import { extractSpecs } from './extract.js';
 import { buildModel } from './model.js';
-import { allStatus, setStatus, setCheck, specDir } from './status.js';
+import { specDir } from './project.js';
 import { screenHistory } from './history.js';
 import { decide } from './report.js';
 import { addRequest, recordUntracked, approveDesign, rejectDesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
@@ -86,12 +86,10 @@ export function specHandler(scanRoot: string): SpecHandler {
         const sc = out.screens.find((s) => s.name === u.searchParams.get('screen'));
         if (!sc) return json(res, { items: [] });
         const m = buildModel(scanRoot);
-        return json(res, { items: screenHistory(scanRoot, sc, allStatus(scanRoot, out)[sc.name], { specs: m.specs, screens: m.screens, infos: m.infos }) });
+        return json(res, { items: screenHistory(scanRoot, sc, { specs: m.specs, screens: m.screens, infos: m.infos }) });
       }
       if (req.method === 'POST') {
         const b = await body(req);
-        // 승인·수정 필요·승인 취소는 사용자가 설계서 보기에서만 남긴다 (에이전트용 status 명령은 이 값들을 거부한다)
-        if (url === '/__spec/status.json') return json(res, setStatus(scanRoot, b.screen as string, b.status as string, { by: 'user', note: String(b.note || ''), shot: /^[\w.-]+\.png$/.test(String(b.shot || '')) ? String(b.shot) : '' }));
         if (url === '/__spec/shot') {
           // 화면 캡처 저장 (설계서 보기가 브라우저에서 찍은 PNG). 이름은 안전한 문자만
           const name = String(b.name || ''), data = String(b.data || '');
@@ -122,7 +120,6 @@ export function specHandler(scanRoot: string): SpecHandler {
         if (url === '/__spec/request/test-approve') { const r = approveTest(scanRoot, Number(b.id), !!b.none); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
         if (url === '/__spec/request/test-problem') { const r = testProblem(scanRoot, Number(b.id), String(b.note || '')); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
         if (url === '/__spec/request/order') { const r = setOrder(scanRoot, Number(b.first), Number(b.other)); wakeOwner(scanRoot, Number(b.other)); return json(res, r); }
-        if (url === '/__spec/check') return json(res, setCheck(scanRoot, b.screen as string, Number(b.index), !!b.done));
       }
       res.statusCode = 404;
       res.end('없음');

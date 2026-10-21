@@ -1,7 +1,7 @@
 /**
  * @spec data-shapes 도구가 주고받는 데이터의 모양
  * @why 소스 주석을 읽는 쪽(extract), 타입을 분석하는 쪽(analyze-ts), 상태·메모·요청을 저장하는 쪽, 설계서 보기 화면이 같은 데이터를 서로 다르게 이해하지 않도록, 모양을 한곳에서 한 번만 정한다.
- * @contract 이 파일의 모양을 바꾸면 그것을 만드는 파일(extract, analyze-ts, nav, status, request, history, model)과 그려 주는 viewer/ 아래 파일이 함께 맞아야 한다. 타입 검사(npm run typecheck)가 어긋난 곳을 알려 준다.
+ * @contract 이 파일의 모양을 바꾸면 그것을 만드는 파일(extract, analyze-ts, nav, request, history, model)과 그려 주는 viewer/ 아래 파일이 함께 맞아야 한다. 타입 검사(npm run typecheck)가 어긋난 곳을 알려 준다.
  */
 
 // ── 소스 주석 태그에서 읽은 것 (extract) ─────────────────────
@@ -146,84 +146,8 @@ export interface Extracted {
   generatedAt: string;
 }
 
-// ── 화면 상태와 승인 기록 (status) ────────────────────────
-
-/** 기록으로 남는 화면 상태: 개발 중, 테스트 요청, 수정 필요, 승인됨 */
-export type RecordedStatus = 'dev' | 'test-requested' | 'needs-fix' | 'approved';
-
-/** 기록 상태에 계산으로 얻는 "승인 후 변경됨"을 더한 것 */
-export type StatusName = RecordedStatus | 'approved-changed';
-
 /** 기록을 남긴 쪽: 에이전트 또는 사용자 */
 export type Actor = 'agent' | 'user';
-
-/** 상태가 바뀐 한 번의 기록 */
-export interface StatusEvent {
-  /** 그때 남긴 상태 */
-  status: RecordedStatus;
-  /** 누가 남겼나 */
-  by: Actor;
-  /** 언제 */
-  at: string;
-  /** 그때의 소스 버전(커밋) */
-  commit: string;
-  /** 함께 남긴 한 줄 메모 */
-  note: string;
-  /** 그때 저장한 화면 스냅샷 파일 이름 */
-  shot: string;
-}
-
-/** .spec/status.json에 저장되는 화면 하나의 기록 */
-export interface StatusRecord {
-  /** 마지막으로 남긴 상태 */
-  status: RecordedStatus;
-  /** 마지막으로 남긴 쪽 */
-  by: Actor;
-  /** 마지막으로 남긴 시각 */
-  at: string;
-  /** 그때의 소스 버전 */
-  commit: string;
-  /** 그때 저장하지 않은 변경이 있었는가 */
-  dirty: boolean;
-  /** 그때 화면 파일들의 내용 해시(나중에 달라졌는지 비교) */
-  hash: string;
-  /** 함께 남긴 한 줄 메모 */
-  note: string;
-  /** 그때 저장한 화면 스냅샷 파일 이름 */
-  shot: string;
-  /** 확인 목록의 체크 상태(번호별) */
-  checks: Record<string, boolean>;
-  /** 지금까지 바뀐 기록 전체 */
-  history: StatusEvent[];
-}
-
-/** 화면 하나의 지금 상태. 기록이 없으면 개발 중이고 나머지는 빈 값 */
-export interface ScreenStatus {
-  /** 화면 이름 */
-  screen: string;
-  /** 지금 상태(승인 뒤 소스가 바뀌었으면 승인 후 변경됨) */
-  status: StatusName;
-  /** 화면에 쓰는 상태 이름 */
-  label: string;
-  /** 변경 감지에 쓰는 파일 수 */
-  files: number;
-  /** 확인 목록의 체크 상태 */
-  checks: Record<string, boolean>;
-  /** 마지막으로 남긴 쪽(기록이 없으면 빈 값) */
-  by: Actor | '';
-  /** 마지막으로 남긴 시각 */
-  at: string;
-  /** 마지막으로 남긴 때의 소스 버전 */
-  commit: string;
-  /** 함께 남긴 한 줄 메모 */
-  note: string;
-  /** 그때 저장한 화면 스냅샷 파일 이름 */
-  shot: string;
-  /** 기록 뒤에 화면 소스가 바뀌었는가 */
-  changedSinceRecord: boolean;
-  /** 지금까지 바뀐 기록 전체 */
-  history: StatusEvent[];
-}
 
 // ── 변경 요청 (request) ─────────────────────────────────
 
@@ -614,28 +538,8 @@ export interface HistoryCommit {
   touchedInfos: { name: string; fields: string[] }[];
 }
 
-/** 이력의 상태 기록 한 건(테스트 요청, 승인, 수정 필요) */
-export interface HistoryStatus {
-  /** 이력 항목의 종류 */
-  type: 'status';
-  /** 어떤 상태 기록인가 */
-  kind: string;
-  /** 그때의 소스 버전 */
-  hash: string;
-  /** 남긴 시각 */
-  at: string;
-  /** 남긴 사람(사용자, 에이전트) */
-  author: string;
-  /** 함께 남긴 한 줄 메모 */
-  title: string;
-  /** 결정 줄들(상태 기록에는 없음) */
-  decisions: string[];
-  /** 기각 줄들(상태 기록에는 없음) */
-  rejections: string[];
-}
-
 /** 이력 한 건: 커밋 또는 상태 기록 */
-export type HistoryItem = HistoryCommit | HistoryStatus;
+export type HistoryItem = HistoryCommit;
 
 // ── 설계서 보기가 읽는 모델 (model) ────────────────────────
 
@@ -733,8 +637,6 @@ export interface ScreenField {
 
 /** 화면 한 장에 대한 설계서 보기 모델 */
 export interface ModelScreen extends ScreenTag {
-  /** 지금 상태 */
-  status: ScreenStatus;
   /** 이 화면이 다루는 정보 필드들 */
   fields: ScreenField[];
 }
@@ -789,12 +691,6 @@ export interface ModelSummary {
   infos: number;
   /** 정보 관계 수 */
   relations: number;
-  /** 사용자 확인을 기다리는 화면 수 */
-  waiting: number;
-  /** 테스트 요청 상태인 화면 수 */
-  testRequested: number;
-  /** 승인 뒤 바뀐 화면 수 */
-  changedAfterApproval: number;
   /** 내 차례인 요청 수 */
   requestsMine: number;
   /** 에이전트에게 아직 전달하지 않은 메모 수 */
@@ -846,8 +742,6 @@ export interface Model {
   untracked: UntrackedCommit[];
   /** 개수 모음 */
   summary: ModelSummary;
-  /** 상태 이름의 화면용 글자 */
-  labels: Record<string, string>;
 }
 
 // ── 프로젝트 설정 (.spec/config.json) ────────────────────

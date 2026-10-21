@@ -5,7 +5,7 @@ description: 화면·컴포넌트·정보(타입)·로직 모듈을 만들거나
 
 # 설계서 보기 (소스가 설계서)
 
-목적: 설계서를 따로 쓰지 않는다. 소스의 메타정보(존재 이유)와 도구(`extract`, `analyze-ts`, `nav`, 설계서 보기 서버 `serve`)가 설계서를 만든다. 도구 소스는 저장소 맨 위 `src/`(TypeScript)에 있고, 이 폴더의 `spec.mjs`가 입구다: `node <이 폴더>/spec.mjs <명령> …` (명령: extract, analyze-ts, nav, finish, status, request, report, glossary, open, serve, precommit). 아래 순서를 건너뛰지 않는다.
+목적: 설계서를 따로 쓰지 않는다. 소스의 메타정보(존재 이유)와 도구(`extract`, `analyze-ts`, `nav`, 설계서 보기 서버 `serve`)가 설계서를 만든다. 도구 소스는 저장소 맨 위 `src/`(TypeScript)에 있고, 이 폴더의 `spec.mjs`가 입구다: `node <이 폴더>/spec.mjs <명령> …` (명령: extract, analyze-ts, nav, finish, request, report, glossary, open, serve, precommit). 아래 순서를 건너뛰지 않는다.
 
 ## 설계서 보기
 

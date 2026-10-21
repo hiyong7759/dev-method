@@ -6,7 +6,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { specDir } from './status.js';
+import { specDir } from './project.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { addReport } from './report.js';
 import type { Actor, DesignChange, DesignScreen, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';

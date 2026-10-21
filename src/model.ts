@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { extractSpecs } from './extract.js';
 import { analyzeTs } from './analyze-ts.js';
-import { allStatus, projectRoot, LABEL } from './status.js';
+import { projectRoot } from './project.js';
 import { loadRequests, describeRequests } from './request.js';
 import { untrackedCommits } from './history.js';
 import { loadReports, reportRows, openCount } from './report.js';
@@ -88,7 +88,6 @@ export function buildModel(scanRoot: string): Model {
   const out = extractSpecs(scanRoot);
   const root = projectRoot(scanRoot);
   const rel = (f: string): string => path.relative(scanRoot, path.join(root, f)); // 분석 경로(프로젝트 루트 기준) → 소스 폴더 기준
-  const status = allStatus(scanRoot, out);
   let revealMap: Record<string, Record<string, RevealStep[]>> = {};
   try { revealMap = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'reveal.json'), 'utf8')); } catch { /* 없음 */ }
   for (const sp of out.specs) {
@@ -191,7 +190,7 @@ export function buildModel(scanRoot: string): Model {
     const specs = specsOfScreen(s.name);
     const fields: ScreenField[] = [...screenFields[s.name].values()].map((f) => ({ info: f.info, prop: f.prop, specs: [...f.specs] }));
     return {
-      ...s, status: status[s.name], fields,
+      ...s, fields,
     };
   });
 
@@ -231,11 +230,7 @@ export function buildModel(scanRoot: string): Model {
     requests, untracked: untrackedCommits(scanRoot, rawRequests),
     summary: {
       screens: screens.length, infos: infos.length, relations: relations.length,
-      waiting: screens.filter((s) => ['test-requested', 'approved-changed'].includes(s.status.status)).length,
-      testRequested: screens.filter((s) => s.status.status === 'test-requested').length,
-      changedAfterApproval: screens.filter((s) => s.status.status === 'approved-changed').length,
       requestsMine: requests.filter((r) => r.turn === 'user').length, needCheck: out.warnings.length, reportsOpen: openCount(rows),
     },
-    labels: LABEL,
   };
 }

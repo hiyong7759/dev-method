@@ -5,8 +5,8 @@
  */
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { projectRoot } from './status.js';
-import type { HistoryCommit, HistoryItem, HistoryPlace, ModelInfo, Request, ScreenStatus, ScreenTag, Spec, UntrackedCommit } from './types.js';
+import { projectRoot } from './project.js';
+import type { HistoryCommit, HistoryItem, HistoryPlace, ModelInfo, Request, ScreenTag, Spec, UntrackedCommit } from './types.js';
 
 /** 커밋 메시지를 쪼개는 구분 글자 */
 const SEP = '\x1e', FIELD = '\x1f';
@@ -58,8 +58,8 @@ export interface HistoryContext {
   infos?: ModelInfo[];
 }
 
-/** 그 화면의 소스 파일을 바꾼 커밋과 상태 기록을 합쳐 최신순으로 돌려준다 */
-export function screenHistory(scanRoot: string, sc: ScreenTag, statusRec: ScreenStatus | undefined, ctx: HistoryContext = {}): HistoryItem[] {
+/** 그 화면의 소스 파일을 바꾼 커밋을 최신순으로 돌려준다 */
+export function screenHistory(scanRoot: string, sc: ScreenTag, ctx: HistoryContext = {}): HistoryItem[] {
   const root = projectRoot(scanRoot);
   const files = sc.files.map((f) => path.relative(root, path.join(scanRoot, f)));
   let raw = '';
@@ -115,12 +115,6 @@ export function screenHistory(scanRoot: string, sc: ScreenTag, statusRec: Screen
       fileList: mine.map((f) => path.relative(scanRoot, path.join(root, f))),
       places: [...places.values()].slice(0, 12), touchedSpecs: [...touchedSpecs], touchedInfos: [...touchedInfos].map(([name, f]) => ({ name, fields: [...f] })),
     });
-  }
-  const events = statusRec?.history || [];
-  for (const h of events) {
-    if (h.status === 'approved' || h.status === 'needs-fix' || h.status === 'test-requested') {
-      items.push({ type: 'status', kind: h.status === 'approved' ? '승인' : h.status === 'needs-fix' ? '수정 필요' : '테스트 요청', hash: h.commit, at: h.at, author: h.by === 'user' ? '사용자' : '에이전트', title: h.note || '', decisions: [], rejections: [] });
-    }
   }
   items.sort((a, b) => (a.at < b.at ? 1 : -1));
   return items;
