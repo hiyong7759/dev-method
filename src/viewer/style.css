@@ -1,7 +1,7 @@
-:root{--bg:#1c1a17;--bg2:#22201d;--card:#2b2824;--line:#3a362f;--line2:#5a564f;--text:#efe9e0;--text2:#d9d1c6;--dim:#a89f92;--dim2:#8f867a;--accent:#9db4ff;--accent-deep:#5b6fb8;--accent-bg:#262c4a;--green:#7fd8bd;--green-deep:#3d7a67;--green-bg:#1c2f29;--green-text:#a8e8cc;--amber:#e0b25a;--amber-deep:#7a6226;--amber-bg:#2a2316;--red:#ff9d9d;--red-deep:#8a3d44;--red-bg:#3a2326;--red-text:#ffb3b3;--red-strong:#e0575a;--purple:#c9b0ff;--purple-deep:#6a5a99;--purple-bg:#2d2540;--inset:#14161f;--on-accent:#14161f;--on-green:#10231d;--on-red:#2a1214;--hl:#ffd166;--on-hl:#2a2108;--stage:#f3ebe1;color-scheme:dark;--pink:#f4a6cf;--pink-deep:#9c4a78;--pink-bg:#33202b;--orange:#f2905f;--lime:#b8d96a;--teal:#5ccfd6}
+:root{--bg:#1c1a17;--bg2:#22201d;--card:#2b2824;--line:#3a362f;--line2:#5a564f;--text:#efe9e0;--text2:#d9d1c6;--dim:#a89f92;--dim2:#8f867a;--accent:#9db4ff;--accent-deep:#5b6fb8;--accent-bg:#262c4a;--green:#7fd8bd;--green-deep:#3d7a67;--green-bg:#1c2f29;--green-text:#a8e8cc;--amber:#e0b25a;--amber-deep:#7a6226;--amber-bg:#2a2316;--red:#ff9d9d;--red-deep:#8a3d44;--red-bg:#3a2326;--red-text:#ffb3b3;--red-strong:#e0575a;--purple:#c9b0ff;--purple-deep:#6a5a99;--purple-bg:#2d2540;--inset:#14161f;--on-accent:#14161f;--on-green:#10231d;--on-red:#2a1214;--hl:#ffd166;--on-hl:#2a2108;--stage:#f3ebe1;color-scheme:dark;--pink:#f4a6cf;--pink-deep:#9c4a78;--pink-bg:#33202b;--orange:#f2905f;--lime:#b8d96a;--teal:#5ccfd6;--st-des:#6d49a6;--st-imp:#c6612f;--st-tst:#b9d369;--st-cmp:#ffffff}
 /* 라이트 모드: 기기 설정을 따르고, data-theme 으로 고정할 수 있다 */
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#faf6f0;--bg2:#f2ece3;--card:#ffffff;--line:#ded5c8;--line2:#b9ae9e;--text:#26221d;--text2:#3d372f;--dim:#6b6256;--dim2:#8a8072;--accent:#2f4fb0;--accent-deep:#8fa3e0;--accent-bg:#e6ebfb;--green:#1f7a5f;--green-deep:#7fc0aa;--green-bg:#e3f3ed;--green-text:#1f6b53;--amber:#9a6a0a;--amber-deep:#d9b866;--amber-bg:#fbf1da;--red:#c23b45;--red-deep:#e3a0a6;--red-bg:#fbe6e8;--red-text:#a02a33;--red-strong:#d13a40;--purple:#6a49c2;--purple-deep:#b7a5e6;--purple-bg:#eee8fa;--inset:#efe8dd;--on-accent:#ffffff;--on-green:#ffffff;--on-red:#ffffff;--hl:#f5b800;--on-hl:#2a2108;color-scheme:light;--pink:#b8407c;--pink-deep:#e0a8c4;--pink-bg:#fbe8f1;--orange:#c2501e;--lime:#5f7f10;--teal:#12747c}}
-:root[data-theme="light"]{--bg:#faf6f0;--bg2:#f2ece3;--card:#ffffff;--line:#ded5c8;--line2:#b9ae9e;--text:#26221d;--text2:#3d372f;--dim:#6b6256;--dim2:#8a8072;--accent:#2f4fb0;--accent-deep:#8fa3e0;--accent-bg:#e6ebfb;--green:#1f7a5f;--green-deep:#7fc0aa;--green-bg:#e3f3ed;--green-text:#1f6b53;--amber:#9a6a0a;--amber-deep:#d9b866;--amber-bg:#fbf1da;--red:#c23b45;--red-deep:#e3a0a6;--red-bg:#fbe6e8;--red-text:#a02a33;--red-strong:#d13a40;--purple:#6a49c2;--purple-deep:#b7a5e6;--purple-bg:#eee8fa;--inset:#efe8dd;--on-accent:#ffffff;--on-green:#ffffff;--on-red:#ffffff;--hl:#f5b800;--on-hl:#2a2108;color-scheme:light;--pink:#b8407c;--pink-deep:#e0a8c4;--pink-bg:#fbe8f1;--orange:#c2501e;--lime:#5f7f10;--teal:#12747c}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#faf6f0;--bg2:#f2ece3;--card:#ffffff;--line:#ded5c8;--line2:#b9ae9e;--text:#26221d;--text2:#3d372f;--dim:#6b6256;--dim2:#8a8072;--accent:#2f4fb0;--accent-deep:#8fa3e0;--accent-bg:#e6ebfb;--green:#1f7a5f;--green-deep:#7fc0aa;--green-bg:#e3f3ed;--green-text:#1f6b53;--amber:#9a6a0a;--amber-deep:#d9b866;--amber-bg:#fbf1da;--red:#c23b45;--red-deep:#e3a0a6;--red-bg:#fbe6e8;--red-text:#a02a33;--red-strong:#d13a40;--purple:#6a49c2;--purple-deep:#b7a5e6;--purple-bg:#eee8fa;--inset:#efe8dd;--on-accent:#ffffff;--on-green:#ffffff;--on-red:#ffffff;--hl:#f5b800;--on-hl:#2a2108;color-scheme:light;--pink:#b8407c;--pink-deep:#e0a8c4;--pink-bg:#fbe8f1;--orange:#c2501e;--lime:#5f7f10;--teal:#12747c;--st-des:#b79ce0;--st-imp:#e2875a;--st-tst:#718b23;--st-cmp:#111111}}
+:root[data-theme="light"]{--bg:#faf6f0;--bg2:#f2ece3;--card:#ffffff;--line:#ded5c8;--line2:#b9ae9e;--text:#26221d;--text2:#3d372f;--dim:#6b6256;--dim2:#8a8072;--accent:#2f4fb0;--accent-deep:#8fa3e0;--accent-bg:#e6ebfb;--green:#1f7a5f;--green-deep:#7fc0aa;--green-bg:#e3f3ed;--green-text:#1f6b53;--amber:#9a6a0a;--amber-deep:#d9b866;--amber-bg:#fbf1da;--red:#c23b45;--red-deep:#e3a0a6;--red-bg:#fbe6e8;--red-text:#a02a33;--red-strong:#d13a40;--purple:#6a49c2;--purple-deep:#b7a5e6;--purple-bg:#eee8fa;--inset:#efe8dd;--on-accent:#ffffff;--on-green:#ffffff;--on-red:#ffffff;--hl:#f5b800;--on-hl:#2a2108;color-scheme:light;--pink:#b8407c;--pink-deep:#e0a8c4;--pink-bg:#fbe8f1;--orange:#c2501e;--lime:#5f7f10;--teal:#12747c;--st-des:#b79ce0;--st-imp:#e2875a;--st-tst:#718b23;--st-cmp:#111111}
 /* ── 공통 부품 (디자인 시안 보드 1의 부품 정의. 화면 파일은 util.ts의 chip·tag·rv·sidePanel·pageHead·sideList·filterChips로 만든다) ── */
 .chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid;white-space:nowrap}
 .chip.me{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-deep)}
@@ -28,6 +28,7 @@
 .quote{padding:12px 14px;border-radius:10px;background:var(--bg2);border-left:3px solid var(--accent-deep);line-height:1.6}
 .code{font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:5px 9px;border-radius:8px;background:var(--inset);border:1px solid var(--line)}
 .sidepanel{width:380px;flex:none;border-left:1px solid var(--line);background:var(--bg);padding:18px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+/* 진행 단계 점(des·imp·tst·cmp)은 색 계열은 두고 명도만 달리한다: 완료에 가까울수록 배경과 대비가 커진다(라이트 옅음→검정, 다크 어두움→흰색) */
 /* 구분 점 bul: 칩(fc)과 카드가 같은 점(모양+색)으로 짝을 이룬다. 칩=점+글자, 카드=점만. 한 화면 안에서 모양·색이 겹치지 않게 쓴다 */
 .bul{display:inline-block;width:9px;height:9px;flex:none;background:var(--dim);border-radius:50%}
 .bul.sq{border-radius:2px}
@@ -40,13 +41,13 @@
 .bul.br{background:var(--pink)}
 .bul.scr{background:var(--green)}
 .bul.int{background:var(--dim2)}
-.bul.des{background:var(--purple)}
-.bul.imp{background:var(--orange)}
-.bul.tst{background:var(--lime)}
+.bul.des{background:var(--st-des)}
+.bul.imp{background:var(--st-imp)}
+.bul.tst{background:var(--st-tst)}
 .bul.fnd{background:var(--teal)}
 .bul.nrq{background:var(--red)}
 .bul.fin{background:var(--dim)}
-.bul.cmp{background:var(--green)}
+.bul.cmp{background:var(--st-cmp)}
 .buls{display:inline-flex;gap:5px;align-items:center;flex:none}
 .fc .bul{margin-right:6px;vertical-align:-1px}
 .sidepanel.rail{width:44px;padding:12px 0;align-items:center;gap:12px;overflow:hidden}

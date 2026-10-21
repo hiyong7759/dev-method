@@ -1,0 +1,32 @@
+{
+  "id": 12,
+  "title": "진행 단계 점의 명도(완료에 가까울수록 대비가 커짐, 완료=검정/다크는 흰색)",
+  "source": "user",
+  "origin": {
+    "text": "색상도 완료을 검정으로 하고 명도가 낮은거부터 높은순으로 완료에 가깝게",
+    "channel": "대화",
+    "at": "2026-10-21T03:36:35.645Z"
+  },
+  "scope": {
+    "screens": [
+      "관리 영역"
+    ],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-21T03:36:35.645Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
