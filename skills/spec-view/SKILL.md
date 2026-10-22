@@ -21,7 +21,7 @@ description: 화면·컴포넌트·정보(타입)·로직 모듈을 만들거나
 
 - 앱 개발 서버가 꺼져 있으면 `.spec/config.json`의 `start`(기본 `npm run dev`)로 띄우고, 설계서 서버를 띄운 뒤 브라우저를 연다. 이미 떠 있으면 그대로 쓴다. 이름은 `install.sh spec`으로 등록한 프로젝트 폴더 이름이다
 - 에이전트가 끝낼 때 확인용으로 띄울 때는 `--no-open`. 끄려면 `--stop`
-- 설정 `.spec/config.json`: `src`(소스 폴더), `app`(앱 개발 서버 주소), `port`(설계서 서버, 기본 5290), `start`(앱 개발 서버를 띄우는 명령, 기본 `npm run dev`), `designCanvas`(설계 시안을 모아 두는 Claude Design 캔버스 주소), `wake`(true면 닫힌 담당 세션을 사용자 결정 때 서버가 깨움, 기본 꺼짐, `rules/approval.md`), `navigation`(화면 이동을 읽는 방법)
+- 설정 `.spec/config.json`: `src`(소스 폴더), `app`(앱 개발 서버 주소), `port`(설계서 서버, 기본 5290), `start`(앱 개발 서버를 띄우는 명령, 기본 `npm run dev`), `designCanvas`(설계 시안을 모아 두는 Claude Design 캔버스 주소), `wake`(true면 닫힌 담당 세션을 사용자 결정 때 서버가 깨움, 기본 꺼짐, `rules/approval.md`), `navigation`(화면 이동을 읽는 방법). 로그인이 있어야 열리는 앱은 이 컴퓨터에만 두는 `.spec/local.json`에 테스트 계정을 둔다: `{ "login": { "id": "아이디", "password": "비밀번호", "url": "/login" } }` (`url`·입력칸 선택자는 생략 가능). `finish`가 이 계정으로 먼저 로그인한 뒤 확인하고, 이 파일은 `.spec/.gitignore`에 들어 있고 커밋하려 하면 `precommit`이 막는다
 
 ## 원칙
 

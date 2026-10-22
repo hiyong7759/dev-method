@@ -750,6 +750,28 @@ export interface Model {
 
 // ── 프로젝트 설정 (.spec/config.json) ────────────────────
 
+/** 로그인이 있어야 열리는 앱을 도구가 열 때 쓰는 테스트 계정(비밀 값이라 커밋하지 않는 .spec/local.json에만 둔다) */
+export interface LoginSetting {
+  /** 테스트 계정 아이디 */
+  id: string;
+  /** 테스트 계정 비밀번호 */
+  password: string;
+  /** 로그인 화면 주소(앱 서버 기준). 안 적으면 /login */
+  url?: string;
+  /** 아이디 입력칸 선택자. 안 적으면 화면의 첫 글자 입력칸 */
+  idSelector?: string;
+  /** 비밀번호 입력칸 선택자. 안 적으면 type=password 칸 */
+  passwordSelector?: string;
+  /** 로그인 단추 선택자. 안 적으면 제출 단추, 없으면 "로그인" 글자 단추, 그것도 없으면 엔터 */
+  submitSelector?: string;
+}
+
+/** 이 컴퓨터에만 두는 설정(.spec/local.json, 커밋하지 않는다) */
+export interface LocalSettings {
+  /** 로그인이 있는 앱을 열 때 쓰는 테스트 계정 */
+  login?: LoginSetting;
+}
+
 /** 프로젝트가 설계서 보기에 알려 주는 설정 */
 export interface ProjectConfig {
   /** 소스 폴더(프로젝트 루트 기준). 안 적으면 src */

@@ -1,0 +1,30 @@
+{
+  "id": 37,
+  "title": "로그인이 있는 앱: 테스트 계정으로 도구가 로그인해 확인",
+  "source": "user",
+  "origin": {
+    "text": "복제본 도구 문제 15번",
+    "channel": "대화",
+    "at": "2026-10-22T03:04:08.545Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-22T03:04:08.545Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

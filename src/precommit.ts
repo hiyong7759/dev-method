@@ -41,6 +41,9 @@ export async function main(argv: string[]): Promise<number | undefined> {
   const root = path.resolve(pos[0] || '.');
   if (!fs.existsSync(configFile(root))) return 0;
   const src = path.resolve(root, readConfig(root).src || 'src');
+  // 테스트 계정이 든 .spec/local.json이 커밋에 올라가지 않게 막는다
+  const staged = spawnSync('git', ['diff', '--cached', '--name-only'], { cwd: root, encoding: 'utf8' }).stdout.split('\n');
+  if (staged.some((f) => /(^|\/)\.spec\/local\.json$/.test(f))) { console.error('[spec-view] .spec/local.json에는 테스트 계정이 들어 있어 커밋할 수 없다. git reset HEAD .spec/local.json 으로 뺀다'); return 1; }
   let base: Baseline | null = null;
   try { base = JSON.parse(fs.readFileSync(baselineFile(root), 'utf8')) as Baseline; } catch { /* 기준선 없음 */ }
   const saving = flags.has('baseline');

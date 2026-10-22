@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import type { Browser, Frame, Page } from 'playwright-core';
 import { LAUNCHER, ROOT_DIR } from './paths.js';
 import { readConfig } from './config.js';
+import { loginIfConfigured } from './login.js';
 import { parseArgs, errorText } from './cli.js';
 import { matchScreen } from './viewer/util.js';
 import { runStep } from './viewer/steps.js';
@@ -76,7 +77,11 @@ export async function main(argv: string[]): Promise<number | undefined> {
     let browser: Browser | null = null;
     if (playwright) { try { browser = await playwright.chromium.launch({ channel: 'chrome' }); } catch (e) { step('Chrome 실행', false, errorText(e).split('\n')[0]); } }
     if (browser) {
-      const open = async (): Promise<Page> => { const p = await (browser as Browser).newPage({ viewport: { width: 1280, height: 800 } }); await p.addInitScript(NAME_HELPER); return p; };
+      // 모든 페이지가 같은 로그인 상태를 쓰도록 한 브라우저 환경(context)에서 연다
+      const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+      const open = async (): Promise<Page> => { const p = await context.newPage(); await p.addInitScript(NAME_HELPER); return p; };
+      // 테스트 계정(.spec/local.json)이 있으면 먼저 로그인해 둔다
+      { const lg = await loginIfConfigured(context, base, root); if (lg) step('테스트 계정으로 로그인한다', lg.ok, lg.ok ? '' : lg.text); }
       // 설계서 보기 주소(base 또는 base/)가 사용 흐름으로 열린다
       {
         const page = await open();
