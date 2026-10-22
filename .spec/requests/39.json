@@ -1,0 +1,30 @@
+{
+  "id": 39,
+  "title": "로그인 도우미가 프록시를 거치게 하고, 낡은 서버 정리와 화면 매칭 오류를 고친다",
+  "source": "user",
+  "origin": {
+    "text": "복사본 세션 TOOL-ISSUES #17·#18",
+    "channel": "대화",
+    "at": "2026-10-22T12:03:29.129Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-22T12:03:29.129Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

@@ -23,6 +23,8 @@ export async function loginIfConfigured(context: BrowserContext, base: string, p
   if (!lg?.id || !lg.password) return null;
   const page = await context.newPage();
   try {
+    // 설계서 보기 서버는 주소창으로 연 앱 화면을 뷰어로 보내 버리므로, 도구가 직접 여는 것임을 알린다
+    await page.setExtraHTTPHeaders({ 'x-spec-direct': '1' });
     await page.goto(base.replace(/\/$/, '') + (lg.url || '/login'), { waitUntil: 'networkidle' });
     const idBox = lg.idSelector ? page.locator(lg.idSelector).first() : page.locator('input:not([type]), input[type=text], input[type=email]').first();
     const pwBox = page.locator(lg.passwordSelector || 'input[type=password]').first();

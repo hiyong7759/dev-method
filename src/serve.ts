@@ -50,7 +50,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
 
   /** 주소창으로 앱 화면을 직접 연 경우 → 설계서 보기로 보낸다. 화면 안(iframe)·스크립트·이미지 요청은 건드리지 않는다 */
   const toViewer = (req: IncomingMessage, res: ServerResponse): boolean => {
-    if (req.method !== 'GET' || req.headers['sec-fetch-dest'] !== 'document') return false;
+    // x-spec-direct: 도구(로그인 도우미)가 앱 화면을 직접 열 때 붙이는 표시 — 보내지 않고 그대로 앱에 넘긴다
+    if (req.method !== 'GET' || req.headers['sec-fetch-dest'] !== 'document' || req.headers['x-spec-direct']) return false;
     const pathname = new URL(req.url || '/', 'http://x').pathname;
     let to = '/__spec/#/flow';
     if (pathname !== '/') {

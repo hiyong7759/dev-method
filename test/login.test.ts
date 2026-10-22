@@ -14,6 +14,8 @@ import { tempProject } from './helpers.js';
 /** 쿠키가 있어야 / 가 열리고, 없으면 /login 으로 보내는 작은 앱 */
 function app(): Promise<{ url: string; close: () => void }> {
   const srv = http.createServer((req, res) => {
+    // 설계서 보기 서버처럼, 주소창으로 연 화면은 뷰어로 보낸다(도구가 직접 여는 표시가 있으면 보내지 않음)
+    if (req.method === 'GET' && req.headers['sec-fetch-dest'] === 'document' && !req.headers['x-spec-direct']) { res.writeHead(302, { Location: '/__spec/' }); res.end(); return; }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     const authed = /ok=1/.test(req.headers.cookie ?? '');
     if (req.url === '/login' && req.method === 'POST') { res.writeHead(302, { 'Set-Cookie': 'ok=1; Path=/', Location: '/' }); res.end(); return; }
@@ -37,6 +39,7 @@ test('테스트 계정이 있으면 로그인해 두고, 없으면 아무것도 
     const r = await loginIfConfigured(ctx, a.url, root);
     assert.equal(r?.ok, true, r?.text);
     const page = await ctx.newPage();
+    await page.setExtraHTTPHeaders({ 'x-spec-direct': '1' });
     await page.goto(a.url + '/');
     assert.equal(await page.locator('h1').innerText(), '홈');
   } finally { await browser.close(); a.close(); }

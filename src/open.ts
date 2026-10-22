@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { ROOT_DIR, LAUNCHER } from './paths.js';
+import { ROOT_DIR, SRC_DIR, LAUNCHER } from './paths.js';
 import { configFile, readConfig } from './config.js';
 import { parseArgs } from './cli.js';
 
@@ -35,6 +35,21 @@ const waitUp = async (url: string, ms: number, check: (u: string) => Promise<boo
   return false;
 };
 
+/** 도구 소스에서 가장 나중에 고친 시각 — 서버가 옛 코드로 돌고 있는지 알아보는 표 */
+function srcStamp(): string {
+  let m = 0;
+  const walk = (d: string): void => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else m = Math.max(m, fs.statSync(f).mtimeMs); } };
+  try { walk(SRC_DIR); } catch { /* 소스를 못 읽으면 표 없음 */ }
+  return String(Math.floor(m));
+}
+/** 포트를 듣고 있는 프로세스들을 끈다(pids.json에 없는 떠돌이 서버용). 끈 번호들을 돌려준다 */
+function killPort(port: number): number[] {
+  const r = spawnSync('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
+  const ids = (r.stdout || '').split('\n').map((x) => Number(x.trim())).filter(Boolean);
+  for (const pid of ids) { try { process.kill(pid); } catch { /* 이미 없음 */ } }
+  return ids;
+}
+
 /** 명령: open [프로젝트 이름 또는 폴더, 기본 현재 폴더] [--no-open] [--stop] */
 export async function main(argv: string[]): Promise<number | undefined> {
   const { pos, flags } = parseArgs(argv, ['no-open', 'stop']);
@@ -58,11 +73,18 @@ export async function main(argv: string[]): Promise<number | undefined> {
   };
   const tail = (log: string): string => fs.readFileSync(path.join(project, '.spec', log), 'utf8').split('\n').slice(-8).join('\n');
 
+  const stampFile = path.join(project, '.spec', 'serve-stamp');
+  const base = `http://localhost:${port}`;
   if (flags.has('stop')) {
     for (const [k, pid] of Object.entries(readPids())) {
       try { process.kill(-pid); console.log(`끔: ${k} (${pid})`); } catch { try { process.kill(pid); console.log(`끔: ${k} (${pid})`); } catch { console.log(`이미 꺼져 있음: ${k}`); } }
     }
-    fs.rmSync(pidFile, { force: true });
+    fs.rmSync(pidFile, { force: true }); fs.rmSync(stampFile, { force: true });
+    // 기록에 없는데 설계서 보기 서버가 아직 떠 있으면(옛 기록·다른 곳에서 띄움) 포트로 찾아 끈다
+    if (await isSpec(`${base}/__spec/model.json`)) {
+      const ids = killPort(port);
+      console.log(ids.length ? `끔: 포트 ${port}의 설계서 보기 서버 (${ids.join(', ')})` : `포트 ${port}의 서버를 끄지 못했다 — 직접 끈다`);
+    }
     return 0;
   }
 
@@ -74,11 +96,18 @@ export async function main(argv: string[]): Promise<number | undefined> {
     if (!(await waitUp(app, 40000))) { console.error(`앱 서버가 ${app} 에서 응답하지 않는다. 시작 명령: ${start}\n로그: ${path.join(project, '.spec', 'app.log')}\n---\n${tail('app.log')}`); return 1; }
     console.log(`앱 서버 시작: ${app} (${start})`);
   }
-  const base = `http://localhost:${port}`;
-  if (await isSpec(`${base}/__spec/model.json`)) console.log(`설계서 보기 서버 이미 떠 있음: ${base}`);
+  const stamp = srcStamp();
+  let running = await isSpec(`${base}/__spec/model.json`);
+  // 도구를 고친 뒤인데 서버가 옛 코드로 돌고 있으면 껐다 다시 띄운다
+  if (running && fs.existsSync(stampFile) && fs.readFileSync(stampFile, 'utf8') !== stamp) {
+    killPort(port); try { process.kill(-(pids.serve ?? 0)); } catch { /* 이미 없음 */ }
+    for (let i = 0; i < 10 && await up(base); i++) await new Promise((r) => setTimeout(r, 300));
+    running = false; console.log('설계서 보기 서버가 옛 코드로 돌고 있어 다시 띄운다');
+  }
+  if (running) console.log(`설계서 보기 서버 이미 떠 있음: ${base}`);
   else {
     if (await up(base)) { console.error(`포트 ${port}를 다른 프로그램이 쓰고 있다. ${configFile(project)}의 port를 바꾼다.`); return 1; }
-    pids.serve = launch(process.execPath, [LAUNCHER, 'serve', '--project', project], 'serve.log', false); writePids(pids);
+    pids.serve = launch(process.execPath, [LAUNCHER, 'serve', '--project', project], 'serve.log', false); writePids(pids); fs.writeFileSync(stampFile, stamp);
     if (!(await waitUp(`${base}/__spec/model.json`, 15000, isSpec))) { console.error(`설계서 보기 서버가 ${base} 에서 응답하지 않는다.\n로그: ${path.join(project, '.spec', 'serve.log')}\n---\n${tail('serve.log')}`); return 1; }
     console.log(`설계서 보기 서버 시작: ${base}`);
   }

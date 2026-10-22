@@ -140,7 +140,7 @@ export async function post<T = unknown>(url: string, body?: unknown): Promise<T>
 const rx = (pattern: string): RegExp => new RegExp(`^${pattern.replace(/:[^/]+/g, '[^/]+').replace(/\/$/, '')}/?$`);
 /** 실제 주소에 맞는 화면(여러 개면 주소가 가장 구체적인 것) */
 export function matchScreen(model: Pick<Model, 'screens'>, pathname: string): ModelScreen | null {
-  const hits = model.screens.map((s) => ({ s, r: s.routes.filter((x) => rx(x).test(pathname)).sort((a, b) => b.length - a.length)[0] })).filter((x) => x.r);
+  const hits = model.screens.map((s) => ({ s, r: (s.routes ?? []).filter((x) => rx(x).test(pathname)).sort((a, b) => b.length - a.length)[0] })).filter((x) => x.r);
   return hits.sort((a, b) => b.r.length - a.r.length)[0]?.s || null;
 }
 
