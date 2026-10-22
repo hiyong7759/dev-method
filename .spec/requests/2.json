@@ -16,8 +16,8 @@
   "agent": {
     "name": ""
   },
-  "stage": "test",
-  "step": "requested",
+  "stage": "design",
+  "step": "drafting",
   "events": [
     {
       "at": "2026-10-19T08:44:29.605Z",
@@ -30,6 +30,12 @@
       "by": "agent",
       "kind": "test-requested",
       "note": "소스를 src/로 옮기고 전부 TypeScript로 전환, 타입 오류 0과 경고 0으로 테스트 요청 (커밋 573839d, d90d058)"
+    },
+    {
+      "at": "2026-10-22T00:00:00.000Z",
+      "by": "agent",
+      "kind": "reset",
+      "note": "설계 승인 없이 테스트 단계로 적혀 있던 것을 설계 단계로 되돌림(사용자 지시)"
     }
   ]
 }

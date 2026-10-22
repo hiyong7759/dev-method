@@ -18,14 +18,20 @@
   "agent": {
     "name": ""
   },
-  "stage": "test",
-  "step": "requested",
+  "stage": "design",
+  "step": "drafting",
   "events": [
     {
       "at": "2026-10-19T08:44:29.563Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-22T00:00:00.000Z",
+      "by": "agent",
+      "kind": "reset",
+      "note": "설계 승인 없이 테스트 단계로 적혀 있던 것을 설계 단계로 되돌림(사용자 지시)"
     }
   ]
 }
