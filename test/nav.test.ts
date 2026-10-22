@@ -80,3 +80,16 @@ test('입력값으로 그려지지 않는 컴포넌트는 그 화면의 컴포�
   assert.deepEqual(r.screens.find((s) => s.name === '구성')?.hidden, ['Only.tsx']);
   assert.deepEqual(r.screens.find((s) => s.name === '내')?.hidden, []);
 });
+
+test('@shell 요소는 파일로 닿지 않아도 모든 화면에 속한다', async () => {
+  const { extractSpecs } = await import('../src/extract.js');
+  const { src } = tempTsProject();
+  fs.writeFileSync(path.join(src, 'a.tsx'), screen('가', '/a'));
+  fs.writeFileSync(path.join(src, 'b.tsx'), screen('나', '/b'));
+  fs.writeFileSync(path.join(src, 'frame.tsx'), `/**\n * @spec app-header 상단 헤더\n * @anchor dom:#hdr\n * @shell\n * @why 시험용\n */\nexport const H = 1;\n`);
+  const r = extractSpecs(src);
+  const h = r.specs.find((s) => s.id === 'app-header');
+  assert.equal(h?.shell, true);
+  assert.deepEqual(h?.screens.sort(), ['가', '나']);
+  assert.deepEqual(r.warnings, []);
+});

@@ -58,7 +58,7 @@ function parseDoes(line: string): Does {
 }
 
 /** 한 번만 쓰는 칸(why, basis, contract, anchor …)과 여러 번 쓰는 칸(does, to, on) */
-const FIELDS = ['why', 'basis', 'contract', 'anchor', 'open', 'route', 'sample', 'domain', 'start'] as const;
+const FIELDS = ['why', 'basis', 'contract', 'anchor', 'open', 'route', 'sample', 'domain', 'start', 'shell'] as const;
 const LISTS = ['does', 'to', 'on'] as const;
 type Field = (typeof FIELDS)[number];
 type ListName = (typeof LISTS)[number];
@@ -173,7 +173,7 @@ export function extractSpecs(root: string): Extracted {
         const spec: Spec = {
           id: e.id, title: e.title, why: e.why || '', basis: e.basis || '', contract: e.contract || '',
           ons: e.on.map((o): OnEffect => { const i = o.indexOf(':'); return i < 0 ? { event: o.trim(), effect: '' } : { event: o.slice(0, i).trim(), effect: o.slice(i + 1).trim() }; }),
-          anchor: e.anchor || '', open: openParsed.steps, kind: kind ?? 'logic', screens: [], does: e.does.map(parseDoes), ...where,
+          anchor: e.anchor || '', open: openParsed.steps, kind: kind ?? 'logic', screens: [], does: e.does.map(parseDoes), shell: e.shell !== undefined, ...where,
         };
         out.specs.push(spec);
         if (kind === null) out.warnings.push(`@spec ${e.id}의 @anchor "${e.anchor}"를 읽지 못했다 — dom:<선택자> 또는 3d:<오브젝트 이름>으로 쓴다 (${rel}:${e.line})`);
@@ -218,9 +218,13 @@ export function extractSpecs(root: string): Extracted {
       }
     } catch { /* typescript가 없으면 파일 단위로 둔다 */ }
   }
-  for (const sc of out.screens) if (!sc.route) out.warnings.push(`@screen ${sc.name}에 @route가 없다 — 실제 화면을 끼워 넣으려면 주소가 필요하다 (${sc.file}:${sc.line})`);
+  for (const sc of out.screens) if (!sc.route) {
+    const sharing = out.screens.filter((o) => o.file === sc.file).length > 1;
+    out.warnings.push(`@screen ${sc.name}에 @route가 없다 — 실제 화면을 끼워 넣으려면 주소가 필요하다${sharing ? '. 한 파일에 @screen이 여럿이면 어느 주소인지 도구가 알 수 없으니 블록마다 @route를 쓴다' : ''} (${sc.file}:${sc.line})`);
+  }
   for (const sp of out.specs) {
-    sp.screens = out.screens.filter((sc) => sc.files.includes(sp.file)).map((sc) => sc.name);
+    // 모든 화면에 공통인 앱 틀은 파일로 닿지 않아도 모든 화면에 속한다
+    sp.screens = out.screens.filter((sc) => sp.shell || sc.files.includes(sp.file)).map((sc) => sc.name);
     if (sp.kind === 'dom' && !sp.screens.length) out.warnings.push(`@spec ${sp.id}는 어느 @screen에도 속하지 않는다 — 화면 파일에서 import로 닿아야 한다 (${sp.file}:${sp.line})`);
   }
   out.scenarios = buildScenarios(out);

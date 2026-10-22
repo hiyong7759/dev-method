@@ -46,6 +46,10 @@ export interface ScreenCtx {
   sc(): ModelScreen;
   /** 요소의 번호(1부터, 없으면 0) */
   num(id: string): number;
+  /** 모든 화면 공통(앱 틀) 표시를 화면 위에 보일지 */
+  showShell: boolean;
+  /** 화면 위 표시와 목록이 같이 쓰는 이름표: 화면 고유 부품은 숫자(1, 2…), 공통 부품은 글자(A, B…) */
+  label(id: string): string;
   /** 부품 안의 부품 깊이(바깥 부품 0, 그 안 1…). 실제 화면의 틀 겹침으로 잰다 */
   depthOf(id: string): number;
   /** 실제 화면에서 이 부품이 보이는 곳의 수(안 보이면 0) */

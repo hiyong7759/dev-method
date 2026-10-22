@@ -1,0 +1,30 @@
+{
+  "id": 38,
+  "title": "모든 화면 공통(앱 틀) 선언 @shell과 화면 설계서 표시",
+  "source": "user",
+  "origin": {
+    "text": "복제본 도구 문제 14번, 시안 보드 7-2 승인",
+    "channel": "대화",
+    "at": "2026-10-22T03:06:18.536Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-22T03:06:18.536Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

@@ -620,3 +620,14 @@ a.tag{text-decoration:none}
 .ccard.d1{margin-left:18px;width:calc(100% - 18px)}.ccard.d2{margin-left:36px;width:calc(100% - 36px)}
 .fold{padding:8px 12px;border:1px dashed var(--line2);border-radius:10px;color:var(--dim);font-size:12px;line-height:1.55}
 .fold b{color:var(--text)}
+
+/* 모든 화면 공통(앱 틀): 화면 고유 부품(파랑 숫자)과 구분되는 청록 */
+.mbox.shell{outline:2px solid #12747c;outline-offset:-2px;border-radius:4px}
+.mbox.shell .mbadge{background:#12747c;border-radius:5px;left:auto;right:8px;top:6px}
+.mbox.shell.on{outline-width:3px;background:rgba(18,116,124,.14)}
+.nn.sh{background:#12747c;border-radius:6px}
+.tag.sh{border-color:#12747c;color:var(--teal)}
+.group-t{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;font-weight:700}
+.group-t small{font-weight:400;color:var(--dim);font-size:12px}
+.shell-tog{display:inline-flex;gap:6px;align-items:center;padding:4px 10px;border-radius:999px;border:1px solid var(--green-deep);background:none;color:var(--green);font-weight:700;font-size:12px;cursor:pointer}
+.shell-tog.off{border-color:var(--line);color:var(--dim)}

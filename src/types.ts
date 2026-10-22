@@ -130,6 +130,8 @@ export interface Spec {
   screens: string[];
   /** 이 요소에서 사용자가 하는 일들 */
   does: Does[];
+  /** 모든 화면에 공통으로 떠 있는 앱 틀(상단 헤더, 왼쪽 메뉴, 만료 경고 창 등)이면 true. 모든 화면에 속한 것으로 센다 */
+  shell: boolean;
   /** 처음 화면에 안 보일 때 설계서 보기가 눌러 볼 순서(@open이 있으면 그것, 없으면 검사가 찾아 둔 것) */
   reveal?: RevealStep[];
 }

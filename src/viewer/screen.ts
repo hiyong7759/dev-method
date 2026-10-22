@@ -62,16 +62,26 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   const c = state as ScreenCtx;
   const hasScreen = (): boolean => c.model.screens.some((s) => s.name === c.name);
   const spec = (): Spec[] => c.model.specs.filter((s) => s.screens.includes(c.name));
-  const ordered = (): Spec[] => [...spec().filter((s) => s.kind !== 'logic'), ...spec().filter((s) => s.kind === 'logic')];
+  // 순서: 이 화면의 부품, 모든 화면 공통(앱 틀), 로직
+  const ordered = (): Spec[] => [...spec().filter((s) => s.kind !== 'logic' && !s.shell), ...spec().filter((s) => s.kind !== 'logic' && s.shell), ...spec().filter((s) => s.kind === 'logic')];
   c.num = (id) => ordered().findIndex((s) => s.id === id) + 1;
+  c.showShell = true;
+  c.label = (id) => {
+    const sp = ordered().find((s) => s.id === id);
+    if (!sp) return '';
+    if (!sp.shell) return String(c.num(id));
+    const i = ordered().filter((s) => s.shell && s.kind !== 'logic').findIndex((s) => s.id === id);
+    return String.fromCharCode(65 + (i % 26));
+  };
 
   // ── 틀 ──
   const iframe = h('iframe', { title: '실제 화면' });
   const marks = h('div', { class: 'marks' });
   const urlEl = h('span', { class: 'url mono' });
   const okEl = h('span', { class: 'ok-dot' });
+  const shellBtn = h('button', { class: 'shell-tog', onclick: () => { c.showShell = !c.showShell; shellBtn.classList.toggle('off', !c.showShell); shellBtn.textContent = `공통 화면 표시 ${c.showShell ? '켜짐' : '꺼짐'}`; } }, '공통 화면 표시 켜짐');
   const live = h('div', { class: 'live' },
-    h('div', { class: 'livebar' }, h('span', { class: 'badge-live' }, '실제 화면'), urlEl, h('span', { class: 'grow' }), okEl),
+    h('div', { class: 'livebar' }, h('span', { class: 'badge-live' }, '실제 화면'), urlEl, h('span', { class: 'grow' }), shellBtn, okEl),
     h('div', { class: 'stage' }, iframe, marks));
   // 오른쪽 패널은 공통 패널 틀(늘 떠 있는 패널이라 접기 토글). 다시 그릴 때마다 틀째 바꿔 끼운다
   let side: HTMLElement = h('aside', { class: 'sidepanel' });
@@ -175,29 +185,32 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   const contains = (a: Box, b: Box): boolean => a.left <= b.left + 1 && a.top <= b.top + 1 && a.right >= b.right - 1 && a.bottom >= b.bottom - 1 && (a.right - a.left > b.right - b.left + 2 || a.bottom - a.top > b.bottom - b.top + 2);
   /** 부품 안의 부품: 이 부품의 틀을 통째로 품은 다른 부품의 수 */
   const depths = (): Map<string, number> => {
-    const all = rects().map((x) => ({ id: x.s.id, u: union(x.boxes) as Box }));
-    return new Map(all.map((x) => [x.id, all.filter((y) => y.id !== x.id && contains(y.u, x.u)).length]));
+    // 앱 틀(공통)은 부품을 품는 바깥 틀로 세지 않는다
+    const all = rects().map((x) => ({ id: x.s.id, shell: x.s.shell, u: union(x.boxes) as Box }));
+    return new Map(all.map((x) => [x.id, x.shell ? 0 : all.filter((y) => !y.shell && y.id !== x.id && contains(y.u, x.u)).length]));
   };
   c.depthOf = (id) => depths().get(id) ?? 0;
   c.countOf = (id) => rects().find((x) => x.s.id === id)?.boxes.length ?? 0;
   let lastSig = '';
   function track(): void {
     if (!alive) return;
-    const ids = new Set<string>(c.tab === 'now' ? ordered().filter((s) => s.kind === 'dom').map((s) => s.id) : c.active ? [c.active] : []);
+    const ids = new Set<string>(c.tab === 'now' ? ordered().filter((s) => s.kind === 'dom' && (c.showShell || !s.shell)).map((s) => s.id) : c.active ? [c.active] : []);
     const have = new Map([...marks.querySelectorAll<HTMLElement>('.mbox')].map((e) => [e.dataset.key as string, e]));
     const all = rects();
-    const unions = new Map(all.map((x) => [x.s.id, union(x.boxes) as Box]));
+    const unionAll = new Map(all.map((x) => [x.s.id, union(x.boxes) as Box]));
+    // 겹침(부품 안의 부품)은 앱 틀을 빼고 센다
+    const unions = new Map([...unionAll].filter(([id]) => !all.find((x) => x.s.id === id)?.s.shell));
     for (const { s, boxes } of all) {
       if (!ids.has(s.id)) continue;
-      const parts = boxes.length > 1 && boxes.length <= MAX_SEPARATE ? boxes : [unions.get(s.id) as Box];
-      const nested = [...unions].some(([id, u]) => id !== s.id && contains(u, unions.get(s.id) as Box));
+      const parts = boxes.length > 1 && boxes.length <= MAX_SEPARATE ? boxes : [unionAll.get(s.id) as Box];
+      const nested = !s.shell && [...unions].some(([id, u]) => id !== s.id && contains(u, unionAll.get(s.id) as Box));
       parts.forEach((r, i) => {
         const key = `${s.id}#${i}`;
         let e = have.get(key);
-        if (!e) { e = h('div', { class: 'mbox', dataset: { id: s.id, key } }, h('span', { class: 'mbadge', title: s.title }, String(c.num(s.id)))); marks.append(e); }
+        if (!e) { e = h('div', { class: 'mbox', dataset: { id: s.id, key } }, h('span', { class: 'mbadge', title: s.title }, c.label(s.id))); marks.append(e); }
         have.delete(key);
         e.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.right - r.left}px;height:${r.bottom - r.top}px`;
-        e.classList.toggle('on', c.active === s.id); e.classList.toggle('dim', !!c.active && c.active !== s.id); e.classList.toggle('in', nested);
+        e.classList.toggle('on', c.active === s.id); e.classList.toggle('dim', !!c.active && c.active !== s.id); e.classList.toggle('in', nested); e.classList.toggle('shell', s.shell);
         // 같은 부품이 여러 곳이면 첫 틀에 "× n"을 붙인다(묶어 그린 때는 전체 개수)
         const many = boxes.length > 1 && i === 0 ? boxes.length : 0;
         const cnt = e.querySelector('.mcount');
@@ -206,7 +219,7 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
     }
     have.forEach((e) => e.remove());
     // 부품이 화면에 나타나거나 겹침이 바뀌면(화면이 늦게 뜰 때 등) 오른쪽 목록의 "화면에 n곳"·들여쓰기를 다시 그린다
-    const sig = all.map((x) => `${x.s.id}:${x.boxes.length}:${[...unions].filter(([id, u]) => id !== x.s.id && contains(u, unions.get(x.s.id) as Box)).length}`).join('|');
+    const sig = all.map((x) => `${x.s.id}:${x.boxes.length}:${x.s.shell ? 0 : [...unions].filter(([id, u]) => id !== x.s.id && contains(u, unionAll.get(x.s.id) as Box)).length}`).join('|');
     if (sig !== lastSig) { lastSig = sig; if (c.tab === 'now' && !c.drawer) render(); }
     raf = requestAnimationFrame(track);
   }

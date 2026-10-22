@@ -28,7 +28,7 @@ const sectionTitle = (t: string, sub?: string): HTMLElement => h('div', { class:
 /** 개요 탭: 이 화면에서 하는 일, 보여 주는 자리(컴포넌트), 쓰는 정보 */
 export function overview(c: ScreenCtx): HTMLElement {
   const scs = scenariosHere(c);
-  const comps = c.specs.filter((s) => s.kind !== 'logic');
+  const comps = c.specs.filter((s) => s.kind !== 'logic' && !s.shell);
   const infoNames = [...new Set(c.sc().fields.map((f) => f.info))];
   return h('div', { class: 'tabcol' },
     sectionTitle('이 화면에서 하는 일 (사용 시나리오)'),
@@ -46,14 +46,14 @@ export function overview(c: ScreenCtx): HTMLElement {
 // ── 현행 ─────────────────────────────────────────────
 /** 현행 탭: 지금 소스에서 읽은 구조(컴포넌트와 로직) */
 export function nowTab(c: ScreenCtx): HTMLElement {
-  const dom = c.specs.filter((s) => s.kind !== 'logic'), logic = c.specs.filter((s) => s.kind === 'logic');
+  const dom = c.specs.filter((s) => s.kind !== 'logic' && !s.shell), shell = c.specs.filter((s) => s.kind !== 'logic' && s.shell), logic = c.specs.filter((s) => s.kind === 'logic');
   const hidden = new Set(c.sc().hidden ?? []);
   const hiddenComps = c.model.specs.filter((s) => s.kind === 'dom' && hidden.has(s.file) && !c.specs.some((x) => x.id === s.id));
   const card = (s: Spec): HTMLElement => {
     const infos = infosOfComp(c, s);
     const n = c.countOf(s.id), d = Math.min(c.depthOf(s.id), 2);
     return h('button', { class: `ccard${c.active === s.id ? ' on' : ''}${d ? ` d${d}` : ''}`, onclick: () => { void c.pickComp(s.id); } },
-      h('b', null, s.kind === 'dom' ? h('span', { class: 'nn' }, String(c.num(s.id))) : null, s.title, n > 1 ? h('span', { class: 'tag', style: 'margin-left:8px' }, `화면에 ${n}곳`) : null), h('div', { class: 'hint' }, infos.length ? `정보: ${infos.map((i) => i.info).join(' · ')}` : '정보 없음', ` · 소스 ${s.file.split('/').pop()}:${s.line}`));
+      h('b', null, s.kind === 'dom' ? h('span', { class: `nn${s.shell ? ' sh' : ''}` }, c.label(s.id)) : null, s.title, s.shell ? h('span', { class: 'tag sh', style: 'margin-left:8px' }, '공통') : null, n > 1 ? h('span', { class: 'tag', style: 'margin-left:8px' }, `화면에 ${n}곳`) : null), h('div', { class: 'hint' }, infos.length ? `정보: ${infos.map((i) => i.info).join(' · ')}` : '정보 없음', ` · 소스 ${s.file.split('/').pop()}:${s.line}`));
   };
   const picked = c.specs.find((s) => s.id === c.active);
   const detail = picked ? (() => {
@@ -66,7 +66,9 @@ export function nowTab(c: ScreenCtx): HTMLElement {
   })() : null;
   return h('div', { class: 'tabcol' },
     h('div', { class: 'hint' }, '소스에서 읽은 지금의 구조입니다. 화면에는 부품마다 번호가 붙고, 항목을 누르면 그 자리가 굵게 표시됩니다. 부품 안의 부품은 들여 씁니다.'),
+    shell.length ? h('div', { class: 'group-t' }, '이 화면의 부품', h('small', null, String(dom.length))) : null,
     dom.map(card), dom.length ? null : h('div', { class: 'hint' }, '이 화면에서 찾은 컴포넌트가 없습니다.'),
+    shell.length ? [h('div', { class: 'group-t' }, '모든 화면 공통', h('small', null, `${shell.length} · 다른 화면에도 똑같이 있음`)), shell.map(card)] : null,
     hiddenComps.length ? h('div', { class: 'fold' }, h('b', null, `이 화면에는 그려지지 않는 것 ${hiddenComps.length}`), ` — 같은 소스를 쓰는 다른 구분에서만 나오는 ${hiddenComps.map((x) => `"${x.title}"`).join(', ')}`) : null,
     logic.length ? [sectionTitle('로직 (화면에 없음)'), logic.map(card)] : null, detail);
 }
