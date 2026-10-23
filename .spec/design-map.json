@@ -251,6 +251,17 @@
       ],
       "state": "draft",
       "request": 47
+    },
+    {
+      "board": "Comment.dc.html",
+      "no": "18",
+      "title": "현행 · 어디서나 코멘트 남기기",
+      "files": [
+        "src/viewer/screen.ts",
+        "src/viewer/util.ts"
+      ],
+      "state": "draft",
+      "request": 48
     }
   ]
 }

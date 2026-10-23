@@ -1,0 +1,30 @@
+{
+  "id": 48,
+  "title": "어디서나 같은 모양으로 코멘트를 남기는 요소(부품 고르기·영역 캡처·화면 전체)와 리포트 번호·report show",
+  "source": "user",
+  "origin": {
+    "text": "리포트를 보다 생긴 궁금증을 번호나 화면 부분으로 에이전트에게 바로 묻고 싶음. 설명이 애매하면 캡처나 앵커 선택이 가장 좋음",
+    "channel": "대화",
+    "at": "2026-10-23T08:36:51.344Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-23T08:36:51.344Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
