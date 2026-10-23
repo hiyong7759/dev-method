@@ -40,8 +40,8 @@ for (const [label, selector] of areas) {
 for (const item of out) {
   if (!item.prev) continue;
   const html = path.join(dir, `${item.label}.compare.html`);
-  fs.writeFileSync(html, `<!doctype html><meta charset=utf-8><body style="margin:0;background:#222;color:#eee;font:14px sans-serif;display:flex;gap:16px;padding:16px;align-items:flex-start"><div><div style="margin:0 0 6px">이전</div><img src="file://${item.prev}" style="max-width:700px;border:1px solid #555"></div><div><div style="margin:0 0 6px">지금</div><img src="file://${item.now}" style="max-width:700px;border:1px solid #555"></div>`);
-  await page.cdp('Emulation.setDeviceMetricsOverride', { width: 1480, height: 900, deviceScaleFactor: 1, mobile: false });
+  fs.writeFileSync(html, `<!doctype html><meta charset=utf-8><body style="margin:0;background:#222;color:#eee;font:14px sans-serif;display:flex;flex-direction:column;gap:14px;padding:16px;width:fit-content;max-width:1400px"><div><div style="margin:0 0 6px">이전</div><img src="file://${item.prev}" style="max-width:1360px;border:1px solid #555"></div><div><div style="margin:0 0 6px">지금</div><img src="file://${item.now}" style="max-width:1360px;border:1px solid #555"></div>`);
+  await page.cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 400, deviceScaleFactor: 1, mobile: false });
   await page.goto('file://' + html);
   await new Promise((r) => setTimeout(r, 400));
   item.compare = path.join(dir, `${item.label}.compare.png`);

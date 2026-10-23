@@ -1,0 +1,30 @@
+{
+  "id": 44,
+  "title": "원칙에 화면·시안 변경 보고 때 이전|지금 캡처 전달을 추가",
+  "source": "user",
+  "origin": {
+    "text": "비교 스냅샷 남기라는 건 기억 말고 원칙에 추가해",
+    "channel": "대화",
+    "at": "2026-10-23T03:28:57.342Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-23T03:28:57.342Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
