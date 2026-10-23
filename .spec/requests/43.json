@@ -1,0 +1,30 @@
+{
+  "id": 43,
+  "title": "시안 현황을 관리 영역(시안 현황 탭)과 화면 패널에 직접 보이기",
+  "source": "user",
+  "origin": {
+    "text": "시안/소스 최신 표시를 사용자도 볼 수 있게, 관리 영역 목록과 화면 설계서 패널 둘 다",
+    "channel": "대화",
+    "at": "2026-10-23T03:15:21.496Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-23T03:15:21.496Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

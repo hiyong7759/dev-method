@@ -64,10 +64,11 @@
         "src/viewer/screen.ts",
         "src/viewer/tabs.ts"
       ],
-      "state": "differs",
+      "state": "draft",
       "verifyLater": [
         "화면 패널 머리의 '요청 진행 중 n건' 칩과 '내 차례 … 관리에서 열기' 배너가 구현에 보이는지(표시 조건은 확인 안 함 — 진행 중 요청이 있는 화면에서 확인)"
-      ]
+      ],
+      "request": 43
     },
     {
       "board": "Screen-Now.dc.html",
@@ -182,6 +183,16 @@
       "state": "confirmed",
       "syncedAt": "c59e31e",
       "syncedOn": "2026-10-23"
+    },
+    {
+      "board": "Design-Status.dc.html",
+      "no": "16",
+      "title": "관리 · 시안 현황",
+      "files": [
+        "src/viewer/design-status.ts"
+      ],
+      "state": "draft",
+      "request": 43
     }
   ]
 }
