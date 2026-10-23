@@ -1,0 +1,30 @@
+{
+  "id": 45,
+  "title": "기억에 있던 원칙성 지시를 원칙(CORE·방법 문서)으로 옮기고 기억 정리",
+  "source": "user",
+  "origin": {
+    "text": "원칙에 있어야 할 게 기억에 있는 거 없는지 전수 검사",
+    "channel": "대화",
+    "at": "2026-10-23T03:30:42.086Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-23T03:30:42.086Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
