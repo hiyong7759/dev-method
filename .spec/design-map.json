@@ -25,16 +25,15 @@
         "src/viewer/flow.ts",
         "src/viewer/steps.ts"
       ],
-      "state": "draft",
+      "state": "confirmed",
       "verifyLater": [
         "선택한 시나리오를 눌렀을 때의 오른쪽 패널을 시안과 대조(시안은 선택한 상태, 점검 때는 선택 전 상태만 봄)"
       ],
-      "syncedAt": "c59e31e",
+      "syncedAt": "8b4febc",
       "syncedOn": "2026-10-23",
       "screens": [
         "사용 흐름"
-      ],
-      "request": 47
+      ]
     },
     {
       "board": "Info-Flow.dc.html",
@@ -44,16 +43,15 @@
         "src/viewer/info.ts",
         "src/viewer/erd.ts"
       ],
-      "state": "draft",
+      "state": "confirmed",
       "verifyLater": [
         "정보를 눌렀을 때의 오른쪽 패널을 시안과 대조(점검 때는 선택 전 '정보 흐름 한눈에'만 봄)"
       ],
-      "syncedAt": "c59e31e",
+      "syncedAt": "8b4febc",
       "syncedOn": "2026-10-23",
       "screens": [
         "정보 흐름"
-      ],
-      "request": 47
+      ]
     },
     {
       "board": "Review-Panel.dc.html",
@@ -202,9 +200,10 @@
       "files": [
         "src/viewer/reports.ts"
       ],
-      "state": "confirmed",
+      "state": "differs",
       "verifyLater": [
-        "처리된 리포트가 생기면 아래 '처리됨 · 요청으로 등록 n건… 펼쳐 보기' 줄이 시안대로 나오는지"
+        "처리된 리포트가 생기면 아래 '처리됨 · 요청으로 등록 n건… 펼쳐 보기' 줄이 시안대로 나오는지",
+        "17번(종류별 브리핑)이 이 시안의 목록 방식을 대신해 구현됨 — 14번 시안은 정리 대상"
       ],
       "syncedAt": "c59e31e",
       "syncedOn": "2026-10-23",
@@ -249,8 +248,11 @@
         "src/reports.ts",
         "src/viewer/review.ts"
       ],
-      "state": "draft",
-      "request": 47
+      "state": "differs",
+      "request": 47,
+      "verifyLater": [
+        "시안의 '의도 확인' 묶음(코드에는 있는데 사용 흐름에 없는 동작)과 '도구가 못 읽는 모양' 접힌 줄은 아직 없음 — 분류 근거가 생기면 구현"
+      ]
     },
     {
       "board": "Comment.dc.html",
