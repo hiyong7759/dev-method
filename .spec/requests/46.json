@@ -1,0 +1,30 @@
+{
+  "id": 46,
+  "title": "finish 확인이 새 화면에서 통과하게 고침(탭 이름·서버 갱신·로그인 유지)",
+  "source": "user",
+  "origin": {
+    "text": "복제본 시험의 도구 문제 20번",
+    "channel": "대화",
+    "at": "2026-10-23T06:23:13.946Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-23T06:23:13.946Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

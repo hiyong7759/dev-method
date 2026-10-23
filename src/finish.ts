@@ -12,6 +12,7 @@ import type { Browser, Frame, Page } from 'playwright-core';
 import { LAUNCHER, ROOT_DIR } from './paths.js';
 import { readConfig } from './config.js';
 import { loginIfConfigured } from './login.js';
+import { main as openServers } from './open.js';
 import { parseArgs, errorText } from './cli.js';
 import { matchScreen } from './viewer/util.js';
 import { runStep } from './viewer/steps.js';
@@ -66,6 +67,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
   }
 
   // 2. 서버와 설계서 보기 모델
+  // 도구를 고친 뒤에도 옛 코드의 서버가 남아 엉뚱한 실패를 만들지 않도록, 확인 전에 서버를 최신으로 맞춘다(주소를 직접 준 경우는 건드리지 않는다)
+  if (!opts.url) await openServers([root, '--no-open']);
   let model: Model | null = null;
   try { model = await (await fetch(base + '/__spec/model.json')).json() as Model; } catch { /* 응답 없음 */ }
   step('설계서 보기 서버가 응답한다', !!model, model ? `${base} · 화면 ${model.screens.length}개` : `${base}/__spec/model.json 에 응답이 없다. 앱 개발 서버와 설계서 보기 서버(node <스킬 폴더>/spec.mjs serve --project .)를 에이전트가 직접 띄운 뒤 다시 실행한다`);
@@ -108,13 +111,13 @@ export async function main(argv: string[]): Promise<number | undefined> {
         const tag = route.replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '') || 'root';
         try {
           await page.goto(`${base}/__spec/#/screen/${encodeURIComponent(sc.name)}?tab=overview&at=${encodeURIComponent(route)}`, { waitUntil: 'networkidle' });
-          await page.waitForSelector('.shead .nm', { timeout: 5000 }).catch(() => {});
+          await page.waitForSelector('.sidepanel .sp-head h3', { timeout: 5000 }).catch(() => {});
           await page.waitForTimeout(900);
-          const shown = await page.locator('.shead .nm').innerText().catch(() => '');
+          const shown = await page.locator('.sidepanel .sp-head h3').innerText().catch(() => '');
           step(`${route} 화면 설계서 "${sc.name}"가 열린다`, shown === sc.name, shown ? '' : '화면 설계서가 열리지 않았다');
           const body = (await page.frameLocator('iframe').locator('body').innerText().catch(() => '')).trim();
           step(`${route} 실제 화면이 열리고 오류가 없다`, errors.length === 0 && body.length > 0, errors.length ? errors.slice(0, 2).join(' / ') : body.length ? '' : '화면 본문이 비어 있다');
-          await page.locator('.tabs button', { hasText: '컴포넌트' }).click(); await page.waitForTimeout(700);
+          await page.locator('.tabs button', { hasText: '현행' }).click(); await page.waitForTimeout(700);
           const mine: Spec[] = model.specs.filter((x) => x.screens.includes(sc.name) && x.kind === 'dom' && x.anchor);
           let frame: Frame | undefined = page.frames().find((f) => f !== page.mainFrame());
           const cur = (): Frame => { if (!frame) throw new Error('화면 프레임이 없다'); return frame; };
@@ -173,7 +176,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
           const tell = Object.entries(revealed).map(([id, st]) => `${mine.find((m) => m.id === id)?.title ?? id}(${st.map((x) => `"${x.text}"`).join(' → ')}를 누르면)`).join(', ');
           step(`${route} 컴포넌트의 @anchor가 실제 화면에서 모두 찾힌다`, missing.length === 0,
             missing.length ? `${missing.map((m) => `${m.title}${m.open.length ? '(@open 순서로 열어도 안 나타남)' : ''}`).join(', ')} — 화면에서 못 찾았다. ① @anchor 선택자가 실제 화면의 요소와 맞는지 보고 틀리면 고친다 ② 맞는데 처음에는 숨어 있는 요소면 그 @spec에 열기 순서를 쓴다(@open 누르기 글자 → 입력 칸이름=값 → 엔터). 고친 뒤 다시 실행해 통과하는지 확인한다 (테스트 요청은 막지 않는다)` : `화면 요소 ${mine.length}개 모두 찾음${tell ? ` (${Object.keys(revealed).length}개는 눌러야 나타나 자동으로 찾아 기록: ${tell})` : ''}`, { warn: true });
-          await page.locator('.tabs button', { hasText: '컴포넌트' }).click();
+          await page.locator('.tabs button', { hasText: '현행' }).click();
           await page.screenshot({ path: path.join(out, `${tag}-spec.png`) });
         } catch (e) { step(`${route} 열기`, false, errorText(e).split('\n')[0]); }
         await page.close();
