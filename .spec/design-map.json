@@ -255,7 +255,7 @@
     {
       "board": "Comment.dc.html",
       "no": "18",
-      "title": "현행 · 어디서나 코멘트 남기기",
+      "title": "공통 · 코멘트 도구",
       "files": [
         "src/viewer/screen.ts",
         "src/viewer/util.ts"
