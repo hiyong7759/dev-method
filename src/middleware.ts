@@ -13,6 +13,7 @@ import { buildModel } from './model.js';
 import { specDir } from './project.js';
 import { screenHistory } from './history.js';
 import { decide } from './report.js';
+import { addComment, replyComment, closeComment, commentToRequest, shotDir } from './comment.js';
 import { addRequest, recordUntracked, approveDesign, rejectDesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
 import { wakeOwner } from './wake.js';
 import { errorText } from './cli.js';
@@ -80,6 +81,12 @@ export function specHandler(scanRoot: string): SpecHandler {
         res.setHeader('content-type', 'image/png'); res.setHeader('cache-control', 'no-store');
         return void res.end(fs.readFileSync(f));
       }
+      if (url.startsWith('/__spec/comment-shots/')) {
+        const f = path.join(shotDir(scanRoot), path.basename(url));
+        if (!fs.existsSync(f)) { res.statusCode = 404; return void res.end('없음'); }
+        res.setHeader('content-type', 'image/png'); res.setHeader('cache-control', 'no-store');
+        return void res.end(fs.readFileSync(f));
+      }
       if (url === '/__spec/model.json') return json(res, buildModel(scanRoot));
       if (url === '/__spec/history.json') {
         const out = extractSpecs(scanRoot);
@@ -112,6 +119,11 @@ export function specHandler(scanRoot: string): SpecHandler {
           }
           return json(res, decide(scanRoot, id, { state, request, reason: b.reason ? String(b.reason) : undefined }));
         }
+        // 코멘트: 사용자의 글만 여기서 받는다(에이전트의 답은 명령으로)
+        if (url === '/__spec/comment/add') return json(res, addComment(scanRoot, { target: b.target as never, text: String(b.text || ''), shot: b.shot ? String(b.shot) : undefined }));
+        if (url === '/__spec/comment/reply') return json(res, replyComment(scanRoot, Number(b.id), 'user', String(b.text || '')));
+        if (url === '/__spec/comment/close') return json(res, closeComment(scanRoot, Number(b.id)));
+        if (url === '/__spec/comment/to-request') return json(res, commentToRequest(scanRoot, Number(b.id), String(b.title || '')));
         // 묶음 처리: 같은 판단을 여러 줄에 한꺼번에 내린다. 요청으로 등록하면 고칠 일 하나(요청 하나)로 모은다
         if (url === '/__spec/report/decide-many') {
           const ids = (Array.isArray(b.ids) ? b.ids : []).map(String), state = String(b.state || '');

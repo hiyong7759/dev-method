@@ -19,10 +19,13 @@ import { glossaryView } from './glossary.js';
 import { hash, nav as go } from './route.js';
 import { themeMode, applyTheme, THEME_MODES } from './theme.js';
 import { markTerms } from './terms.js';
+import { commentTool } from './comment.js';
+import type { CommentTool } from './comment.js';
 import type { Model } from '../types.js';
 
 /** 설계서 보기 틀의 전부가 그려지는 자리 */
 const root = document.getElementById('app') as HTMLElement;
+let commentUi: CommentTool | null = null;
 let model: Model | null = null, active: (ScreenViewHandle & { name: string }) | null = null, key = '', topEl: HTMLElement | null = null, menu: HTMLElement | null = null;
 
 /** 주소(#)를 읽은 결과: 어느 화면(view), 그 안의 대상(arg), 그 아래 쪽(sub), 쿼리(params) */
@@ -128,7 +131,8 @@ function render(): void {
 async function load(initial: boolean): Promise<void> {
   const m = await get<Model>('/__spec/model.json');
   if (model && m.generatedAt < model.generatedAt) return;
-  const k = JSON.stringify({ ...m, generatedAt: 0 });
+  const k = JSON.stringify({ ...m, generatedAt: 0, comments: 0 });
+  if (!commentUi) commentUi = commentTool(m); else commentUi.update(m);
   if (!initial && k === key) return;
   key = k; model = m;
   const r = parse();

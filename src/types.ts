@@ -774,6 +774,8 @@ export interface Model {
   designs: DesignView[];
   /** 시안을 모아 둔 캔버스 주소(없으면 빈 글) */
   designCanvas: string;
+  /** 화면 코멘트와 에이전트의 답 */
+  comments: Comment[];
   /** 요청 번호 없이 남은 커밋들(첫 요청이 생긴 뒤의 것만) */
   untracked: UntrackedCommit[];
   /** 개수 모음 */
@@ -924,4 +926,54 @@ export interface GlossaryTerm {
   meaning: string;
   /** 쓰이는 곳들 */
   uses: string[];
+}
+
+/** 코멘트가 가리키는 곳. 어느 화면의 어느 부분인지 사람과 에이전트가 같이 알아볼 수 있게 이름과 위치를 함께 담는다 */
+export interface CommentTarget {
+  /** 부품을 골랐나(part), 화면에서 영역을 그렸나(region), 화면 전체(screen), 화면 말고 정보·시나리오·리포트·요청(item) */
+  kind: 'part' | 'region' | 'screen' | 'item';
+  /** 사람이 읽는 대상 이름(예: 하루 일정 › ② 예약 카드) */
+  label: string;
+  /** 설계서 보기 주소(#/…)로, 코멘트를 남긴 곳에 다시 갈 수 있게 한다 */
+  view?: string;
+  /** 코멘트가 가리키는 화면 이름 */
+  screen?: string;
+  /** 부품 이름 */
+  part?: string;
+  /** 소스 위치(파일:줄) */
+  src?: string;
+  /** 코멘트가 가리키는 정보 이름 */
+  info?: string;
+  /** 리포트 번호 */
+  no?: number;
+  /** 영역을 그렸다면 그 자리(보이는 화면 기준) */
+  rect?: { x: number; y: number; w: number; h: number };
+}
+/** 코멘트 안의 글 한 줄 */
+export interface CommentMsg {
+  /** 누가 썼나: 사용자 / 에이전트 */
+  who: 'user' | 'agent';
+  /** 글 */
+  text: string;
+  /** 쓴 시각 */
+  at: string;
+  /** 에이전트가 답하며 확인했다고 적은 소스 위치들(파일:줄) */
+  refs?: string[];
+}
+/** 코멘트 한 건: 대상, 대화, 상태 */
+export interface Comment {
+  /** 코멘트 번호(다시 쓰지 않는다) */
+  id: number;
+  /** 코멘트가 가리키는 곳 */
+  target: CommentTarget;
+  /** 답 기다림 / 답함 / 닫힘 */
+  status: 'waiting' | 'answered' | 'closed';
+  /** 같이 보낸 캡처 파일 이름(없으면 빈 글) */
+  shot: string;
+  /** 처음 남긴 시각 */
+  at: string;
+  /** 사용자와 에이전트가 주고받은 글들(오래된 것부터) */
+  thread: CommentMsg[];
+  /** 요청으로 만들었다면 그 번호 */
+  request?: number;
 }

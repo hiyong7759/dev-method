@@ -104,7 +104,7 @@ function scenarioCard(model: Model, sc: Scenario, picked: boolean, pick: () => v
   const first = sc.firstScreens[0];
   const reviews = reviewsOf(model, sc);
   const reqs = requestsOf(model, sc);
-  const card = h('div', { class: `scn${picked ? ' picked' : ''}`, onclick: pick },
+  const card = h('div', { class: `scn${picked ? ' picked' : ''}`, onclick: pick, dataset: { ctarget: JSON.stringify({ kind: 'item', label: `사용 흐름 › ${sc.name}` }) } },
     h('div', { class: 'scn-h' },
       buls([...(reqs.length ? [{ kind: 'ing' as BulKind, label: '요청 진행 중' }] : []), ...(reviews.length ? [{ kind: 'rev' as BulKind, label: '확인 필요' }] : []), ...(hasBranch(sc) ? [{ kind: 'br' as BulKind, label: '갈래 있음' }] : [])]),
       h('span', { class: 'scn-t' }, sc.name),

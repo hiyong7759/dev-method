@@ -58,7 +58,7 @@ function tableRow(r: ReportRow, g: Group, hitNo: number, onChange: () => void): 
     ? [h('td', null, h('b', null, r.title), r.label ? [' ', chip(r.label === '보안' ? 'bad' : 'dim', r.label)] : null), h('td', null, `${r.from}${r.at ? ` · ${fmt(r.at)}` : ''}`), h('td', { class: 'mono' }, r.where.map((w) => w.name).join(', ') || '—')]
     : [h('td', null, h('b', null, rv3?.prop ? `${rv3.info}.${rv3.prop}` : (rv3?.info ?? r.title))), h('td', null, tag('i', rv3?.info ?? '')), h('td', { class: 'mono' }, rv3?.where ?? ''),
        h('td', null, rv3?.also.length ? `같은 이름: ${rv3.also.slice(0, 2).join(', ')}${rv3.also.length > 2 ? ` 외 ${rv3.also.length - 2}` : ''}` : (rv3?.tone === 'warn' ? '같은 이름이 다른 선언에 있음(복사본일 수 있음)' : '쓰는 곳 0'))];
-  return h('tr', { class: r.no === hitNo ? 'hit' : '', dataset: { no: String(r.no) } }, h('td', { class: 'mono' }, `#${r.no}`), cells, h('td', { class: 'eachact' }, actionButtons(r, onChange, ' sm')));
+  return h('tr', { class: r.no === hitNo ? 'hit' : '', dataset: { no: String(r.no), ctarget: JSON.stringify({ kind: 'item', label: `리포트 #${r.no} · ${r.title.slice(0, 40)}`, no: r.no }) } }, h('td', { class: 'mono' }, `#${r.no}`), cells, h('td', { class: 'eachact' }, actionButtons(r, onChange, ' sm')));
 }
 
 /** 묶음 한 칸: 뜻, 에이전트 의견, 표, 결정 단추 */

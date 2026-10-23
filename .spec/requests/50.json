@@ -1,0 +1,30 @@
+{
+  "id": 50,
+  "title": "공통 코멘트 도구 구현(저장·에이전트 명령·화면의 단추와 코멘트 창)",
+  "source": "user",
+  "origin": {
+    "text": "모든 화면에서 같은 모양으로 부품·영역·화면 전체를 골라 코멘트를 남기고 에이전트의 답을 받는다 (요청 #48에 이어서)",
+    "channel": "대화",
+    "at": "2026-10-23T10:58:41.593Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-23T10:58:41.593Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
