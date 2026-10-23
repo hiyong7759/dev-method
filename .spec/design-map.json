@@ -25,7 +25,7 @@
         "src/viewer/flow.ts",
         "src/viewer/steps.ts"
       ],
-      "state": "confirmed",
+      "state": "draft",
       "verifyLater": [
         "선택한 시나리오를 눌렀을 때의 오른쪽 패널을 시안과 대조(시안은 선택한 상태, 점검 때는 선택 전 상태만 봄)"
       ],
@@ -33,7 +33,8 @@
       "syncedOn": "2026-10-23",
       "screens": [
         "사용 흐름"
-      ]
+      ],
+      "request": 47
     },
     {
       "board": "Info-Flow.dc.html",
@@ -43,7 +44,7 @@
         "src/viewer/info.ts",
         "src/viewer/erd.ts"
       ],
-      "state": "confirmed",
+      "state": "draft",
       "verifyLater": [
         "정보를 눌렀을 때의 오른쪽 패널을 시안과 대조(점검 때는 선택 전 '정보 흐름 한눈에'만 봄)"
       ],
@@ -51,7 +52,8 @@
       "syncedOn": "2026-10-23",
       "screens": [
         "정보 흐름"
-      ]
+      ],
+      "request": 47
     },
     {
       "board": "Review-Panel.dc.html",
@@ -60,7 +62,10 @@
       "files": [
         "src/viewer/review.ts"
       ],
-      "state": "unchecked"
+      "state": "differs",
+      "verifyLater": [
+        "17번(리포트 종류별 브리핑)이 이 시안의 패널 방식을 대신한다 — 5번은 17번 구현 뒤 정리"
+      ]
     },
     {
       "board": "Screen-Overview.dc.html",
