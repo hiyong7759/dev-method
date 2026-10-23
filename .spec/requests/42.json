@@ -1,0 +1,30 @@
+{
+  "id": 42,
+  "title": "시안과 소스 중 무엇이 최신인지 판마다 표시(design 명령·대응표)",
+  "source": "user",
+  "origin": {
+    "text": "시안이 최종인지 소스가 최종인지 사람도 에이전트도 직관적으로 알 수 있게, 둘의 싱크가 항상 맞게",
+    "channel": "대화",
+    "at": "2026-10-23T02:59:36.128Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-23T02:59:36.128Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

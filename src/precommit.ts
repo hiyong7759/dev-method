@@ -77,6 +77,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
     console.log(`기준선을 저장했다: 지금의 경고 ${total}건(.spec/baseline.json, 커밋한다). 앞으로는 이보다 늘어난 경고만 커밋을 막는다`);
     return 0;
   }
+  // 시안과 소스가 어긋난 판은 알리기만 한다(막지 않는다)
+  spawnSync(process.execPath, [LAUNCHER, 'design', 'check', '--project', root], { stdio: 'inherit' });
   if (bad) { console.error(base ? '[spec-view] 새로 생긴 경고를 없앤 뒤 커밋한다 (메타정보 채우기: spec-view 스킬 rules/meta.md)' : '[spec-view] 경고를 0으로 만든 뒤 커밋한다 (메타정보 채우기: spec-view 스킬 rules/meta.md. 이미 만들어진 프로젝트를 들이는 중이면 `precommit . --baseline`으로 지금의 경고를 기준선으로 저장한다)'); return 1; }
   if (allowed) console.log(`[spec-view] 기준선에 있는 경고 ${allowed}건은 막지 않았다. 경고가 줄면 \`precommit . --baseline\`으로 기준선을 낮춘다`);
   return 0;
