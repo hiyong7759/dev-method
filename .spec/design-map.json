@@ -262,8 +262,11 @@
         "src/viewer/screen.ts",
         "src/viewer/util.ts"
       ],
-      "state": "draft",
-      "request": 48
+      "state": "differs",
+      "request": 48,
+      "verifyLater": [
+        "시안의 어두운 덮개·코멘트가 달린 부품의 점·영역을 잘라 찍는 캡처·'이 화면' 필터 정확도·담당 세션에 바로 전달은 아직 없음(쌓아 두는 방식)"
+      ]
     }
   ]
 }
