@@ -13,7 +13,7 @@ import { loadRequests, describeRequests } from './request.js';
 import { untrackedCommits } from './history.js';
 import { designViews } from './design.js';
 import { readConfig } from './config.js';
-import { loadReports, reportRows, openCount } from './report.js';
+import { loadReports, reportRows, openCount, assignNumbers } from './report.js';
 import { loadGlossary } from './glossary.js';
 import { detectNav } from './nav.js';
 import { errorText } from './cli.js';
@@ -219,7 +219,8 @@ export function buildModel(scanRoot: string): Model {
     }
   }
   const store = loadReports(scanRoot);
-  const rows = reportRows(store.items, reviews, store.decisions, new Set(screens.map((s) => s.name)), new Set(infos.map((i) => i.name)));
+  const numbers = assignNumbers(scanRoot, [...store.items.map((a) => a.id), ...reviews.map((r) => r.id).sort()]);
+  const rows = reportRows(store.items, reviews, store.decisions, numbers, new Set(screens.map((s) => s.name)), new Set(infos.map((i) => i.name)));
   for (const i of infos) i.flagged = rows.filter((r) => r.review && !r.decision && r.review.info === i.name).length;
 
   for (const i of infos) for (const p of i.props) p.evidence = p.evidence.slice(0, 12);

@@ -1,0 +1,30 @@
+{
+  "id": 49,
+  "title": "리포트에 번호를 붙이고 번호로 근거를 읽는 report show를 추가함",
+  "source": "user",
+  "origin": {
+    "text": "리포트 번호로 에이전트에게 바로 물어 답을 얻을 수 있어야 함",
+    "channel": "대화",
+    "at": "2026-10-23T08:51:46.282Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-23T08:51:46.282Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

@@ -16,7 +16,7 @@ function row(r: ReportRow, onChange: () => void): HTMLElement {
   const tone = r.label === '보안' ? 'bad' : 'dim';
   return h('div', { class: `rrow${r.origin === 'review' && !r.decision ? ' review' : ''}` },
     h('div', { class: 'rbody' },
-      h('div', { class: 'rtitle' }, buls([dot]), r.title, r.label ? chip(tone, r.label) : null, r.origin === 'review' && !r.decision ? rv() : null),
+      h('div', { class: 'rtitle' }, buls([dot]), h('span', { class: 'mono', style: 'color:var(--dim);margin-right:6px' }, `#${r.no}`), r.title, r.label ? chip(tone, r.label) : null, r.origin === 'review' && !r.decision ? rv() : null),
       h('div', { class: 'rmeta' }, areaChip, h('span', { class: 'hint' }, `${r.from}${r.at ? ` · ${fmt(r.at)}` : ''}`),
         r.where.slice(0, 3).map((w) => (w.kind === 'screen' ? h('a', { href: hash('screen', w.name), class: 'tag c' }, w.name) : tag(w.kind === 'info' ? 'i' : '', w.name))),
         r.where.length > 3 ? h('span', { class: 'tag' }, `외 ${r.where.length - 3}`) : null,

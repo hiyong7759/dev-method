@@ -894,6 +894,8 @@ export interface ReviewItem {
 export interface ReportRow {
   /** 열쇠 */
   id: string;
+  /** 리포트 번호(처음 보인 순서로 정해지고 다시 쓰지 않는다) */
+  no: number;
   /** 에이전트 발견인지 확인 필요인지 */
   origin: 'agent' | 'review';
   /** 제목 */
