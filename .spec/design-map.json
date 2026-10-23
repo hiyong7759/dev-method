@@ -70,14 +70,15 @@
         "src/viewer/screen.ts",
         "src/viewer/tabs.ts"
       ],
-      "state": "draft",
+      "state": "confirmed",
       "verifyLater": [
         "화면 패널 머리의 '요청 진행 중 n건' 칩과 '내 차례 … 관리에서 열기' 배너가 구현에 보이는지(표시 조건은 확인 안 함 — 진행 중 요청이 있는 화면에서 확인)"
       ],
-      "request": 43,
       "screens": [
         "화면 설계서"
-      ]
+      ],
+      "syncedAt": "c9aef4b",
+      "syncedOn": "2026-10-23"
     },
     {
       "board": "Screen-Now.dc.html",
@@ -227,11 +228,12 @@
       "files": [
         "src/viewer/design-status.ts"
       ],
-      "state": "draft",
-      "request": 43,
+      "state": "confirmed",
       "screens": [
         "시안 현황"
-      ]
+      ],
+      "syncedAt": "c9aef4b",
+      "syncedOn": "2026-10-23"
     }
   ]
 }
