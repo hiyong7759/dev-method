@@ -28,7 +28,9 @@
       "state": "confirmed",
       "verifyLater": [
         "선택한 시나리오를 눌렀을 때의 오른쪽 패널을 시안과 대조(시안은 선택한 상태, 점검 때는 선택 전 상태만 봄)"
-      ]
+      ],
+      "syncedAt": "c59e31e",
+      "syncedOn": "2026-10-23"
     },
     {
       "board": "Info-Flow.dc.html",
@@ -41,7 +43,9 @@
       "state": "confirmed",
       "verifyLater": [
         "정보를 눌렀을 때의 오른쪽 패널을 시안과 대조(점검 때는 선택 전 '정보 흐름 한눈에'만 봄)"
-      ]
+      ],
+      "syncedAt": "c59e31e",
+      "syncedOn": "2026-10-23"
     },
     {
       "board": "Review-Panel.dc.html",
@@ -73,7 +77,9 @@
         "src/viewer/screen.ts",
         "src/viewer/tabs.ts"
       ],
-      "state": "confirmed"
+      "state": "confirmed",
+      "syncedAt": "c59e31e",
+      "syncedOn": "2026-10-23"
     },
     {
       "board": "Screen-Shell.dc.html",
@@ -83,7 +89,9 @@
         "src/viewer/screen.ts",
         "src/viewer/tabs.ts"
       ],
-      "state": "confirmed"
+      "state": "confirmed",
+      "syncedAt": "c59e31e",
+      "syncedOn": "2026-10-23"
     },
     {
       "board": "Screen-History.dc.html",
@@ -122,7 +130,9 @@
       "state": "confirmed",
       "verifyLater": [
         "시나리오가 있는 요청이 테스트 단계에 올라왔을 때 범위·확인표·범위 밖 발견 칸이 시안대로 나오는지(점검 때는 해당 요청이 없어 설계 단계·완료 단계만 확인)"
-      ]
+      ],
+      "syncedAt": "c59e31e",
+      "syncedOn": "2026-10-23"
     },
     {
       "board": "Info-Overlay.dc.html",
@@ -158,7 +168,9 @@
       "state": "confirmed",
       "verifyLater": [
         "처리된 리포트가 생기면 아래 '처리됨 · 요청으로 등록 n건… 펼쳐 보기' 줄이 시안대로 나오는지"
-      ]
+      ],
+      "syncedAt": "c59e31e",
+      "syncedOn": "2026-10-23"
     },
     {
       "board": "Glossary.dc.html",
@@ -167,7 +179,9 @@
       "files": [
         "src/viewer/glossary.ts"
       ],
-      "state": "confirmed"
+      "state": "confirmed",
+      "syncedAt": "c59e31e",
+      "syncedOn": "2026-10-23"
     }
   ]
 }
