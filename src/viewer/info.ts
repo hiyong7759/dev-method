@@ -4,7 +4,7 @@
  * @contract model.infos, model.relations, model.screens[].fields를 그대로 그린다. 관계도는 창 폭에 맞춰 상자를 줄바꿈해 놓으므로, 창 폭이 바뀌면 부르는 쪽(app.ts)이 다시 그려야 한다. 오른쪽 패널은 항상 열려 있다(고르기 전에는 한눈에 보기).
  */
 import { h, ROLES, ROLE_LABEL, filterChips, sideList, pageHead, sidePanel, chip, tag, rv, type BulKind } from './util.js';
-import { reviewPanel } from './review.js';
+import { reportLink } from './review.js';
 import { buildErd } from './erd.js';
 import { hash, nav } from './route.js';
 import type { InfoKind, Model, ModelInfo, ModelProp, RefKind } from '../types.js';
@@ -13,7 +13,7 @@ import type { InfoKind, Model, ModelInfo, ModelProp, RefKind } from '../types.js
 export type InfoFilter = 'all' | InfoKind | 'review';
 /** 정보 거르기 칩의 점(상자 이름 앞의 점과 짝) */
 const FILTER_BUL: Partial<Record<InfoFilter, BulKind>> = { screen: 'scr', internal: 'int', review: 'rev' };
-const FILTER_LABEL: Record<InfoFilter, string> = { all: '전체', screen: '화면용', internal: '내부용', review: '확인 필요' };
+const FILTER_LABEL: Record<InfoFilter, string> = { all: '전체', screen: '화면용', internal: '내부용', review: '리포트 연결' };
 /** 구분에 맞는 정보만 */
 export const infosOf = (model: Model, f: InfoFilter): ModelInfo[] => (f === 'all' ? model.infos : f === 'review' ? model.infos.filter((i) => i.flagged > 0) : model.infos.filter((i) => i.kind === f));
 
@@ -32,11 +32,10 @@ export interface DrawerOptions {
   /** 화면을 연다. 없으면 그 화면의 설계서 주소로 이동한다 */
   openScreen?: (name: string) => void;
   /** 이 정보의 확인 필요 패널을 연다 */
-  openReview?: (infoName: string) => void;
 }
 
 /** 정보 상세 — 존재 이유, 필드(역할 이름표와 확인 필요), 쓰이는 화면. 오른쪽 패널(sidepanel) 하나로 만든다 */
-export function infoDrawer(model: Model, name: string, { focusField, currentScreen, locNote, onClose, openScreen = (n) => nav(hash('screen', n)), openReview }: DrawerOptions): HTMLElement {
+export function infoDrawer(model: Model, name: string, { focusField, currentScreen, locNote, onClose, openScreen = (n) => nav(hash('screen', n)) }: DrawerOptions): HTMLElement {
   const info = model.infos.find((i) => i.name === name);
   if (!info) return sidePanel({ title: name, onClose, body: h('div', { class: 'empty-note' }, `정보 ${name}을 찾지 못했다`) });
   const screenNames = new Set(model.screens.map((s) => s.name));
@@ -50,12 +49,12 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
     body: [
       h('div', { class: 'card' }, info.doc ? h('div', null, info.doc) : h('div', { style: 'color:var(--dim2);font-style:italic' }, '존재 이유 미작성'), h('div', { class: 'hint mono' }, `${info.fileSrc}:${info.line}`)),
       locNote ? h('div', { class: 'warn' }, locNote) : null,
-      h('div', { class: 'card' }, h('h3', null, '필드 ', h('small', null, `${info.props.length}개${flagged ? ` · 확인 필요 ${flagged}` : ''}`)),
+      h('div', { class: 'card' }, h('h3', null, '필드 ', h('small', null, `${info.props.length}개${flagged ? ` · 리포트 ${flagged}건` : ''}`)),
         h('div', { class: 'frows' }, sorted.map((p) => {
           const roles = ROLES.filter((r) => p.roles[r].length);
           return h('div', { class: `frow${focusField === p.name ? ' focus' : ''}${mine.has(p.name) ? ' mine' : ''}`, title: p.doc },
             h('span', { class: 'mono fname' }, p.name),
-            h('span', { class: 'froles' }, roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])), flaggedProps.has(p.name) ? rv('확인 필요', () => openReview?.(name)) : null));
+            h('span', { class: 'froles' }, roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])), reportLink(model.reports.filter((r) => r.review && !r.decision && r.review.info === name && r.review.prop === p.name), `정보 흐름 · ${name}`)));
         }))),
       h('div', { class: 'card' }, h('h3', null, '쓰이는 화면'),
         used.length ? h('div', { class: 'tagrow' }, used.map((n) => h('button', { class: `tag c${n === currentScreen ? ' here' : ''}`, onclick: () => openScreen(n) }, n))) : h('div', { class: 'hint' }, '화면에서 쓰이지 않는다(내부용)')),
@@ -76,9 +75,7 @@ export interface InfoMapOptions {
   /** 도메인을 바꿀 때 */
   onDomain: (d: string) => void;
   /** 열려 있는 확인 필요 패널(없으면 null) */
-  review: { name: string; onClose: () => void; onDone: () => void } | null;
   /** 상자의 확인 필요 표시를 눌렀을 때 */
-  openReview: (infoName: string) => void;
   /** 상자를 눌렀을 때 */
   onSelect: (name: string) => void;
   /** 오른쪽 패널에 보일 내용(항상 있다) */
@@ -97,17 +94,17 @@ export interface InfoMapOptions {
  * @does 오른쪽 패널의 "쓰이는 화면" 이름을 눌러 그 화면의 설계서를 연다 | 화면 설계서가 열린다 | 정보를 살펴본다#3 | → 화면 설계서를 열어 본다#3
  * @does 같은 상자를 다시 눌러 전체 요약으로 돌아간다 | 오른쪽 패널이 한눈에 보기로 바뀐다 | 정보를 살펴본다#2b | → 1 | 같은 상자를 다시 누르면
  */
-export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, drawer, filter, onFilter, domain, onDomain, review, openReview }: InfoMapOptions): void {
+export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, drawer, filter, onFilter, domain, onDomain }: InfoMapOptions): void {
   const domOf = (i: ModelInfo): string[] => (i.domains.length ? i.domains : ['기타']);
   const infos = infosOf(model, filter).filter((i) => !domain || domOf(i).includes(domain));
   const availW = (root.clientWidth || window.innerWidth) - 200 - 380 - 150; // 왼쪽 목록과 오른쪽 패널은 항상 있어 폭을 미리 뺀다(고르면 상자가 움직이는 일이 없게)
-  const erd = buildErd(model, { infos, selected, availW, onSelect, openReview, bullets: true });
+  const erd = buildErd(model, { infos, selected, availW, onSelect, bullets: true });
   const count = (f: InfoFilter): number => infosOf(model, f).filter((i) => !domain || domOf(i).includes(domain)).length;
   const allDomains = [...new Set(model.infos.flatMap(domOf))];
   const list = sideList('도메인으로 보기', [{ key: '', label: '전체', count: model.infos.length }, ...allDomains.map((d) => ({ key: d, label: d, count: model.infos.filter((i) => domOf(i).includes(d)).length }))], domain, onDomain);
   const chips = filterChips((['all', 'screen', 'internal', 'review'] as InfoFilter[]).filter((f) => f !== 'review' || count(f) > 0 || filter === 'review').map((f) => ({ key: f, label: FILTER_LABEL[f], count: count(f), bul: FILTER_BUL[f] })), filter, onFilter);
-  const legend = h('div', { class: 'legend2' }, h('span', { class: 'sw-box' }), h('span', null, '화면용 정보'), h('span', { class: 'sw-box dashed' }), h('span', null, '내부용 정보(어느 화면에도 보이지 않음)'), rv('확인 필요'), h('span', null, '눌러서 판단'));
-  const panel = review ? reviewPanel(model.reports.filter((r) => r.review && r.review.info === review.name), { title: review.name, onClose: review.onClose, onDone: review.onDone }) : drawer;
+  const legend = h('div', { class: 'legend2' }, h('span', { class: 'sw-box' }), h('span', null, '화면용 정보'), h('span', { class: 'sw-box dashed' }), h('span', null, '내부용 정보(어느 화면에도 보이지 않음)'), rv('리포트 #번호'), h('span', null, '눌러서 리포트로 이동'));
+  const panel = drawer;
   root.append(h('div', { class: 'map-body' }, list,
     h('div', { class: 'flow-center' }, h('div', { class: 'pg' },
       pageHead({ title: '정보 흐름', lead: '정보가 어느 화면에서 입력되고 보이고 바뀌고 판단되는지를 관계도로 봅니다. 도메인은 그 정보를 쓰는 화면의 도메인에서 계산합니다.' }),

@@ -108,20 +108,19 @@ function render(): void {
     const keep = { kind: kind === 'all' ? undefined : kind, domain: domain || undefined };
     infoMap(body, m, {
       selected: sel, filter: kind, domain, onFilter: (f) => nav(hash('info', sel, { ...keep, kind: f === 'all' ? undefined : f })), onDomain: (d) => nav(hash('info', '', { kind: keep.kind, domain: d || undefined })), onSelect: (n) => nav(hash('info', n === sel ? '' : n, keep)),
-      review: r.params.get('review') ? { name: r.params.get('review') as string, onClose: () => nav(hash('info', sel, keep)), onDone: again } : null, openReview: (n) => nav(hash('info', sel, { ...keep, review: n })),
-      drawer: sel ? infoDrawer(m, sel, { onClose: () => nav(hash('info', '', keep)), openInfo: (n) => nav(hash('info', n, keep)), openReview: (n) => nav(hash('info', sel, { ...keep, review: n })) }) : infoOverview(m, { openInfo: (n) => nav(hash('info', n, keep)) }),
+      drawer: sel ? infoDrawer(m, sel, { onClose: () => nav(hash('info', '', keep)), openInfo: (n) => nav(hash('info', n, keep)) }) : infoOverview(m, { openInfo: (n) => nav(hash('info', n, keep)) }),
     });
   } else if (r.view === 'manage') {
     if (r.arg) manageDetail(body, { model: m, id: r.arg, sub: r.sub, onChange: again });
     else manageList(body, { model: m, kind: r.params.get('kind') || '', onChange: again });
   } else if (r.view === 'reports') {
-    reportsView(body, { model: m, kind: r.params.get('kind') || '', onChange: again });
+    reportsView(body, { model: m, onChange: again, no: Number(r.params.get('no')) || 0, from: r.params.get('from') || '' });
   } else if (r.view === 'designs') {
     designStatusView(body, { model: m, kind: r.params.get('kind') || '' });
   } else if (r.view === 'glossary') {
     glossaryView(body, { model: m, term: r.params.get('term') || '' });
   } else {
-    flowView(body, { model: m, domain: r.params.get('domain') || '', kind: r.params.get('kind') || '', selected: r.params.get('sc') || '', review: r.params.get('review') || '', onChange: again });
+    flowView(body, { model: m, domain: r.params.get('domain') || '', kind: r.params.get('kind') || '', selected: r.params.get('sc') || '', onChange: again });
   }
 }
 

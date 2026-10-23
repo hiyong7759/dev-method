@@ -112,6 +112,20 @@ export function specHandler(scanRoot: string): SpecHandler {
           }
           return json(res, decide(scanRoot, id, { state, request, reason: b.reason ? String(b.reason) : undefined }));
         }
+        // 묶음 처리: 같은 판단을 여러 줄에 한꺼번에 내린다. 요청으로 등록하면 고칠 일 하나(요청 하나)로 모은다
+        if (url === '/__spec/report/decide-many') {
+          const ids = (Array.isArray(b.ids) ? b.ids : []).map(String), state = String(b.state || '');
+          if (!ids.length) throw new Error('처리할 항목이 없다');
+          if (state !== 'registered' && state !== 'intended' && state !== 'ignored') throw new Error('처리는 요청으로 등록·의도한 것·무시 중 하나다');
+          let request: number | undefined;
+          if (state === 'registered') {
+            const rows = buildModel(scanRoot).reports.filter((r) => ids.includes(r.id));
+            if (rows.length !== ids.length) throw new Error('이미 해소됐거나 찾지 못한 항목이 있다 — 화면을 새로 고쳐 다시 본다');
+            const names = (kind: string): string[] => [...new Set(rows.flatMap((r) => r.where.filter((w) => w.kind === kind).map((w) => w.name)))];
+            request = addRequest(scanRoot, { title: String(b.title || rows[0].title), origin: rows.map((r) => `#${r.no} ${r.title}`).join('\n'), channel: rows.some((r) => r.origin === 'review') ? '확인 필요' : '리포트', screens: names('screen'), infos: names('info'), source: 'report' }).id;
+          }
+          return json(res, ids.map((id) => decide(scanRoot, id, { state, request, reason: b.reason ? String(b.reason) : undefined })));
+        }
         if (url === '/__spec/request/record') return json(res, recordUntracked(scanRoot, String(b.hash || ''), String(b.title || '')));
         // 결정이 저장되면 그 요청을 맡은 세션이 닫혀 있을 때만 깨운다(열린 세션은 inbox 훅이 알린다)
         if (url === '/__spec/request/design-approve') { const r = approveDesign(scanRoot, Number(b.id)); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }

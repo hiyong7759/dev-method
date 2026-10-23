@@ -651,3 +651,28 @@ a.tag{text-decoration:none}
 .legend{display:flex;gap:8px;flex-wrap:wrap}
 .designline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
 .designline .lnk{margin-left:auto}
+/* 리포트 브리핑: 종류별 묶음 */
+a.rv.lnk{text-decoration:none;cursor:pointer}
+.rv.lnk:after{content:" ›";font-size:12px}
+.sum{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.sum .big{font-size:15px;font-weight:700}
+.grp2{border:1px solid var(--amber-deep);border-radius:14px;background:var(--card);padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.grp2.ag{border-color:var(--accent-deep)}
+.gh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.gh b{font-size:16px}
+.gh .n{margin-left:auto;font-size:13px;color:var(--dim)}
+.gmean{font-size:13px;color:var(--text2);line-height:1.6}
+.op{border-left:3px solid var(--green-deep);background:var(--green-bg);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6}
+.op b{color:var(--green)}
+.op.q{border-left-color:var(--amber-deep);background:var(--amber-bg)}
+.op.q b{color:var(--amber)}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+table.t th{text-align:left;color:var(--dim);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.t td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55}
+table.t tr:last-child>td{border-bottom:0}
+table.t tr.hit>td{background:var(--amber-bg)}
+.grp2 .eachact{display:none}
+.grp2.each .eachact{display:table-cell}
+.dec{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.more{cursor:pointer;color:var(--accent);font-weight:700}
+.arrive{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:10px;border:1px solid var(--accent-deep);background:var(--accent-bg);color:var(--accent);font-size:13px;font-weight:700}

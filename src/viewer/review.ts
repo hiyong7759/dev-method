@@ -1,9 +1,9 @@
 /**
- * @spec review-panel 확인 필요 패널
+ * @spec review-link 확인 필요의 리포트 연결
  * @why 확인 필요는 기계가 판단할 수 없어 사람이 정해야 하는 것만 올라온다. 사용 흐름·정보 흐름·화면 설계서 어디서 눌러도 같은 모양의 항목과 같은 패널로 열리고, 결정(요청으로 등록 / 의도한 것)은 한 목록(리포트)에 모이게 한다.
  * @contract model.reports(origin이 review인 줄)를 그린다. 결정은 서버의 /__spec/report/decide로 보내고, 끝나면 부른 쪽이 준 onDone으로 화면을 다시 그린다.
  */
-import { h, post, sidePanel, chip, errorText, toast } from './util.js';
+import { h, post, chip, errorText, toast } from './util.js';
 import type { Kid } from './util.js';
 import { hash } from './route.js';
 import type { ReportRow } from '../types.js';
@@ -40,22 +40,9 @@ export function actionButtons(row: ReportRow, onDone: () => void, size = ''): HT
   return wrap;
 }
 
-/** 확인 필요 한 건: 제목, 판단에 도움, 정의된 곳, 처리 단추 */
-export function reviewCard(row: ReportRow, onDone: () => void): HTMLElement {
-  const r = row.review;
-  return h('div', { class: 'card' },
-    h('h3', null, row.title),
-    r ? h('div', { class: `box help ${r.tone}` }, h('b', null, '판단에 도움'), h('div', null, r.help)) : null,
-    r ? h('div', { class: 'hint' }, '정의된 곳 ', h('span', { class: 'mono' }, r.where), r.also.length ? [' · 글자로 나오는 곳 ', r.also.map((a) => h('span', { class: 'mono', style: 'margin-right:8px' }, a))] : null) : null,
-    row.decision ? h('div', { class: 'decided' }, decisionText(row)) : actionButtons(row, onDone));
-}
-
-/** 오른쪽에 열리는 확인 필요 패널 */
-export function reviewPanel(rows: ReportRow[], { title, onClose, onDone }: { title: string; onClose: () => void; onDone: () => void }): HTMLElement {
-  const open = rows.filter((r) => !r.decision);
-  return sidePanel({
-    title: `확인 필요 · ${title}`, onClose,
-    sub: open.length ? '기계가 판단할 수 없어 사람이 정해야 하는 것만 올라옵니다.' : '처리할 확인 필요가 없습니다.',
-    body: [open.map((r) => reviewCard(r, onDone)), h('div', { class: 'hint' }, '처리 결과는 ', h('a', { class: 'lnk', href: hash('manage', 'reports') }, '리포트'), ' 한 목록에 모입니다.')],
-  });
+/** 이 항목들과 이어진 리포트 번호 표시(#31). 눌러서 리포트 화면의 그 줄로 간다. 그 자리에서 판단하지 않는다 */
+export function reportLink(rows: ReportRow[], from: string): HTMLElement | null {
+  if (!rows.length) return null;
+  const first = rows[0];
+  return h('a', { class: 'rv lnk', href: hash('manage', 'reports', { no: String(first.no), from }), title: `리포트 #${first.no} · ${first.title}`, onclick: (e: Event) => e.stopPropagation() }, `리포트 #${first.no}${rows.length > 1 ? ` 외 ${rows.length - 1}` : ''}`);
 }
