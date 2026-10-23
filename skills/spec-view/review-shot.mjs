@@ -18,6 +18,10 @@ await page.goto(url);
 await page.reload();
 await new Promise((r) => setTimeout(r, (cfg.wait || 3000)));
 
+// 화면보다 긴 구역도 잘리지 않게, 문서 높이만큼 창을 늘린다
+const tall = await page.evaluate(() => document.documentElement.scrollHeight);
+if (tall > 980) { await page.cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: Math.min(tall, 8000), deviceScaleFactor: 2, mobile: false }); await new Promise((r) => setTimeout(r, 300)); }
+
 const out = [];
 // 1) 구역을 모두 먼저 찍는다(비교 그림을 만들려고 화면을 옮기면 뒤의 구역이 다른 상태로 찍히므로)
 for (const [label, selector] of areas) {

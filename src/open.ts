@@ -43,10 +43,10 @@ function srcStamp(): string {
   return String(Math.floor(m));
 }
 /** 포트를 듣고 있는 프로세스들을 끈다(pids.json에 없는 떠돌이 서버용). 끈 번호들을 돌려준다 */
-function killPort(port: number): number[] {
+function killPort(port: number, signal: NodeJS.Signals = 'SIGTERM'): number[] {
   const r = spawnSync('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
   const ids = (r.stdout || '').split('\n').map((x) => Number(x.trim())).filter(Boolean);
-  for (const pid of ids) { try { process.kill(pid); } catch { /* 이미 없음 */ } }
+  for (const pid of ids) { try { process.kill(pid, signal); } catch { /* 이미 없음 */ } }
   return ids;
 }
 
@@ -102,6 +102,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
   if (running && fs.existsSync(stampFile) && fs.readFileSync(stampFile, 'utf8') !== stamp) {
     killPort(port); try { process.kill(-(pids.serve ?? 0)); } catch { /* 이미 없음 */ }
     for (let i = 0; i < 10 && await up(base); i++) await new Promise((r) => setTimeout(r, 300));
+    if (await up(base)) { killPort(port, 'SIGKILL'); await new Promise((r) => setTimeout(r, 500)); }
     running = false; console.log('설계서 보기 서버가 옛 코드로 돌고 있어 다시 띄운다');
   }
   if (running) console.log(`설계서 보기 서버 이미 떠 있음: ${base}`);

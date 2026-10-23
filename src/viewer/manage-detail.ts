@@ -14,13 +14,14 @@ import type { Model, RequestView, Scenario, ScenarioStep } from '../types.js';
 function act(path: string, body: Record<string, unknown>, done: string, onChange: () => void): void {
   post(`/__spec/request/${path}`, body).then(() => { toast(done); onChange(); }).catch((e: unknown) => toast(errorText(e)));
 }
+/** 칸을 사용자가 눌러 바꾼 펼침 상태("요청:칸" → 펼침). 화면이 다시 그려져도 유지한다 */
+const FOLD = new Map<string, boolean>();
 const kv = (k: string, v: Kid): Kid[] => [h('span', null, k), h('span', null, v)];
 
-/** 겹치는 요청 칸: 겹치는 곳, 각자 하는 일, 판단과 순서 정하기 단추 */
-function overlapCard(r: RequestView, onChange: () => void, model?: Model): HTMLElement | null {
-  if (!r.overlaps.length) return null;
-  return h('div', { class: 'card' }, h('h3', null, '다른 요청과 겹침 ', h('small', null, `${r.overlaps.length}건`)),
-    r.overlaps.map((o) => {
+/** 겹치는 요청 칸의 속: 겹치는 곳, 각자 하는 일, 판단과 순서 정하기 단추 */
+function overlapBody(r: RequestView, onChange: () => void, model?: Model): Kid {
+  if (!r.overlaps.length) return h('div', { class: 'hint' }, '겹치는 요청이 없습니다.');
+  return r.overlaps.map((o) => {
       const other = model?.requests.find((x) => x.id === o.id);
       const shared = (r.scope.scenarios ?? []).filter((n) => (other?.scope.scenarios ?? []).includes(n));
       return h('div', { class: 'warn ov' },
@@ -32,7 +33,7 @@ function overlapCard(r: RequestView, onChange: () => void, model?: Model): HTMLE
         h('div', { class: 'sp-foot', style: 'margin-top:8px' },
           h('button', { class: 'btn', onclick: () => act('order', { first: r.id, other: o.id }, `#${r.id}을 먼저 끝내도록 정했습니다`, onChange) }, `#${r.id} 먼저`),
           h('button', { class: 'btn', onclick: () => act('order', { first: o.id, other: r.id }, `#${o.id}을 먼저 끝내도록 정했습니다`, onChange) }, `#${o.id} 먼저`)));
-    }));
+    });
 }
 
 /** 요청이 건드리는 시나리오 하나의 요약: 바뀌는 단계, 자리(컴포넌트), 정보 */
@@ -52,15 +53,11 @@ function scenarioSummary(model: Model, r: RequestView, sc: Scenario): HTMLElemen
     h('div', { class: 'tagrow' }, comps.map((c) => tag('c', c)), infos.map((i) => tag('i', i))));
 }
 
-/** 범위: 사용 시나리오 기준(컴포넌트·정보는 코드에서 계산) */
-function scopeCard(model: Model, r: RequestView, rich: boolean): HTMLElement {
+/** 범위 칸의 속: 사용 시나리오 기준(컴포넌트·정보는 코드에서 계산) */
+function scopeBody(model: Model, r: RequestView): Kid {
   const scs = (r.scope.scenarios ?? []).map((n) => model.scenarios.find((s) => s.name === n)).filter((s): s is Scenario => !!s);
-  if (rich) return h('div', { class: 'card' }, h('h3', null, '범위 ', h('small', null, '사용 시나리오 기준 — 컴포넌트와 정보는 코드에서 계산됩니다')),
-    scs.length ? scs.map((sc) => scenarioSummary(model, r, sc)) : h('div', { class: 'hint' }, '이 요청에 사용 시나리오가 정해지지 않았습니다.'),
-    h('div', { class: 'hint' }, `범위 화면: ${r.scope.screens.join(', ') || '없음'} · 범위 정보: ${r.scope.infos.join(', ') || '없음'}`));
-  const comps = [...new Set(scs.flatMap((s) => s.steps.map((st) => st.owner)))];
-  return h('div', { class: 'card' }, h('h3', null, '이 요청의 범위'),
-    h('div', { class: 'kv' }, kv('시나리오', (r.scope.scenarios ?? []).join(', ') || '없음'), kv('컴포넌트', comps.length ? `${comps.join(', ')} (코드에서 계산)` : '없음'), kv('화면', r.scope.screens.join(', ') || '없음'), kv('정보', r.scope.infos.join(', ') || '없음')));
+  return [scs.length ? scs.map((sc) => scenarioSummary(model, r, sc)) : h('div', { class: 'hint' }, '이 요청에 사용 시나리오가 정해지지 않았습니다.'),
+    h('div', { class: 'hint' }, `범위 화면: ${r.scope.screens.join(', ') || '없음'} · 범위 정보: ${r.scope.infos.join(', ') || '없음'}`)];
 }
 
 /** 설계 승인 칸(사용자만): 확인 두 개를 하면 승인 단추가 켜진다 */
@@ -96,7 +93,7 @@ function designResult(model: Model, r: RequestView): HTMLElement | null {
       cs.filter((c) => c.kind === 'add').map((c) => h('div', { class: 'f add' }, `+ ${c.field}`, c.note ? ` — ${c.note}` : '')),
       cs.filter((c) => c.kind === 'change').map((c) => h('div', { class: 'f chg' }, `≈ ${c.field}${c.note ? ` — ${c.note}` : ''}`)));
   };
-  return h('div', { class: 'card' }, h('h3', null, '설계 결과 ', h('small', null, `정보 변경 ${d.changes.length}건 · 화면 변경 ${d.screens.length}건 — 한꺼번에 승인합니다`)),
+  return h('div', { class: 'dres' }, h('div', { class: 'hint' }, `설계 결과 · 정보 변경 ${d.changes.length}건 · 화면 변경 ${d.screens.length}건 — 한꺼번에 승인합니다`),
     h('div', { class: 'grid2' },
       byInfo.length || links.length ? h('div', { class: 'box' }, h('div', { class: 'hint' }, `정보 변경 · ${byInfo.join(', ') || '연결'}`), byInfo.map(infoBox),
         links.map((c) => h('div', { class: 'chg link' }, h('span', { class: 'mk' }, '↔'), h('span', null, h('b', null, `연결 · ${c.info} → ${c.field}`), c.note ? ` — ${c.note}` : ''))),
@@ -166,27 +163,53 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   if (sub === 'info') { manageInfoOverlay(root, { model, r }); return; }
   if (sub === 'compare') { manageCompare(root, { r, screen: new URLSearchParams(location.hash.split('?')[1] ?? '').get('screen') || '' }); return; }
   const d = r.design;
-  const testing = r.stage === 'test' || r.stage === 'done';
   const head = pageHead({ crumb: [h('a', { href: hash('manage') }, '요청'), ` › #${r.id}`], title: r.title, meta: [chipFor(r), scopeTags(r), h('span', null, `${r.source === 'user' ? '사용자 요청' : '에이전트 발견'} · ${r.origin.channel} · ${fmt(r.origin.at)}`)] });
-  const agent = h('div', { class: 'card' }, h('h3', null, '맡은 에이전트 ', h('small', null, '이 요청만 알고 일하는 에이전트입니다. 직접 대화할 수 있습니다')),
-    r.agent.name ? h('div', { class: 'rm' }, chip('ag', r.agent.name), h('span', { class: 'hint' }, r.events.length ? `마지막 기록 ${fmt(r.events[r.events.length - 1].at)}` : ''), h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, `claude attach ${r.agent.name}`), h('button', { class: 'btn sm', onclick: () => { void copyText(`claude attach ${r.agent.name}`).then(() => toast('복사했습니다')); } }, '복사'), h('span', { class: 'hint' }, `VS Code는 세션 목록에서 "${r.agent.name}"`))
-      : h('div', { class: 'hint' }, '아직 정해지지 않았습니다. 에이전트가 이 요청을 맡으면 이름이 여기에 나옵니다.'));
-  const left = [
-    h('div', { class: 'card' }, stepperBig(r)),
-    agent,
-    r.origin.text ? h('div', { class: 'card' }, h('h3', null, '요청 원문'), h('div', { class: 'quote' }, r.origin.text)) : null,
-    d && !d.none ? h('div', { class: 'card' }, h('h3', null, '에이전트의 이해와 처리 방법'), h('div', { class: 'grid2' },
-      h('div', { class: 'box' }, h('b', null, '이렇게 이해했습니다'), h('div', null, d.understanding)),
-      h('div', { class: 'box' }, h('b', null, '이렇게 처리하겠습니다'), h('div', null, d.approach)))) : null,
-    designResult(model, r),
-    h('div', { class: 'card' }, h('h3', null, '진행 기록'), h('div', { class: 'tl' }, r.events.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`))))),
+  const stage = r.stage === 'cancelled' ? 'design' : r.stage;
+  const idx = (['design', 'impl', 'test', 'done'] as const).indexOf(stage);
+  const at = (kind: string): RequestView['events'][number] | undefined => [...r.events].reverse().find((e) => e.kind === kind);
+  const approved = at('design-approved');
+  // 칸 하나: 제목줄(제목·이름표·한 줄 요약·펼치기/접기)과 속. 펼침은 단계별 기본값이고, 눌러서 바꾼 것은 기억한다
+  const fold = (key: string, title: string, open: boolean, summary: Kid, body: Kid, o: { label?: Kid; later?: boolean; cur?: boolean } = {}): HTMLElement => {
+    const k = `${r.id}:${key}`;
+    const isOpen = !o.later && (FOLD.get(k) ?? open);
+    const card = h('div', { class: `card sec${isOpen ? '' : ' shut'}${o.later ? ' later' : ''}${o.cur ? ' cur' : ''}`, 'data-fold': key });
+    const tg = h('span', { class: 'tg' }, o.later ? '' : isOpen ? '접기' : '펼치기');
+    const toggle = (): void => { if (o.later) return; const now = card.classList.toggle('shut') === false; FOLD.set(k, now); tg.textContent = now ? '접기' : '펼치기'; };
+    card.append(h('div', { class: 'fh', onclick: toggle }, h('h3', null, title), o.label ?? null, h('span', { class: 'sum' }, summary), tg), h('div', { class: 'fb' }, body));
+    return card;
+  };
+  const sumText = (t: string, n = 70): string => (t.length > n ? `${t.slice(0, n)}…` : t);
+  const dsum = !d ? '아직 올라오지 않았습니다' : d.none ? '정보도 화면도 바뀌지 않는 요청(설계 없음)' : `정보 변경 ${d.changes.length}건 · 화면 변경 ${d.screens.length}건${d.rejected ? ` · 반려 ${d.rejected}회` : ''}`;
+  const designEvents = r.events.filter((e) => e.kind.startsWith('design-'));
+  const designState = approved ? chip('ok', '승인됨') : r.stage === 'design' ? chip('me', r.step === 'submitted' ? '승인 대기' : '작성 중') : null;
+  const implEvents = r.events.filter((e) => e.kind === 'impl' || e.kind === 'test-requested');
+  const comps = [...new Set((r.scope.scenarios ?? []).flatMap((n) => model.scenarios.find((s) => s.name === n)?.steps.map((st) => st.owner) ?? []))];
+  const cards: HTMLElement[] = [
+    fold('agent', '맡은 에이전트', idx === 0, r.agent.name ? [chip('ag', r.agent.name), ` 마지막 기록 ${fmt(r.events[r.events.length - 1].at)}`] : '아직 정해지지 않았습니다',
+      r.agent.name ? h('div', { class: 'rm' }, h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, `claude attach ${r.agent.name}`), h('button', { class: 'btn sm', onclick: () => { void copyText(`claude attach ${r.agent.name}`).then(() => toast('복사했습니다')); } }, '복사'), h('span', { class: 'hint' }, `VS Code는 세션 목록에서 "${r.agent.name}"`))
+        : h('div', { class: 'hint' }, '이 요청만 알고 일하는 에이전트입니다. 맡으면 이름이 여기에 나옵니다.')),
+    fold('origin', '요청 원문', idx === 0, r.origin.text ? `"${sumText(r.origin.text)}"` : '원문이 없습니다', r.origin.text ? h('div', { class: 'quote' }, r.origin.text) : h('div', { class: 'hint' }, '원문이 기록되지 않았습니다.')),
+    fold('design', '설계', idx === 0, approved ? `${fmt(approved.at)} 사용자 승인 · ${dsum}` : dsum,
+      [d && !d.none ? h('div', { class: 'grid2' }, h('div', { class: 'box' }, h('b', null, '이렇게 이해했습니다'), h('div', null, d.understanding)), h('div', { class: 'box' }, h('b', null, '이렇게 처리하겠습니다'), h('div', null, d.approach))) : null,
+        designResult(model, r), designEvents.length ? h('div', { class: 'tl' }, designEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`)))) : h('div', { class: 'hint' }, '설계 기록이 없습니다.')],
+      { label: designState, cur: idx === 0 }),
+    fold('impl', '구현', idx === 1, r.commits?.length ? `커밋 ${r.commits.length}개 (${r.commits.join(', ')})${at('test-requested') ? ` · ${fmt(at('test-requested')!.at)} 테스트 요청` : ''}` : idx < 1 ? '설계 승인 뒤에 시작합니다' : '남은 커밋 기록이 없습니다',
+      implEvents.length ? h('div', { class: 'tl' }, implEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${fmt(e.at)}`)))) : h('div', { class: 'hint' }, '구현 기록이 없습니다.'),
+      { later: idx < 1, cur: idx === 1, label: idx === 1 ? chip('me', '지금 단계') : null }),
+    fold('scope', '범위', idx === 1 || idx === 2, `${(r.scope.scenarios ?? []).length}개 시나리오 · 화면 ${r.scope.screens.join(', ') || '없음'} · 정보 ${r.scope.infos.join(', ') || '없음'}${comps.length ? ` · 컴포넌트 ${comps.join(', ')}` : ''}`, scopeBody(model, r), { cur: idx === 2 }),
+    fold('overlap', '다른 요청과 겹침', idx === 1 || idx === 2, r.overlaps.length ? `${r.overlaps.length}건 — ${r.overlaps.slice(0, 3).map((o) => `#${o.id}`).join(', ')}${r.overlaps.length > 3 ? ' …' : ''}` : '없음', overlapBody(r, onChange, model), { cur: idx === 2 }),
+    fold('log', '진행 기록', idx === 3, `${r.events.map((e) => e.note || e.kind).slice(-4).join(' → ')} (${r.events.length}건)`,
+      h('div', { class: 'tl' }, r.events.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`))))),
+    fold('done', '완료', idx === 3, idx === 3 ? `${fmt(r.events[r.events.length - 1].at)} 끝남` : '테스트를 승인하면 이 칸에 결과가 남습니다', h('div', { class: 'hint' }, idx === 3 ? r.events[r.events.length - 1].note : ''), { later: idx < 3 }),
   ];
   const designSide = r.stage === 'design' && r.step === 'submitted' ? designApproval(r, onChange)
-    : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.')) : null;
-  // 테스트 단계에서는 범위와 겹침을 왼쪽에, 확인표를 오른쪽에 둔다(범위를 보며 확인표를 따라가게)
-  const [leftAll, right] = testing
-    ? [[left[0], scopeCard(model, r, true), overlapCard(r, onChange, model), ...left.slice(1)], [testCard(model, r, onChange)]]
-    : [left, [designSide, scopeCard(model, r, false), overlapCard(r, onChange, model)]];
-  root.append(withPanel(h('div', { class: 'wrap' }, head, h('div', { class: 'dcol' }, leftAll)),
-    sidePanel({ title: testing ? '사용 시나리오 테스트' : `요청 #${r.id}`, fold: 'request', body: right })));
+    : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.'))
+    : r.stage === 'impl' ? h('div', { class: 'card' }, h('h3', null, '구현 중'), h('div', { class: 'hint' }, '에이전트가 구현하고 있습니다. 끝내고 테스트를 올리면 여기서 확인합니다.'))
+    : r.stage === 'done' ? h('div', { class: 'card' }, h('h3', null, '끝난 요청'), h('div', { class: 'hint' }, '모든 칸은 펼쳐서 볼 수 있습니다.')) : null;
+  const testing = r.stage === 'test';
+  const tools = h('div', { class: 'tools' }, h('span', { class: 'hint' }, '칸 제목을 누르면 접고 폅니다'),
+    h('button', { class: 'btn sm', onclick: () => { for (const c of cards) if (!c.classList.contains('later')) { FOLD.set(`${r.id}:${c.dataset.fold}`, true); c.classList.remove('shut'); c.querySelector('.tg')!.textContent = '접기'; } } }, '모두 펼치기'),
+    h('button', { class: 'btn sm', onclick: () => { for (const k of [...FOLD.keys()]) if (k.startsWith(`${r.id}:`)) FOLD.delete(k); root.replaceChildren(); manageDetail(root, { model, id, sub, onChange }); } }, '단계 기본으로'));
+  root.append(withPanel(h('div', { class: 'wrap' }, head, h('div', { class: 'card' }, stepperBig(r)), tools, h('div', { class: 'dcol' }, cards)),
+    sidePanel({ title: testing ? '사용 시나리오 테스트' : `요청 #${r.id}`, fold: 'request', body: [testing ? testCard(model, r, onChange) : designSide] })));
 }

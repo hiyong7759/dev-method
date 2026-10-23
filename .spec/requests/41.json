@@ -1,0 +1,30 @@
+{
+  "id": 41,
+  "title": "요청 상세: 모든 단계에서 칸 순서를 같게 하고 지난 단계는 한 줄 요약으로 접음",
+  "source": "user",
+  "origin": {
+    "text": "설계서든 테스트든 항목이 보이는 위치는 같고 단계 중요도에 따라 적게 보였다가 원하면 전부 볼 수 있게",
+    "channel": "대화",
+    "at": "2026-10-23T02:48:02.898Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-23T02:48:02.898Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
