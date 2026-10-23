@@ -11,6 +11,8 @@ import { analyzeTs } from './analyze-ts.js';
 import { projectRoot } from './project.js';
 import { loadRequests, describeRequests } from './request.js';
 import { untrackedCommits } from './history.js';
+import { designViews } from './design.js';
+import { readConfig } from './config.js';
 import { loadReports, reportRows, openCount } from './report.js';
 import { loadGlossary } from './glossary.js';
 import { detectNav } from './nav.js';
@@ -227,7 +229,7 @@ export function buildModel(scanRoot: string): Model {
   return {
     project: path.basename(root), generatedAt: new Date().toISOString(),
     screens, specs: out.specs, infos, relations, reports: rows, glossary: loadGlossary(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
-    requests, untracked: untrackedCommits(scanRoot, rawRequests),
+    requests, designs: designViews(root), designCanvas: readConfig(root).designCanvas ?? '', untracked: untrackedCommits(scanRoot, rawRequests),
     summary: {
       screens: screens.length, infos: infos.length, relations: relations.length,
       requestsMine: requests.filter((r) => r.turn === 'user').length, needCheck: out.warnings.length, reportsOpen: openCount(rows),

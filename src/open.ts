@@ -24,9 +24,9 @@ function resolveProject(t: string): string | null {
 
 /** 주소가 응답하는가 */
 const up = async (url: string): Promise<boolean> => { try { await fetch(url, { signal: AbortSignal.timeout(1500) }); return true; } catch { return false; } };
-/** 설계서 보기 서버인지 응답 내용으로 확인한다(같은 포트를 다른 프로그램이 쓰고 있으면 켜진 것으로 착각하지 않게) */
+/** 설계서 보기 서버인지 응답 내용으로 확인한다(소스가 바뀐 직후엔 모델을 새로 만드느라 느리므로 오래 기다린다)(같은 포트를 다른 프로그램이 쓰고 있으면 켜진 것으로 착각하지 않게) */
 const isSpec = async (u: string): Promise<boolean> => {
-  try { const j = await (await fetch(u, { signal: AbortSignal.timeout(1500) })).json() as { screens?: unknown }; return Array.isArray(j.screens); } catch { return false; }
+  try { const j = await (await fetch(u, { signal: AbortSignal.timeout(12000) })).json() as { screens?: unknown }; return Array.isArray(j.screens); } catch { return false; }
 };
 /** 주소가 응답할 때까지 기다린다. 시간 안에 안 되면 false */
 const waitUp = async (url: string, ms: number, check: (u: string) => Promise<boolean> = up): Promise<boolean> => {

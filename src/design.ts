@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from './cli.js';
+import type { DesignView } from './types.js';
 
 /** 시안 판 하나의 기록 */
 export interface Board {
@@ -19,6 +20,8 @@ export interface Board {
   title: string;
   /** 대응하는 소스 파일들(프로젝트 루트 기준). 없으면 참고용 */
   files: string[];
+  /** 이 판이 보여 주는 프로젝트 화면 이름들(화면 설계서 패널에 시안 상태를 띄우는 데 쓴다) */
+  screens?: string[];
   /** confirmed: 구현과 맞춰 둠, differs: 대조해 보니 다른 곳이 있어 verifyLater에 적어 둠, draft: 아직 구현 전 시안, unchecked: 아직 대조 안 함 */
   state: 'confirmed' | 'draft' | 'unchecked' | 'differs';
   /** draft일 때 구현할 요청 번호 */
@@ -38,6 +41,8 @@ export interface Freshness {
   mark: '✓' | '△' | '≠' | '◇' | '?' | '·';
   /** 기호 옆에 붙는 설명 */
   text: string;
+  /** 기호 이름 뒤에 붙는 짧은 덧말(맞춘 커밋·날짜, 몇 번 바뀜, 요청 번호). 없으면 빈 글 */
+  detail: string;
   /** 시안이나 소스를 손봐야 하는 상태인가(커밋 때 알림 대상) */
   stale: boolean;
 }
@@ -57,13 +62,18 @@ function commitsSince(root: string, b: Board): number {
 /** 판 하나가 지금 최신인지 말해 준다 */
 export function freshness(root: string, b: Board): Freshness {
   const later = b.verifyLater?.length ? ` · 데이터가 생기면 확인할 것 ${b.verifyLater.length}건` : '';
-  if (b.state === 'draft') return { mark: '◇', text: `시안 — 아직 구현 전${b.request ? ` (요청 #${b.request})` : ''}`, stale: false };
-  if (!b.files.length) return { mark: '·', text: '참고용 — 대응하는 소스 없음', stale: false };
-  if (b.state === 'differs') return { mark: '≠', text: `대조해 보니 다른 곳이 있다${later} (설계 시안 또는 소스를 맞춘다)`, stale: true };
-  if (b.state === 'unchecked' || !b.syncedAt) return { mark: '?', text: '대조 안 됨 — 소스와 같은지 확인하지 않았다', stale: true };
+  if (b.state === 'draft') return { mark: '◇', text: `시안 — 아직 구현 전${b.request ? ` (요청 #${b.request})` : ''}`, detail: b.request ? `요청 #${b.request}` : '', stale: false };
+  if (!b.files.length) return { mark: '·', text: '참고용 — 대응하는 소스 없음', detail: '', stale: false };
+  if (b.state === 'differs') return { mark: '≠', text: `대조해 보니 다른 곳이 있다${later} (설계 시안 또는 소스를 맞춘다)`, detail: '', stale: true };
+  if (b.state === 'unchecked' || !b.syncedAt) return { mark: '?', text: '대조 안 됨 — 소스와 같은지 확인하지 않았다', detail: '', stale: true };
   const n = commitsSince(root, b);
-  if (n) return { mark: '△', text: `소스가 더 최신 — ${b.syncedAt} 뒤로 ${n}번 바뀜, 시안을 갱신한다`, stale: true };
-  return { mark: '✓', text: `구현과 같음 (커밋 ${b.syncedAt} · ${b.syncedOn ?? ''})${later}`, stale: false };
+  if (n) return { mark: '△', text: `소스가 더 최신 — ${b.syncedAt} 뒤로 ${n}번 바뀜, 시안을 갱신한다`, detail: `${b.syncedAt} 뒤로 ${n}번 바뀜`, stale: true };
+  return { mark: '✓', text: `구현과 같음 (커밋 ${b.syncedAt} · ${b.syncedOn ?? ''})${later}`, detail: `커밋 ${b.syncedAt} · ${(b.syncedOn ?? '').slice(5).replace('-', '/')}`, stale: false };
+}
+
+/** 설계서 보기에 보일 판 목록(모델에 담긴다) */
+export function designViews(root: string): DesignView[] {
+  return readMap(root).boards.map((b) => { const f = freshness(root, b); return { board: b.board, no: b.no, title: b.title, mark: f.mark, text: f.text, detail: f.detail, stale: f.stale, state: b.state, request: b.request ?? 0, screens: b.screens ?? [], verifyLater: b.verifyLater ?? [] }; });
 }
 
 /** 캔버스 판 제목: "10 요청 상세 · ✓ 구현과 같음 …" */

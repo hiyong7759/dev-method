@@ -9,6 +9,7 @@ import { runStep } from './steps.js';
 import { overview, nowTab, history } from './tabs.js';
 import type { Box, ScreenCtx, TabName } from './ctx.js';
 import { hash, nav } from './route.js';
+import { worstMark, markChip } from './design-status.js';
 import type { Model, ModelScreen, Spec } from '../types.js';
 
 /** 오른쪽 패널의 탭 순서와 이름 */
@@ -49,6 +50,7 @@ export interface ScreenViewHandle {
  * @to 정보 변경 겹쳐 보기 | 히스토리의 "정보 변경 스냅샷"을 누른다 | 요청 번호
  * @to 화면 변경 전후 비교 | 히스토리의 "화면 디자인 스냅샷"을 누른다 | 요청 번호
  * @to 리포트 | 정보 상세의 확인 필요 패널에서 "리포트" 링크를 누른다 |
+ * @to 시안 현황 | 패널 위의 "시안 현황"을 누른다 |
  * @why 한 화면의 존재 이유, 하는 일, 구조, 이력을 실제로 동작하는 화면과 나란히 보게 한다.
  * @does 오른쪽 탭(개요, 현행, 히스토리)을 오가며 본다 | 탭마다 해당 내용이 나온다 | 화면 설계서를 열어 본다#3
  */
@@ -117,6 +119,13 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
     const r = mine[0];
     return h('div', { class: 'mybar' }, h('b', null, '내 차례'), h('span', null, `#${r.id} ${r.stepLabel}`), h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => nav(hash('manage', String(r.id))) }, '관리에서 열기 ›'));
   }
+  /** 이 화면에 대응하는 시안 판의 최신 여부 한 줄(없으면 안 그린다) */
+  function designLine(): HTMLElement | null {
+    const boards = c.model.designs.filter((d) => d.screens.includes(c.name));
+    if (!boards.length) return null;
+    const worst = worstMark(boards), later = boards.reduce((n, d) => n + d.verifyLater.length, 0);
+    return h('div', { class: 'designline' }, markChip(worst, undefined, '시안 '), h('span', { class: 'hint' }, `시안 ${boards.map((d) => d.no).join('·')}${later ? ` · 나중에 확인할 것 ${later}건` : ''}`), h('a', { class: 'lnk', href: hash('manage', 'designs') }, '시안 현황 ›'));
+  }
   /** 오른쪽 패널을 다시 그린다. 정보 상세를 열었으면 그 패널(눌러서 여는 패널)이 통째로 대신 들어온다 */
   function render(): void {
     let next: HTMLElement;
@@ -132,7 +141,7 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
       const views: Record<TabName, (ctx: ScreenCtx) => HTMLElement> = { overview, now: nowTab, history };
       tbody.replaceChildren(views[c.tab](c));
       next = sidePanel({ title: sc.name, badge: reqs.length ? chip('ag', `요청 진행 중 ${reqs.length}건`) : null, fold: 'screen',
-        sub: [sc.why || '존재 이유 미작성', sc.route ? [' · ', h('span', { class: 'mono' }, sc.route)] : null], body: [banners, tabsEl, tbody] });
+        sub: [sc.why || '존재 이유 미작성', sc.route ? [' · ', h('span', { class: 'mono' }, sc.route)] : null], body: [designLine(), banners, tabsEl, tbody] });
     }
     side.replaceWith(next);
     side = next;

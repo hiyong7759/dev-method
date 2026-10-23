@@ -14,6 +14,7 @@ import type { ScreenViewHandle } from './screen.js';
 import { manageList } from './manage-list.js';
 import { manageDetail } from './manage-detail.js';
 import { reportsView } from './reports.js';
+import { designStatusView } from './design-status.js';
 import { glossaryView } from './glossary.js';
 import { hash, nav as go } from './route.js';
 import { themeMode, applyTheme, THEME_MODES } from './theme.js';
@@ -30,7 +31,7 @@ const parse = (): Route => {
   const [path, qs = ''] = (location.hash.slice(1) || '/flow').split('?');
   const p = path.split('/').filter(Boolean).map(decodeURIComponent);
   const params = new URLSearchParams(qs);
-  if (p[0] === 'manage' && (p[1] === 'reports' || p[1] === 'glossary')) return { view: p[1], arg: '', sub: '', params };
+  if (p[0] === 'manage' && (p[1] === 'reports' || p[1] === 'glossary' || p[1] === 'designs')) return { view: p[1], arg: '', sub: '', params };
   return { view: p[0] || 'flow', arg: p[1] || '', sub: p[2] || '', params };
 };
 // 상단 메뉴(화면 ▾, 정보 ▾, 밝기): 누르면 목록이 열리고, 바깥을 누르면 닫힌다
@@ -70,13 +71,13 @@ const infoMenuItems = (m: Model, cur: string): Kid[] => (m.infos.length ? m.info
 /** 맨 위 줄: DEV · 프로젝트 · 현행|관리 · 그 영역의 메뉴 · 내 차례 · 밝기 단추. 확인 필요·승인·메모 개수는 올리지 않는다 */
 function topbar(m: Model, r: Route): HTMLElement {
   const s = m.summary;
-  const manage = ['manage', 'reports', 'glossary'].includes(r.view);
+  const manage = ['manage', 'reports', 'glossary', 'designs'].includes(r.view);
   const seg = h('div', { class: 'seg' }, h('button', { class: manage ? '' : 'on', onclick: () => nav(hash('flow')) }, '현행'), h('button', { class: manage ? 'on' : '', onclick: () => nav(hash('manage')) }, '관리'));
   const mine = s.requestsMine ? h('span', { class: 'pill' }, '내 차례 ', h('b', null, s.requestsMine)) : null;
   const item = (label: Kid, on: boolean, to: string): HTMLElement => h('button', { class: on ? 'sel' : '', onclick: () => nav(to) }, label);
   const menuBtn = (label: string, key: string, on: boolean, items: () => Kid[]): HTMLElement => h('button', { class: `nav-dd${on ? ' sel' : ''}`, dataset: { k: key }, onclick: (e) => openMenu(e.currentTarget as HTMLElement, items()) }, label, h('span', { class: 'caret' }, '▾'));
   const nav2 = manage
-    ? h('div', { class: 'tabs-top' }, item('요청', r.view === 'manage', hash('manage')), item(['리포트', s.reportsOpen ? h('b', { class: 'cnt' }, s.reportsOpen) : null], r.view === 'reports', hash('manage', 'reports')), item('용어집', r.view === 'glossary', hash('manage', 'glossary')))
+    ? h('div', { class: 'tabs-top' }, item('요청', r.view === 'manage', hash('manage')), item(['리포트', s.reportsOpen ? h('b', { class: 'cnt' }, s.reportsOpen) : null], r.view === 'reports', hash('manage', 'reports')), item('용어집', r.view === 'glossary', hash('manage', 'glossary')), item('시안 현황', r.view === 'designs', hash('manage', 'designs')))
     : h('div', { class: 'tabs-top' }, item('사용 흐름', r.view === 'flow', hash('flow')), item('정보 흐름', r.view === 'info' && !r.arg, hash('info')),
       menuBtn('화면', 'screens', r.view === 'screen', () => screenMenuItems(m, r.view === 'screen' ? r.arg : '')), menuBtn('정보', 'infos', r.view === 'info' && !!r.arg, () => infoMenuItems(m, r.view === 'info' ? r.arg : '')));
   return h('header', { class: 'top' }, h('span', { class: 'dev mono' }, 'DEV'), h('span', { class: 'ttl' }, m.project), seg, nav2, h('span', { class: 'grow' }), mine, themeButton());
@@ -115,6 +116,8 @@ function render(): void {
     else manageList(body, { model: m, kind: r.params.get('kind') || '', onChange: again });
   } else if (r.view === 'reports') {
     reportsView(body, { model: m, kind: r.params.get('kind') || '', onChange: again });
+  } else if (r.view === 'designs') {
+    designStatusView(body, { model: m, kind: r.params.get('kind') || '' });
   } else if (r.view === 'glossary') {
     glossaryView(body, { model: m, term: r.params.get('term') || '' });
   } else {

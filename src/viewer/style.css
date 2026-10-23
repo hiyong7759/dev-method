@@ -644,3 +644,10 @@ a.tag{text-decoration:none}
 .sec.later>.fh{cursor:default}
 .sec.later>.fb{display:none}
 .tools{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+/* 시안 현황: 판 번호, 나중에 확인할 것 상자, 화면 패널의 시안 한 줄 */
+.dno{flex:none;width:44px;text-align:center;font-weight:700;font-size:15px;color:var(--dim)}
+.later{padding:10px 12px;border-radius:10px;border:1px dashed var(--line2);background:var(--bg2);font-size:12px;line-height:1.7;color:var(--dim)}
+.later b{color:var(--text)}
+.legend{display:flex;gap:8px;flex-wrap:wrap}
+.designline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
+.designline .lnk{margin-left:auto}
