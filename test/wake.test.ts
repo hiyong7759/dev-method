@@ -95,13 +95,13 @@ test('claude 결과에서 토큰과 비용을 읽고, 읽을 수 없으면 null'
   assert.equal(parseUsage('{"usage":{}}'), null);
 });
 
-test('사용자가 열어 둔(살아 있는) 세션은 서버가 끼어들지 않고 훅에 맡긴다', () => {
+test('일하는 중(busy)인 세션은 서버가 끼어들지 않고 훅에 맡긴다', () => {
   const env = fakeEnv();
   try {
     const { root, src } = tempProject({ wake: true }); addRequest(src, { title: 'a' }); own(root, 'S1', 1);
-    fs.writeFileSync(env.agents, JSON.stringify([{ pid: 1, kind: 'interactive', sessionId: 'S1', status: 'idle' }]));
+    fs.writeFileSync(env.agents, JSON.stringify([{ pid: 1, kind: 'interactive', sessionId: 'S1', status: 'busy' }]));
     assert.deepEqual(wakeOwner(src, 1), []);
-    assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /살아 있는 세션이라 훅에 맡김/);
+    assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /일하는 중이라 훅에 맡김/);
     assert.equal(fs.existsSync(env.calls), false);
   } finally { env.restore(); }
 });
@@ -117,11 +117,22 @@ test('방금 일을 마친 세션도 살아 있지 않으면 글을 보내 이�
   } finally { env.restore(); }
 });
 
-test('결정이 전달되지 않았을 때 다시 보내는 force는 살아 있는 세션에도 글을 보낸다', async () => {
+test('열어 두고 기다리는(idle) 세션에는 글을 보낸다(기다리는 세션은 훅이 움직일 수 없다)', async () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = tempProject({ wake: true }); addRequest(src, { title: '열어 둔 세션' }); own(root, 'S1', 1);
+    fs.writeFileSync(env.agents, JSON.stringify([{ pid: 1, kind: 'interactive', sessionId: 'S1', status: 'idle' }]));
+    assert.deepEqual(wakeOwner(src, 1), ['S1']);
+    await wait(() => fs.existsSync(env.calls));
+    assert.match(fs.readFileSync(env.calls, 'utf8'), /--resume S1/);
+  } finally { env.restore(); }
+});
+
+test('결정이 전달되지 않았을 때 다시 보내는 force는 일하는 중인 세션에도 글을 보낸다', async () => {
   const env = fakeEnv();
   try {
     const { root, src } = tempProject({ wake: true }); addRequest(src, { title: 'a' }); own(root, 'S1', 1);
-    fs.writeFileSync(env.agents, JSON.stringify([{ pid: 1, kind: 'interactive', sessionId: 'S1', status: 'idle' }]));
+    fs.writeFileSync(env.agents, JSON.stringify([{ pid: 1, kind: 'interactive', sessionId: 'S1', status: 'busy' }]));
     assert.deepEqual(wakeOwner(src, 1, true), ['S1']);
     await wait(() => fs.existsSync(env.calls));
   } finally { env.restore(); }

@@ -66,14 +66,14 @@ export function costOf(scanRoot: string, id: number): { start: number; wake: num
   };
 }
 
-/** 이 세션이 지금 어딘가(VS Code, 터미널)에 살아 있는가. `claude agents --json`이 살아 있는 세션 목록을 알려 준다. 알아낼 수 없으면 살아 있지 않은 것으로 본다(그래야 결정이 전달된다) */
-export function isAlive(sid: string): boolean {
+/** 이 세션이 지금 어딘가(VS Code, 터미널)에 살아 있다면 일하는 중(busy)인지 기다리는 중(idle)인지. `claude agents --json`이 알려 준다. 살아 있지 않거나 알아낼 수 없으면 null(그래야 결정이 전달된다) */
+export function aliveStatus(sid: string): 'busy' | 'idle' | null {
   try {
     const run = spawnSync('claude', ['agents', '--json'], { encoding: 'utf8', timeout: 15000 });
-    if (run.status !== 0) return false;
-    const list = JSON.parse(run.stdout) as { sessionId?: string }[];
-    return list.some((a) => a.sessionId === sid);
-  } catch { return false; }
+    if (run.status !== 0) return null;
+    const hit = (JSON.parse(run.stdout) as { sessionId?: string; status?: string }[]).find((a) => a.sessionId === sid);
+    return hit ? (hit.status === 'busy' ? 'busy' : 'idle') : null;
+  } catch { return null; }
 }
 
 /** 요청 id의 담당 세션 번호들 */
