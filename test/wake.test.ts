@@ -30,9 +30,10 @@ test('설정에서 wake를 켜지 않으면 아무것도 하지 않는다', () =
   assert.equal(fs.existsSync(path.join(root, '.spec', 'wake.log')), false);
 });
 
-test('담당 세션이 없으면 깨울 곳이 없다', () => {
-  const { src } = tempProject({ wake: true }); addRequest(src, { title: 'a' });
+test('담당 세션이 없으면 깨울 곳이 없고 로그에 이유를 남긴다', () => {
+  const { root, src } = tempProject({ wake: true }); addRequest(src, { title: 'a' });
   assert.deepEqual(wakeOwner(src, 1), []);
+  assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /담당 세션이 없어/);
 });
 
 test('최근에 움직인(열린) 세션은 훅에 맡기고 깨우지 않는다', () => {
@@ -58,6 +59,12 @@ test('닫힌 세션은 압축한 뒤 이어서 하라고 지시한다', async ()
     assert.match(lines[0], /^-p \/compact --resume S1/);
     assert.match(lines[1], /^-p \[spec-view\] 요청 #1 "깨울 요청".*--resume S1 --allowedTools Read Edit Write Bash\(node:\*\) Bash\(npm:\*\)/);
     assert.doesNotMatch(lines[1], /git/, '커밋은 미리 허락하지 않는다');
+    assert.match(lines[1], /requests\/1\.json/);
+    assert.match(lines[1], /todo --src src/);
+    assert.match(lines[1], /그 일만 하고, 끝나면 멈추세요/);
+    assert.doesNotMatch(lines[1], /todo\.md/, '지워진 todo.md를 읽게 하지 않는다');
+    await wait(() => /끝남 종료코드=0/.test(fs.existsSync(path.join(root, '.spec', 'wake.log')) ? fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8') : ''));
+    assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /끝남 종료코드=0/);
   } finally { env.restore(); }
 });
 
