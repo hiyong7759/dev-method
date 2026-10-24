@@ -37,17 +37,36 @@ async function capture(target: CommentTarget): Promise<string> {
     if (!w.htmlToImage) await new Promise<void>((ok, bad) => { const s = document.createElement('script'); s.src = '/__spec/vendor/html-to-image.js'; s.onload = () => ok(); s.onerror = () => bad(new Error('캡처 도구를 못 불러옴')); document.head.append(s); });
     const frame = document.querySelector<HTMLIFrameElement>('iframe');
     const node = (frame?.contentDocument?.documentElement ?? document.getElementById('app')) as HTMLElement;
-    const url = await (window as unknown as { htmlToImage: { toPng: (n: HTMLElement, o?: object) => Promise<string> } }).htmlToImage.toPng(node, { pixelRatio: 1, filter: (n: Node) => !(n instanceof HTMLElement && n.classList.contains('cm-ui')) });
-    return await mark(url, target, frame ? frame.getBoundingClientRect() : document.getElementById('app')?.getBoundingClientRect() ?? null);
+    // 찍는 도구는 스크롤을 무시하고 맨 위부터 그리므로, 프레임은 스크롤 값을 좌표에 더하고 본문 안쪽 스크롤 칸은 찍는 동안만 내용을 밀어 맞춘다
+    const win = frame?.contentWindow;
+    const scroll = { x: win?.scrollX ?? 0, y: win?.scrollY ?? 0 };
+    const undo = frame ? [] : unscroll(node);
+    let url: string;
+    try { url = await (window as unknown as { htmlToImage: { toPng: (n: HTMLElement, o?: object) => Promise<string> } }).htmlToImage.toPng(node, { pixelRatio: 1, filter: (n: Node) => !(n instanceof HTMLElement && n.classList.contains('cm-ui')) }); }
+    finally { undo.forEach((f) => f()); }
+    return await mark(url, target, frame ? frame.getBoundingClientRect() : document.getElementById('app')?.getBoundingClientRect() ?? null, scroll);
   } catch { return ''; }
 }
 
+/** 스크롤된 칸의 내용을 스크롤 값만큼 밀어, 스크롤을 무시하는 캡처에도 지금 보이는 모습 그대로 찍히게 한다. 되돌리는 함수들을 준다 */
+function unscroll(root: HTMLElement): (() => void)[] {
+  const undo: (() => void)[] = [];
+  for (const el of [root, ...root.querySelectorAll<HTMLElement>('*')]) {
+    const sl = el.scrollLeft, st = el.scrollTop;
+    if (!sl && !st) continue;
+    const kids = [...el.children].filter((k): k is HTMLElement => k instanceof HTMLElement), old = kids.map((k) => k.style.transform);
+    kids.forEach((k) => { k.style.transform = `translate(${-sl}px, ${-st}px) ${k.style.transform}`; });
+    undo.push(() => kids.forEach((k, i) => { k.style.transform = old[i]; }));
+  }
+  return undo;
+}
+
 /** 찍은 그림에 고른 부분을 표시한다: 영역은 그 자리만 잘라 내고(바깥은 어둡게 두지 않고 잘라서), 부품은 테두리를 그린다 */
-async function mark(dataUrl: string, target: CommentTarget, base: DOMRect | null): Promise<string> {
+async function mark(dataUrl: string, target: CommentTarget, base: DOMRect | null, scroll: { x: number; y: number }): Promise<string> {
   const box = target.rect ?? target.box;
   if (!box || !base) return dataUrl;
   const img = new Image(); img.src = dataUrl; await img.decode();
-  const x = box.x - base.left, y = box.y - base.top, w = box.w, hh = box.h;
+  const x = box.x - base.left + scroll.x, y = box.y - base.top + scroll.y, w = box.w, hh = box.h;
   const c = document.createElement('canvas');
   if (target.kind === 'region') {
     const sx = Math.max(0, x), sy = Math.max(0, y), cw = Math.min(img.width - sx, w), ch = Math.min(img.height - sy, hh);
