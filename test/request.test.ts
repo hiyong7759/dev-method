@@ -185,3 +185,15 @@ test('테스트 올리기: finish가 실패했거나 기록이 없거나 그 뒤
   fs.writeFileSync(path.join(src, 'a.ts'), 'x');
   assert.throws(() => requestTest(src, 1), /소스가 바뀌었다/);
 });
+
+test('대화로 한 반려·문제 알림은 사용자 말 인용이 기록에 남는다', () => {
+  const { src } = tempProject();
+  addRequest(src, { title: '수리', screens: ['a'] });
+  startDesign(src, 1);
+  submitDesign(src, 1, { none: true });
+  const r = rejectDesign(src, 1, '다시 써라', '이건 반려할게요');
+  const last = r.events[r.events.length - 1];
+  assert.equal(last.kind, 'design-rejected');
+  assert.equal(last.quote, '이건 반려할게요');
+  assert.match(last.note, /대화에서 한 반려/);
+});

@@ -2,7 +2,7 @@
  * @spec requests 변경 요청 저장
  * @why 현재를 바꾸는 모든 일을 "요청" 하나의 흐름(설계 → 구현 → 테스트 → 완료)으로 모아, 언제 왜 어떻게 바뀌었는지 한곳에서 따라가게 한다. 요청 하나가 파일 하나(.spec/requests/<번호>.json)라서 여러 PC에서 git으로 나눠 써도 서로 다른 요청은 부딪치지 않는다.
  * @basis 모든 변경이 같은 요청 흐름을 거친다 (사용자 결정)
- * @contract 새 요청은 접수 절차(rules/intake.md)를 거쳐 합칠 요청을 먼저 찾는다: `similar`는 후보를 보이기만 하고, `merge`는 사용자 말 인용이 있어야 접수·설계 작성 중인 요청끼리 합친다. 요청 파일의 모양(types.ts의 Request)을 바꾸면 model.ts의 요청 목록과 viewer/manage-*.ts의 관리 화면도 함께 고친다. 에이전트는 이 모듈의 명령(add, design, impl, test, fixed, found, agent, list)으로만 요청을 움직이고, 승인·반려·순서 정하기는 사용자 화면(middleware.ts)만 한다.
+ * @contract 새 요청은 접수 절차(rules/intake.md)를 거쳐 합칠 요청을 먼저 찾는다: `similar`는 후보를 보이기만 하고, `merge`는 사용자 말 인용이 있어야 접수·설계 작성 중인 요청끼리 합친다. 요청 파일의 모양(types.ts의 Request)을 바꾸면 model.ts의 요청 목록과 viewer/manage-*.ts의 관리 화면도 함께 고친다. 에이전트는 이 모듈의 명령(add, design, impl, test, fixed, found, agent, list)으로만 요청을 움직이고, 승인·반려·순서 정하기는 사용자 화면(middleware.ts)이 하고, 대화로 결정했을 때는 사용자 말 인용을 붙인 approve-*·reject-design·test-problem이 같은 기록과 담당 세션 전달을 한다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -330,13 +330,13 @@ export function approveDesign(scanRoot: string, id: number, quote?: string): Req
   return record(scanRoot, r, 'user', 'design-approved', `${r.design?.none ? '설계 없음 승인' : '설계 승인'}${quote ? ' (대화에서 한 승인을 인용해 기록함)' : ''}`, quote);
 }
 /** 설계 반려(이유 한 줄) → 에이전트가 다시 작성 */
-export function rejectDesign(scanRoot: string, id: number, note: string): Request {
+export function rejectDesign(scanRoot: string, id: number, note: string, quote?: string): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'design' || r.step !== 'submitted') throw new Error('승인 대기 중인 설계가 아니다');
   if (!note?.trim()) throw new Error('반려 이유를 한 줄 적어야 한다');
   if (r.design) r.design.rejected += 1;
   move(r, 'design', 'revise');
-  return record(scanRoot, r, 'user', 'design-rejected', `설계 반려: ${note.trim()}`);
+  return record(scanRoot, r, 'user', 'design-rejected', `설계 반려: ${note.trim()}${quote ? ' (대화에서 한 반려를 인용해 기록함)' : ''}`, quote);
 }
 /** 테스트 확인표의 한 칸을 체크한다 */
 export function checkTest(scanRoot: string, id: number, key: string, done: boolean): Request {
@@ -358,12 +358,12 @@ export function approveTest(scanRoot: string, id: number, none: boolean, quote?:
   return record(scanRoot, r, 'user', 'test-approved', `${none ? '테스트 없음 승인' : '테스트 승인'}${quote ? ' (대화에서 한 승인을 인용해 기록함)' : ''}`, quote);
 }
 /** 테스트에서 문제 발견(이유 한 줄) → 에이전트가 같은 요청에서 고친다 */
-export function testProblem(scanRoot: string, id: number, note: string): Request {
+export function testProblem(scanRoot: string, id: number, note: string, quote?: string): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'test' || r.step !== 'requested') throw new Error('승인 대기 중인 테스트가 아니다');
   if (!note?.trim()) throw new Error('무엇이 문제인지 한 줄 적어야 한다');
   move(r, 'test', 'fix');
-  return record(scanRoot, r, 'user', 'test-problem', `테스트 반려: ${note.trim()}`);
+  return record(scanRoot, r, 'user', 'test-problem', `테스트 반려: ${note.trim()}${quote ? ' (대화에서 한 반려를 인용해 기록함)' : ''}`, quote);
 }
 /** 합칠 후보 하나: 어느 요청이고 왜 후보인지 */
 export interface MergeCandidate {
@@ -484,12 +484,16 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const r = setScope(scanRoot, id, { scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact) }); console.log(`요청 #${r.id}: 범위에 시나리오를 연결했다`);
     } else if (pos[0] === 'found') {
       const r = foundOutside(scanRoot, id, opts.text); console.log(`요청 #${r.id}: 범위 밖 발견을 리포트로도 올렸다`);
-    } else if (pos[0] === 'approve-design' || pos[0] === 'approve-test') {
-      // 사용자가 대화에서 승인했을 때만 쓴다. 그때 한 말을 그대로 --quote에 적어야 하고, 인용이 없으면 기록하지 않는다
+    } else if (['approve-design', 'approve-test', 'reject-design', 'test-problem'].includes(pos[0])) {
+      // 사용자가 대화에서 결정했을 때만 쓴다. 그때 한 말을 그대로 --quote에 적어야 하고, 인용이 없으면 기록하지 않는다. 화면에서 결정한 것과 똑같이 담당 세션에도 전달한다
       const quote = (opts.quote ?? '').trim();
-      if (quote.length < 4) throw new Error('--quote에 사용자가 대화에서 승인하며 한 말을 그대로 적어야 한다(사용자가 승인하지 않았다면 이 명령을 쓰지 않는다)');
-      const r = pos[0] === 'approve-design' ? approveDesign(scanRoot, id, quote) : approveTest(scanRoot, id, opts.none === 'true', quote);
-      console.log(`요청 #${r.id}: ${pos[0] === 'approve-design' ? '설계 승인' : '테스트 승인'}을 인용과 함께 기록했다 → ${r.stage}`);
+      if (quote.length < 4) throw new Error('--quote에 사용자가 대화에서 결정하며 한 말을 그대로 적어야 한다(사용자가 결정하지 않았다면 이 명령을 쓰지 않는다)');
+      const r = pos[0] === 'approve-design' ? approveDesign(scanRoot, id, quote)
+        : pos[0] === 'approve-test' ? approveTest(scanRoot, id, opts.none === 'true', quote)
+        : pos[0] === 'reject-design' ? rejectDesign(scanRoot, id, opts.note ?? '', quote)
+        : testProblem(scanRoot, id, opts.note ?? '', quote);
+      const woken = (await import('./wake.js')).wakeOwner(scanRoot, id);
+      console.log(`요청 #${r.id}: ${r.events[r.events.length - 1].note}을(를) 인용과 함께 기록했다 → ${r.stage}${woken.length ? ` (담당 세션에 전달: ${woken.map((w) => w.slice(0, 8)).join(', ')})` : ''}`);
     } else if (pos[0] === 'agent') {
       const r = setAgent(scanRoot, id, opts.name); console.log(`요청 #${r.id}: 맡은 에이전트 ${r.agent.name}`);
     } else {
@@ -508,6 +512,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  found --id N --text "범위 밖에서 발견한 것"',
         '  approve-design --id N --quote "사용자가 한 말"   (사용자가 대화에서 설계를 승인했을 때만. 인용이 없으면 못 한다)',
         '  approve-test --id N --quote "사용자가 한 말" [--none true]   (사용자가 대화에서 테스트를 승인했을 때만)',
+        '  reject-design --id N --note "반려 이유" --quote "사용자가 한 말"   (사용자가 대화에서 설계를 반려했을 때만)',
+        '  test-problem --id N --note "문제" --quote "사용자가 한 말"   (사용자가 대화에서 테스트 문제를 알렸을 때만)',
         '  agent --id N --name 세션이름',
         '  list'].join('\n'));
       return 1;

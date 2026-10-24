@@ -1,7 +1,7 @@
 /**
  * @spec viewer-app 설계서 보기의 틀
  * @why 상단 내비게이션 하나로 모든 화면과 정보와 관리로 가게 한다. 주소(#)가 곧 지금 보는 곳이라 새로고침해도, 링크를 보내도 같은 곳이 열린다: 사용 흐름(#/flow), 정보 흐름(#/info/<정보>), 화면 설계서(#/screen/<화면>?tab=…), 관리(#/manage, #/manage/<요청 번호>).
- * @basis 개발 모드 전용이다. 소스에서 계산한 모델을 읽어 그리고, 쓰기는 .spec의 승인·메모·확인 목록뿐이다. 모델은 2.5초마다 다시 받아 달라졌을 때만 그린다.
+ * @basis 개발 모드 전용이다. 소스에서 계산한 모델을 읽어 그리고, 쓰기는 .spec의 승인·메모·확인 목록뿐이다. 모델은 2.5초마다 다시 받아 달라졌을 때만 그리고, 그릴 때 보던 자리·펼침·입력은 keep-ui.ts로 지킨다.
  * @contract 서버(middleware.ts)가 /__spec/model.json을 준다. 정보 흐름은 창 폭에 맞춰 상자를 줄바꿈해 놓으므로 창 폭이 달라지면 다시 그린다.
  */
 import { h, get, tag, errorText } from './util.js';
@@ -19,6 +19,7 @@ import { glossaryView } from './glossary.js';
 import { hash, nav as go } from './route.js';
 import { themeMode, applyTheme, THEME_MODES } from './theme.js';
 import { markTerms } from './terms.js';
+import { snapshot, restore } from './keep-ui.js';
 import { commentTool } from './comment.js';
 import type { CommentTool } from './comment.js';
 import type { Model } from '../types.js';
@@ -136,7 +137,11 @@ async function load(initial: boolean): Promise<void> {
   if (!initial && k === key) return;
   key = k; model = m;
   const r = parse();
-  if (active && r.view === 'screen') { active.update(m); if (!menu) topEl?.replaceWith(topEl = topbar(m, r)); } else render();
+  if (active && r.view === 'screen') { active.update(m); if (!menu) topEl?.replaceWith(topEl = topbar(m, r)); return; }
+  // 같은 주소에서 데이터만 달라져 다시 그릴 때는 보던 자리·펼침·입력을 지킨다
+  const snap = initial ? null : snapshot(root);
+  render();
+  if (snap) restore(root, snap);
 }
 window.addEventListener('hashchange', render);
 // 화면이 그려지거나 바뀔 때마다 글 속의 용어(용어집)에 점선을 긋는다. 우리가 바꾼 것으로 다시 돌지 않도록 하는 동안은 지켜보기를 멈춘다
