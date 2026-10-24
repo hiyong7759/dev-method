@@ -89,7 +89,8 @@ export interface CommentTool {
 /** 단추·코멘트 창·고르기 막대를 문서에 얹는다 */
 export function commentTool(init: Model): CommentTool {
   let model = init, open = false, picking = false, mode: Mode = 'part', filter: 'here' | 'all' | 'waiting' = 'all';
-  let draft: { target: CommentTarget; shot: string; text: string } | null = null;
+  type Draft = { target: CommentTarget; shot: string; text: string };
+  let draft: Draft | null = null;
   const replyText = new Map<number, string>();
   const replying = new Set<number>();
   let lastSig = '';
@@ -274,6 +275,17 @@ export function commentTool(init: Model): CommentTool {
     }
   }
   setInterval(paintDots, 1500);
+  // 쓰던 초안(고른 대상·글)은 화면마다 따로 둔다: 다른 화면에서는 새로 시작하고, 돌아오면 거기서 쓰던 것이 다시 나온다
+  const viewKey = (u = location.hash): string => u.slice(1).split('?')[0].split('/').slice(0, 3).join('/');
+  const drafts = new Map<string, Draft>();
+  let curKey = viewKey();
+  window.addEventListener('hashchange', () => {
+    const k = viewKey();
+    if (k === curKey) return;
+    if (draft) drafts.set(curKey, draft); else drafts.delete(curKey);
+    curKey = k; draft = drafts.get(k) ?? null; drafts.delete(k);
+    stopPick(); draw();
+  });
   draw();
   return { update(m: Model): void {
     model = m;
