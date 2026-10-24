@@ -145,7 +145,7 @@ const DESIGN_SHAPE = '설계 파일(JSON) 모양: understanding(짧은 한 줄 �
 /** 새 담당 세션이 받는 글: 담당 등록 → 설계 올리고 승인 대기에서 멈춤. 사용자가 이미 결정한 상태(decided)면 그 일만 하게 한다 */
 function newOwnerMessage(scanRoot: string, root: string, req: Request | undefined, id: number, decided: string): string {
   const src = path.relative(root, scanRoot) || '.';
-  const intro = `[spec-view] 당신은 요청 #${id} "${req?.title ?? ''}"의 담당 세션입니다. 이 요청 하나만 합니다.`;
+  const intro = `[요청 #${id} 담당] 당신은 요청 #${id} "${req?.title ?? ''}"의 담당 세션입니다. 이 요청 하나만 합니다.`;
   const register = `\`node ${SPEC_MJS} request agent --id ${id} --name "요청 #${id} 담당" --src ${src}\`로 담당을 등록하세요.`;
   if (decided) return `${intro} 사용자가 결정했습니다(${decided}). ${register}${briefOf(req)}\n사용자가 결정한 그 일만 하고 끝나면 멈추세요. 다른 일을 시작하지 마세요. 더 알아야 하면 .spec/requests/${id}.json을 읽으세요.`;
   return `${intro} 1) ${register} 2) 아래 요청 내용을 읽고 설계를 써서 \`request design --id ${id}\`로 올린 뒤(화면이 바뀌면 현행·시안 그림과 함께) 사용자 승인 대기에서 멈추세요. 승인 전에는 구현하지 않고, 다른 요청은 건드리지 않습니다.${briefOf(req)}\n${DESIGN_SHAPE} 더 알아야 하면 \`node ${SPEC_MJS} todo --src ${src}\`나 .spec/requests/${id}.json을 읽으세요.`;
@@ -169,7 +169,7 @@ export function startOwner(scanRoot: string, id: number, why: 'start' | 'decisio
     registerOwner(root, sid, id);
     fs.appendFileSync(log, `${new Date().toISOString()} #${id} ${sid} 담당 세션을 새로 만듦(${why === 'start' ? '시작' : '결정'})\n`);
     noteSessionStarted(scanRoot, id, sid);
-    launch(root, scanRoot, id, sid, msg, [{ args: `--session-id ${sid}`, prompt: '"$MSG"', kind: 'start' }]);
+    launch(root, scanRoot, id, sid, msg, [{ args: `--session-id ${sid} --name "요청 #${id} 담당"`, prompt: '"$MSG"', kind: 'start' }]);
     return sid;
   } catch { return null; /* 시작·결정은 세션 만들기 실패와 상관없이 성공해야 한다 */ }
 }
