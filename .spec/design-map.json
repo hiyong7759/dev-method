@@ -136,14 +136,15 @@
       "files": [
         "src/viewer/manage-list.ts"
       ],
-      "state": "differs",
+      "state": "draft",
       "verifyLater": [
         "겹침 표시: 시안은 칩 하나(겹침 #13 · 화면), 구현은 #번호가 길게 이어짐 → #9에서 정리",
         "내 차례 / 에이전트 차례 / 완료 접힘 묶음이 내 차례가 있을 때 시안대로 나오는지"
       ],
       "screens": [
         "요청 목록"
-      ]
+      ],
+      "request": 54
     },
     {
       "board": "Detail-Design.dc.html",
@@ -153,7 +154,7 @@
         "src/viewer/manage-detail.ts",
         "src/viewer/manage-parts.ts"
       ],
-      "state": "confirmed",
+      "state": "draft",
       "verifyLater": [
         "시나리오가 있는 요청이 테스트 단계에 올라왔을 때 범위·확인표·범위 밖 발견 칸이 시안대로 나오는지(점검 때는 해당 요청이 없어 설계 단계·완료 단계만 확인)"
       ],
@@ -161,7 +162,8 @@
       "syncedOn": "2026-10-23",
       "screens": [
         "요청 상세"
-      ]
+      ],
+      "request": 54
     },
     {
       "board": "Info-Overlay.dc.html",
