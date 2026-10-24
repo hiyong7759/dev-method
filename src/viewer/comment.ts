@@ -141,27 +141,6 @@ export function commentTool(init: Model): CommentTool {
     if (hit) return { box: hit.el.getBoundingClientRect(), target: hit.target };
     const el = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-ctarget]');
     if (el?.dataset.ctarget) { try { return { box: el.getBoundingClientRect(), target: { ...(JSON.parse(el.dataset.ctarget) as CommentTarget), view: location.hash } }; } catch { return null; } }
-    return looseAt(ev.clientX, ev.clientY);
-  }
-  /** 번호표·data-ctarget이 없는 곳: 누른 자리의 요소에서 위로 올라가, 글이 있고 화면 대부분을 덮지 않는 가장 가까운 덩어리를 대상으로 한다. 실제 화면(iframe) 안도 같다 */
-  function looseAt(x: number, y: number): { box: DOMRect; target: CommentTarget } | null {
-    const frame = document.querySelector<HTMLIFrameElement>('.stage iframe');
-    const fr = frame?.getBoundingClientRect();
-    const inFrame = !!fr && x >= fr.left && x <= fr.right && y >= fr.top && y <= fr.bottom;
-    const doc = inFrame ? frame?.contentDocument : document;
-    let el = doc?.elementFromPoint(x - (inFrame && fr ? fr.left : 0), y - (inFrame && fr ? fr.top : 0)) as HTMLElement | null | undefined;
-    const root = (inFrame ? fr : document.getElementById('app')?.getBoundingClientRect()) as DOMRect;
-    while (el && el !== doc?.body && el !== doc?.documentElement) {
-      const r = el.getBoundingClientRect();
-      if (el.closest('.cm-ui')) return null;
-      if (r.width >= 24 && r.height >= 16 && r.width * r.height < root.width * root.height * 0.6 && (el.textContent ?? '').trim()) {
-        const ox = inFrame && fr ? fr.left : 0, oy = inFrame && fr ? fr.top : 0, v = viewLabel(location.hash);
-        const text = (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 30);
-        const box = new DOMRect(r.left + ox, r.top + oy, r.width, r.height);
-        return { box, target: { kind: 'item', label: `${v.label} › ${text}`, view: location.hash, screen: v.screen, box: { x: box.x, y: box.y, w: box.width, h: box.height } } };
-      }
-      el = el.parentElement;
-    }
     return null;
   }
   async function pickTarget(target: CommentTarget): Promise<void> {
@@ -196,7 +175,7 @@ export function commentTool(init: Model): CommentTool {
   }, true);
   document.addEventListener('click', (ev) => {
     if (!picking || (ev.target as HTMLElement).closest('.cm-ui')) return;
-    if (mode === 'part') { const t = targetAt(ev); ev.preventDefault(); ev.stopPropagation(); if (t) void pickTarget(t.target); else toast('여기는 고를 만한 덩어리가 없습니다. 글이 있는 곳을 눌러 보세요 — 영역 그리기나 화면 전체도 쓸 수 있습니다'); }
+    if (mode === 'part') { const t = targetAt(ev); ev.preventDefault(); ev.stopPropagation(); if (t) void pickTarget(t.target); else toast('여기는 부품이 아닙니다. 번호표가 붙은 부품이나 항목을 눌러 보세요 — 번호표가 없는 곳은 영역 그리기나 화면 전체를 쓰세요'); }
     else if (mode === 'region') { ev.preventDefault(); ev.stopPropagation(); }
   }, true);
 
