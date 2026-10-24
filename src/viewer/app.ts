@@ -103,7 +103,7 @@ function render(): void {
   const again = (): void => { void load(true).then(() => render()); };
   if (r.view === 'screen') {
     if (!m.screens.find((s) => s.name === r.arg)) { body.append(h('div', { class: 'empty-note', style: 'flex:1' }, `화면 "${r.arg}"을 찾지 못했다`)); return; }
-    const v = screenView(body, { model: m, name: r.arg, tab: r.params.get('tab'), at: r.params.get('at'), go: (n, t, at) => { nav(hash('screen', n, { tab: t, at }), true); topEl?.replaceWith(topEl = topbar(m, parse())); } });
+    const v = screenView(body, { model: m, name: r.arg, tab: r.params.get('tab'), at: r.params.get('at'), go: (n, t, at) => { const q = parse().params; nav(hash('screen', n, { tab: t, at, tr: q.get('tr') ?? undefined, ts: q.get('ts') ?? undefined, tn: q.get('tn') ?? undefined }), true); topEl?.replaceWith(topEl = topbar(m, parse())); } });
     active = { name: r.arg, ...v };
   } else if (r.view === 'info') {
     const sel = r.arg || '';

@@ -90,7 +90,6 @@ export interface CommentTool {
 
 /** 테스트 승인 경로(요청 상세에서 "첫 화면 열기"로 들어온 길): 어느 요청의 어느 시나리오를 어느 단계까지 따라왔나 */
 interface Path { req: number; sc: string; step: string }
-const PATH_KEY = 'spec-view:comment-path';
 
 /** 코멘트 창·고정 줄을 문서에 얹는다 */
 export function commentTool(init: Model): CommentTool {
@@ -108,12 +107,18 @@ export function commentTool(init: Model): CommentTool {
   document.body.append(drawer, bar);
 
   // 테스트 경로: 주소의 tr·ts·tn(요청·시나리오·단계)로 들어오면 이 창(탭)이 기억한다. 화면 안에서 주소가 바뀌어도 이어지고, "경로 끝내기"로 지운다
-  const readPath = (): Path | null => { try { const p = JSON.parse(sessionStorage.getItem(PATH_KEY) ?? 'null') as Path | null; return p && p.req && p.sc ? p : null; } catch { return null; } };
-  const savePath = (p: Path | null): void => { try { if (p) sessionStorage.setItem(PATH_KEY, JSON.stringify(p)); else sessionStorage.removeItem(PATH_KEY); } catch { /* 저장소를 못 쓰면 이 주소에서만 경로가 보인다 */ } };
-  let path: Path | null = readPath();
+  // 경로는 주소에만 산다: 주소에 tr·ts가 있는 동안만 경로이고, 다른 곳으로 나가 주소에서 빠지면 바로 끝난다(승인·반려를 안 하고 나가도 마찬가지)
+  let path: Path | null = null;
   const pathFromUrl = (): void => {
     const q = new URLSearchParams(location.hash.split('?')[1] ?? ''), req = Number(q.get('tr')), sc = q.get('ts');
-    if (req && sc) { path = { req, sc, step: q.get('tn') ?? '' }; savePath(path); open = true; }
+    if (req && sc) { const wasOpen = path?.req === req && path.sc === sc; path = { req, sc, step: q.get('tn') ?? path?.step ?? '' }; if (!wasOpen) open = true; } else path = null;
+  };
+  /** 경로 끝내기: 주소에서 경로 표시를 뺀다(새로 고쳐도 되살아나지 않게) */
+  const endPath = (): void => {
+    const [base, qs = ''] = location.hash.split('?'), q = new URLSearchParams(qs);
+    ['tr', 'ts', 'tn'].forEach((k) => q.delete(k));
+    history.replaceState(null, '', `${location.pathname}${base}${q.toString() ? `?${q}` : ''}`);
+    path = null; draw();
   };
   pathFromUrl();
   /** 경로 안의 요청·시나리오·확인할 단계들(요청 상세의 확인표와 같은 기준) */
@@ -275,7 +280,7 @@ export function commentTool(init: Model): CommentTool {
     const { r, sc, steps } = info, cur = Math.max(0, steps.findIndex((s) => s.id === path?.step)), checks = r.test?.checks ?? {};
     const go = (i: number): void => {
       const st = steps[i]; if (!st || !path) return;
-      path = { ...path, step: st.id }; savePath(path); stopPick(); draft = null;
+      path = { ...path, step: st.id }; stopPick(); draft = null;
       const scr = st.screens[0];
       if (scr && viewLabel(location.hash).screen !== scr) nav(hash('screen', scr, { tr: String(path.req), ts: sc.name, tn: st.id, at: liveAt(model, scr, path.req) })); else draw();
     };
@@ -286,7 +291,7 @@ export function commentTool(init: Model): CommentTool {
         i !== cur ? h('button', { class: 'btn sm', onclick: () => go(i) }, '가기') : null);
     };
     return h('div', { class: 'cm-path' },
-      h('div', { class: 'cm-tg' }, h('b', null, sc.name), chip('ag', `요청 #${r.id} 테스트`), h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => { path = null; savePath(null); draw(); } }, '경로 끝내기')),
+      h('div', { class: 'cm-tg' }, h('b', null, sc.name), chip('ag', `요청 #${r.id} 테스트`), h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: endPath }, '경로 끝내기')),
       steps.map(row),
       h('div', { class: 'cm-foot' }, h('button', { class: 'btn sm', disabled: cur <= 0, onclick: () => go(cur - 1) }, '‹ 이전 화면'), h('button', { class: 'btn sm', disabled: cur >= steps.length - 1, onclick: () => go(cur + 1) }, '다음 화면 ›')));
   }
