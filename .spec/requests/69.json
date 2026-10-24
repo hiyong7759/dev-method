@@ -16,8 +16,12 @@
       "LoginSetting",
       "AnalyzedProp"
     ],
-    "scenarios": [],
-    "steps": [],
+    "scenarios": [
+      "정보를 살펴본다"
+    ],
+    "steps": [
+      "정보를 살펴본다#2c"
+    ],
     "impactOnly": []
   },
   "agent": {
@@ -67,6 +71,12 @@
       "by": "agent",
       "kind": "impl",
       "note": "구현 시작"
+    },
+    {
+      "at": "2026-10-24T14:02:58.194Z",
+      "by": "agent",
+      "kind": "scope",
+      "note": "범위에 시나리오 연결: 정보를 살펴본다"
     }
   ],
   "design": {

@@ -92,6 +92,7 @@ export interface InfoMapOptions {
  * @does 정보를 전체·화면용·내부용으로 거른다 | 고른 구분의 상자만 남는다 | 정보를 살펴본다#1 | → 2
  * @does 정보 상자를 눌러 필드와 쓰이는 화면을 본다 | 오른쪽 패널에 필드와 흐름이 나온다 | 정보를 살펴본다#2 | → 3, 2b
  * @does 오른쪽 패널의 "쓰이는 화면" 이름을 눌러 그 화면의 설계서를 연다 | 화면 설계서가 열린다 | 정보를 살펴본다#3 | → 화면 설계서를 열어 본다#3
+ * @does 오른쪽 패널의 필드에서 "바깥이 읽음" 이름표에 마우스를 올린다 | 누가 어떻게 읽는지 적어 둔 설명이 나온다 | 정보를 살펴본다#2c | → 2 | 코드 밖에서 읽는다고 선언한 필드가 있으면
  * @does 같은 상자를 다시 눌러 전체 요약으로 돌아간다 | 오른쪽 패널이 한눈에 보기로 바뀐다 | 정보를 살펴본다#2b | → 1 | 같은 상자를 다시 누르면
  */
 export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, drawer, filter, onFilter, domain, onDomain }: InfoMapOptions): void {
