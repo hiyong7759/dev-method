@@ -25,8 +25,8 @@
   "agent": {
     "name": "요청 #62 담당"
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-24T10:44:17.860Z",
@@ -94,6 +94,18 @@
       "by": "agent",
       "kind": "scope",
       "note": "범위에 시나리오 연결: 코멘트를 담아 한번에 보낸다, 테스트를 경로 따라가며 승인한다"
+    },
+    {
+      "at": "2026-10-24T12:35:28.712Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 b3dbf28"
+    },
+    {
+      "at": "2026-10-24T12:35:31.884Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
     }
   ],
   "mergedFrom": [
@@ -186,5 +198,13 @@
     ],
     "none": false,
     "rejected": 1
+  },
+  "commits": [
+    "b3dbf28"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false
   }
 }
