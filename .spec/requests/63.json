@@ -18,13 +18,51 @@
     "name": "요청 #60 담당"
   },
   "stage": "design",
-  "step": "queued",
+  "step": "submitted",
   "events": [
     {
       "at": "2026-10-24T11:08:45.981Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-24T11:13:12.097Z",
+      "by": "agent",
+      "kind": "started",
+      "note": "설계를 시작함(우선순위를 정해 시작)"
+    },
+    {
+      "at": "2026-10-24T11:13:12.105Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(0e5c0867)"
+    },
+    {
+      "at": "2026-10-24T11:13:12.198Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
     }
-  ]
+  ],
+  "design": {
+    "understanding": "설계 없음 요청도 영역별 항목(points)을 적으면 '영역·바뀌는 것·설명' 표로 보이게 한다. 사용자가 이 세션에서 바로 처리하라고 해 구현과 커밋(9d5fd54)을 먼저 마쳤고, 지금 사후 승인을 받는다.",
+    "points": [
+      {
+        "area": "요청 상세",
+        "title": "설계 없음도 표로 보임",
+        "text": "설계 없음이어도 points가 있으면 이해한 내용 표로 보이고, 처리 방법 글은 표 아래에 따로 보인다. points가 없는 옛 설계는 그대로다."
+      },
+      {
+        "area": "지침",
+        "title": "쓰는 기준",
+        "text": "설계 없음에서도 항목이 둘 이상이면 points로 적고, approach는 항목이 하나뿐인 짧은 설명에만 쓴다(approval.md와 담당 세션 안내 문구)."
+      }
+    ],
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0
+  }
 }

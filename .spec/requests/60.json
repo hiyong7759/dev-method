@@ -20,8 +20,8 @@
   "agent": {
     "name": "요청 #60 담당"
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-24T08:18:44.123Z",
@@ -113,6 +113,18 @@
       "by": "agent",
       "kind": "impl",
       "note": "구현 시작"
+    },
+    {
+      "at": "2026-10-24T11:13:11.910Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 f7d2a55"
+    },
+    {
+      "at": "2026-10-24T11:13:12.008Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
     }
   ],
   "design": {
@@ -173,5 +185,13 @@
     "screens": [],
     "none": false,
     "rejected": 3
+  },
+  "commits": [
+    "f7d2a55"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false
   }
 }
