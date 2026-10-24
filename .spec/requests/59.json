@@ -17,14 +17,21 @@
   "agent": {
     "name": ""
   },
-  "stage": "design",
-  "step": "queued",
+  "stage": "cancelled",
+  "step": "cancelled",
   "events": [
     {
       "at": "2026-10-24T08:05:58.794Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-24T08:17:50.850Z",
+      "by": "user",
+      "kind": "merged",
+      "note": "#15에 합침: 같은 담당 세션·같은 요청 상세 화면을 다뤄 한 요청으로 진행",
+      "quote": "58, 59 하고도 합쳐야겠다 그리고 더 연관있는 요구가 있는지 확인해서 같이할수 있는건 하나로 처리하자"
     }
   ]
 }
