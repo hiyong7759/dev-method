@@ -1,0 +1,35 @@
+{
+  "id": 69,
+  "title": "파일 모양·도구 사이 약속처럼 코드가 읽지 않는 정보를 소스에 선언하면, '쓰지 않는 필드' 판정과 리포트에서 빼고 정보 흐름에는 보이게 한다",
+  "source": "user",
+  "origin": {
+    "text": "저런 인터페이스 규격들도 선언해서 쓰는 건지 분석기가 판단 가능하도록 정리하게 해줘야겠네. 요청상 올려.",
+    "channel": "대화",
+    "at": "2026-10-24T13:09:36.240Z"
+  },
+  "scope": {
+    "screens": [
+      "리포트",
+      "정보 흐름"
+    ],
+    "infos": [
+      "LoginSetting"
+    ],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "queued",
+  "events": [
+    {
+      "at": "2026-10-24T13:09:36.240Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
