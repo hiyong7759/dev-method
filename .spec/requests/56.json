@@ -1,9 +1,9 @@
 {
   "id": 56,
-  "title": "인수인계 메모(todo.md)를 없애고 내용을 규칙 문서로 옮김",
+  "title": "인수인계 메모(인수인계 메모)를 없애고 내용을 규칙 문서로 옮김",
   "source": "user",
   "origin": {
-    "text": "todo.md가 왜 필요한거야? 왜 자꾸 쓸때없이 중복관리되게 만들지? 메모리랑 claude.md랑 스킬에 적절한곳에 넣고 할일은 요청 목록에 있는데 / 어 정리해",
+    "text": "인수인계 메모가 왜 필요한거야? 왜 자꾸 쓸때없이 중복관리되게 만들지? 메모리랑 claude.md랑 스킬에 적절한곳에 넣고 할일은 요청 목록에 있는데 / 어 정리해",
     "channel": "대화",
     "at": "2026-10-24T07:45:18.962Z"
   },
@@ -59,7 +59,7 @@
     }
   ],
   "design": {
-    "understanding": "todo.md는 요청 목록·todo 명령·규칙 문서와 겹치므로 없애고, 규칙은 한 번만 적는다.",
+    "understanding": "인수인계 메모는 요청 목록·todo 명령·규칙 문서와 겹치므로 없애고, 규칙은 한 번만 적는다.",
     "approach": "정리표대로 CORE.md·SKILL.md·rules/request.md·rules/approval.md에 옮기고 파일을 지운다",
     "changes": [],
     "screens": [],
