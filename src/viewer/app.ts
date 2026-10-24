@@ -135,6 +135,8 @@ async function load(initial: boolean): Promise<void> {
   const k = JSON.stringify({ ...m, generatedAt: 0, comments: 0 });
   // 화면 설계서의 '실제 화면' 안(iframe)에서는 바깥 창의 코멘트 도구가 이미 있어, 안쪽에 하나 더 띄우면 겹쳐 보인다
   const framed = window.parent !== window;
+  // 같은 이유로 안쪽에서는 위쪽 메뉴 줄도 감춘다(검토할 화면만 보이게)
+  if (framed) document.documentElement.classList.add('framed');
   if (!commentUi && !framed) commentUi = commentTool(m); else commentUi?.update(m);
   if (!initial && k === key) return;
   key = k; model = m;

@@ -5,7 +5,7 @@
  */
 import { h, post, pageHead, chip, tag, fmt, toast, errorText, copyText, sidePanel } from './util.js';
 import type { Kid } from './util.js';
-import { hash, nav, testAt } from './route.js';
+import { hash, nav, liveAt } from './route.js';
 import { stepperBig, chipFor, scopeTags, withPanel, currentDesignApproval } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
 import { basket, sendBasket } from './comment-basket.js';
@@ -177,7 +177,7 @@ function testScenario(model: Model, r: RequestView, sc: Scenario, impactOnly: bo
   // 첫 화면은 테스트 경로로 열린다: 그 창의 오른쪽 코멘트 창에 단계 목록·코멘트 담기·승인·반려가 붙는다
   const firstStep = (mains[0] ?? branches[0])?.id;
   return h('div', { class: 'tsc' },
-    h('div', { class: 'tsc-h' }, h('b', null, sc.name), impactOnly ? h('span', { class: 'chip dim' }, '영향 확인만') : null, h('span', { class: 'grow' }), first ? h('a', { class: 'open', target: '_blank', rel: 'noopener', href: `${location.pathname}${hash('screen', first, { tr: String(r.id), ts: sc.name, tn: firstStep, at: testAt(model.screens, first, r.id) })}` }, '첫 화면 열기 ↗') : null),
+    h('div', { class: 'tsc-h' }, h('b', null, sc.name), impactOnly ? h('span', { class: 'chip dim' }, '영향 확인만') : null, h('span', { class: 'grow' }), first ? h('a', { class: 'open', target: '_blank', rel: 'noopener', href: `${location.pathname}${hash('screen', first, { tr: String(r.id), ts: sc.name, tn: firstStep, at: liveAt(model, first, r.id) })}` }, '첫 화면 열기 ↗') : null),
     mains.length ? [h('div', { class: 'hint' }, impactOnly ? '영향 확인 (바꾸지 않음)' : '기본 흐름'), mains.map(stepRow)] : null,
     branches.length ? [h('div', { class: 'hint amberT' }, '갈래 — 이번 요청이 바꾼 것만'), branches.map(stepRow)] : null);
 }

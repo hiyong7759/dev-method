@@ -8,7 +8,7 @@ import { infoDrawer } from './info.js';
 import { runStep } from './steps.js';
 import { overview, nowTab, history } from './tabs.js';
 import type { Box, ScreenCtx, TabName } from './ctx.js';
-import { hash, nav } from './route.js';
+import { hash, nav, liveAt } from './route.js';
 import { worstMark, markChip } from './design-status.js';
 import type { Model, ModelScreen, Spec } from '../types.js';
 
@@ -44,6 +44,7 @@ export interface ScreenViewHandle {
 /**
  * @screen 화면 설계서
  * @route /__spec/#/screen/:name
+ * @sample /__spec/#/screen/%EC%9A%94%EC%B2%AD%20%EB%AA%A9%EB%A1%9D
  * @domain 현행
  * @to 요청 상세 | "관리에서 열기"를 누른다 | 요청 번호
  * @to 사용 흐름 | 개요의 "흐름 보기"를 누른다 |
@@ -101,7 +102,7 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   iframe.addEventListener('load', status);
   iframe.addEventListener('error', () => { okEl.classList.add('bad'); okEl.textContent = '열리지 않음'; });
   const sc0 = c.sc();
-  loadFrame(at || sc0.sample || sc0.route || '/');
+  loadFrame(at || liveAt(c.model, c.name) || sc0.route || '/');
 
   // 화면 안에서 다른 화면으로 가면 설계서도 따라간다
   let lastPath: string | null = null;
@@ -118,6 +119,8 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   /** 이 화면을 범위로 하는 진행 중인 요청들 */
   const requestsHere = (): Model['requests'] => c.model.requests.filter((r) => r.stage !== 'done' && r.stage !== 'cancelled' && r.scope.screens.includes(c.name));
   function bannerEl(): HTMLElement | null {
+    // 테스트 경로를 따라가는 중이면 그 요청만 보고 있으므로, 다른 요청의 '내 차례' 줄을 띄우지 않는다
+    if (new URLSearchParams(location.hash.split('?')[1] ?? '').get('tr')) return null;
     const mine = requestsHere().filter((r) => r.turn === 'user');
     if (!mine.length) return null;
     const r = mine[0];
@@ -154,7 +157,7 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   c.render = render;
   c.setTab = (t) => { c.tab = t; c.drawer = null; c.active = null; go(c.name, t); render(); };
   c.openInfo = (info) => { c.drawer = { info }; render(); };
-  c.go = (n) => { const t = c.model.screens.find((s) => s.name === n); if (!t) return; c.name = n; c.drawer = null; c.active = null; go(n, 'overview'); c.tab = 'overview'; loadFrame(t.sample || t.route); render(); };
+  c.go = (n) => { const t = c.model.screens.find((s) => s.name === n); if (!t) return; c.name = n; c.drawer = null; c.active = null; go(n, 'overview'); c.tab = 'overview'; loadFrame(liveAt(c.model, n) || t.route); render(); };
   // 눌러야 나타나는 컴포넌트: 검사가 찾아 둔 순서대로 화면을 눌러 열어 준다
   c.revealSpec = async (id) => {
     const sp = ordered().find((x) => x.id === id), doc = frameDoc();
