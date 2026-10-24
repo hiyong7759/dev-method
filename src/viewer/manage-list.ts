@@ -40,6 +40,13 @@ function section(title: string, hint: string, list: RequestView[], onChange: () 
 }
 
 /**
+ * @spec manage-list-done-fold 완료 요청 접힘 영역
+ * @anchor dom:details.mg-sec
+ * @open 누르기 완료
+ * @why 끝난 요청은 목록을 길게 만들지 않도록 접어 두고, 사용자가 누르면 펼쳐 지난 일을 다시 본다.
+ */
+
+/**
  * @screen 요청 목록
  * @route /__spec/#/manage
  * @domain 관리

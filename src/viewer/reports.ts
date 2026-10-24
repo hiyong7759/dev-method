@@ -3,6 +3,13 @@
  * @why 에이전트가 작업 중이나 정기 점검에서 발견한 것과, 기계가 판단할 수 없어 올라온 확인 필요를 한 목록에 모아 사용자가 요청으로 등록하거나 무시하거나 의도한 것으로 남기게 한다. 요청으로 등록하기 전에는 아무것도 고치지 않는다.
  * @contract model.reports를 종류별 묶음(브리핑)으로 그린다. 묶음 단위로 결정하고, 건별로 고르게도 할 수 있다. 처리 단추는 review.ts의 것을 쓴다. 다른 화면에서 리포트 번호를 눌러 오면(no, from) 그 줄을 강조하고 돌아갈 곳을 보인다.
  */
+
+/**
+ * @spec reports-done-fold 처리함 접힘 영역
+ * @anchor dom:details.rdone
+ * @open 누르기 처리함
+ * @why 이미 처리한 리포트는 새로 올라온 것을 가리지 않도록 접어 두고, 사용자가 누르면 펼쳐 본다.
+ */
 import { h, post, pageHead, chip, tag, rv, fmt, buls, toast, errorText, type BulKind } from './util.js';
 import { actionButtons, decisionText } from './review.js';
 import { hash, nav } from './route.js';

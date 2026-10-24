@@ -8,6 +8,13 @@ import type { Kid } from './util.js';
 import { hash, nav } from './route.js';
 import type { DesignView, Model } from '../types.js';
 
+/**
+ * @spec design-status-folded 그 밖의 판 접힘 영역
+ * @anchor dom:details.rdone
+ * @open 누르기 그 밖의 판
+ * @why 구현과 같거나 참고용인 시안은 손볼 것을 가리지 않도록 접어 두고, 사용자가 누르면 펼쳐 본다.
+ */
+
 /** 기호 → 이름표 색과 짧은 이름 */
 const MARK: Record<DesignView['mark'], { tone: Tone; name: string }> = {
   '✓': { tone: 'ok', name: '구현과 같음' }, '△': { tone: 'me', name: '소스가 더 최신' }, '≠': { tone: 'bad', name: '대조해 보니 다름' },
