@@ -374,6 +374,8 @@ export interface RequestView extends Request {
   overlaps: RequestOverlap[];
   /** 아직 끝나지 않아 기다려야 하는 요청 번호들 */
   waitingFor: number[];
+  /** 담당 세션을 만들거나 깨울 때 든 비용 합계(기록이 없으면 모두 0) */
+  cost: { start: number; wake: number; inputTokens: number; outputTokens: number; usd: number };
 }
 
 // ── 정보 분석 (analyze-ts) ───────────────────────────────

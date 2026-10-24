@@ -10,6 +10,7 @@ import { extractSpecs } from './extract.js';
 import { analyzeTs } from './analyze-ts.js';
 import { projectRoot } from './project.js';
 import { loadRequests, describeRequests } from './request.js';
+import { costOf } from './session.js';
 import { untrackedCommits } from './history.js';
 import { designViews } from './design.js';
 import { readConfig } from './config.js';
@@ -227,7 +228,7 @@ export function buildModel(scanRoot: string): Model {
   for (const i of infos) for (const p of i.props) p.evidence = p.evidence.slice(0, 12);
   const componentsOf = (r: Request): string[] => [...new Set(out.scenarios.filter((sc) => (r.scope.scenarios ?? []).includes(sc.name)).flatMap((sc) => sc.steps.map((st) => st.owner)))];
   const rawRequests = loadRequests(scanRoot);
-  const requests = describeRequests(rawRequests, componentsOf);
+  const requests = describeRequests(rawRequests, componentsOf).map((r) => ({ ...r, cost: costOf(scanRoot, r.id) }));
   return {
     project: path.basename(root), generatedAt: new Date().toISOString(),
     screens, specs: out.specs, infos, relations, reports: rows, glossary: loadGlossary(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,

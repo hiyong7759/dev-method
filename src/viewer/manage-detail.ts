@@ -79,28 +79,66 @@ function designApproval(r: RequestView, onChange: () => void): HTMLElement {
     none ? null : h('div', { class: 'hint' }, '정보도 화면도 바뀌지 않는 요청이면 에이전트가 "설계 없음"으로 올리고, 그때는 "설계 없음 승인"만 누르면 됩니다.'));
 }
 
-/** 설계 결과: 정보 변경 칸(바뀌는 정보 상자)과 화면 변경 칸(화면은 그림과 비교 보기 링크) */
+/** 그림을 눌렀을 때 원본 크기로 보는 창. 현행 그림이 있으면 "현행 보기"로 바꿔 볼 수 있다. 바깥을 누르거나 Esc로 닫는다 */
+function lightbox(title: string, after: string, before: string): void {
+  let showBefore = false;
+  const img = h('img', { class: 'lbx-img', src: `/__spec/shots/${after}`, alt: title });
+  const label = h('span', null, `${title} · 시안 (원본 크기)`);
+  const swap = before ? h('button', { class: 'btn sm', onclick: (e: Event) => { e.stopPropagation(); showBefore = !showBefore; img.setAttribute('src', `/__spec/shots/${showBefore ? before : after}`); label.textContent = `${title} · ${showBefore ? '현행' : '시안'} (원본 크기)`; swap!.textContent = showBefore ? '시안 보기' : '현행 보기'; } }, '현행 보기') : null;
+  const close = (): void => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') close(); };
+  const ov = h('div', { class: 'lbx', onclick: close }, h('div', { class: 'lbx-bar', onclick: (e: Event) => e.stopPropagation() }, label, h('span', { class: 'grow' }), swap, h('button', { class: 'btn sm', onclick: close }, '닫기 ✕')), img);
+  document.addEventListener('keydown', onKey);
+  document.body.append(ov);
+}
+
+/** 정보 변경을 정보(테이블) 하나에 한 줄로 요약한 칸 하나: 바뀐 정도와 더해지거나 바뀌는 칸 이름만 보이고, 자세한 것은 겹쳐 보기에서 본다 */
+function infoSummary(model: Model, r: RequestView): HTMLElement | null {
+  const d = r.design;
+  if (!d || !d.changes.length) return null;
+  const names = [...new Set(d.changes.map((c) => c.info))];
+  const rows = names.map((name) => {
+    const cs = d.changes.filter((c) => c.info === name);
+    const isNew = !model.infos.some((i) => i.name === name);
+    const add = cs.filter((c) => c.kind === 'add'), chg = cs.filter((c) => c.kind === 'change'), del = cs.filter((c) => c.kind === 'remove'), lnk = cs.filter((c) => c.kind === 'link');
+    const sum = [add.length ? (isNew ? `새 정보 · ${add.length}칸` : `칸 ${add.length}개 더함`) : '', chg.length ? `칸 ${chg.length}개 바뀜` : '', del.length ? `칸 ${del.length}개 뺌` : ''].filter(Boolean).join(' · ') || (lnk.length ? '연결만 바뀜' : '');
+    const mark = (c: { kind: string; field: string }, m: string, cls: string): HTMLElement => h('span', { class: `isum-tag ${cls}` }, `${m} ${c.field}`);
+    return h('div', { class: 'isum-row' }, h('b', null, name), h('b', { class: 'isum-sum' }, sum),
+      h('span', { class: 'isum-tags' }, add.map((c) => mark(c, '+', 'add')), chg.map((c) => mark(c, '≈', 'chg')), del.map((c) => mark(c, '−', 'del')), lnk.map((c) => mark(c, '↔', 'lnk'))));
+  });
+  return h('div', { class: 'box isum' }, h('div', { class: 'hint' }, `정보 변경 · ${names.length}개 정보`), rows,
+    h('div', { class: 'isum-foot' }, h('span', { class: 'hint' }, '+ 더함 · ≈ 바뀜 · − 뺌 · ↔ 연결'), h('a', { class: 'lnk', href: hash('manage', `${r.id}/info`) }, '정보 변경 겹쳐 보기에서 자세히 ›')));
+}
+
+/** 설계 결과: 정보 변경은 한 칸 요약, 화면 변경은 화면마다 한 칸(그림을 누르면 원본 크기, 달라진 곳은 상자) */
 function designResult(model: Model, r: RequestView): HTMLElement | null {
   const d = r.design;
   if (!d || d.none) return null;
-  const byInfo = [...new Set(d.changes.filter((c) => c.kind !== 'link').map((c) => c.info))];
-  const links = d.changes.filter((c) => c.kind === 'link');
-  const infoBox = (name: string): HTMLElement => {
-    const cs = d.changes.filter((c) => c.info === name && c.kind !== 'link');
-    const del = new Set(cs.filter((c) => c.kind === 'remove').map((c) => c.field));
-    const base = (model.infos.find((i) => i.name === name)?.props ?? []).map((p) => h('div', { class: `f${del.has(p.name) ? ' del' : ''}` }, p.name));
-    return h('div', { class: 'ibox' }, h('b', null, name), base.slice(0, 6), base.length > 6 ? h('div', { class: 'hint' }, `외 ${base.length - 6}개`) : null,
-      cs.filter((c) => c.kind === 'add').map((c) => h('div', { class: 'f add' }, `+ ${c.field}`, c.note ? ` — ${c.note}` : '')),
-      cs.filter((c) => c.kind === 'change').map((c) => h('div', { class: 'f chg' }, `≈ ${c.field}${c.note ? ` — ${c.note}` : ''}`)));
+  const screenBox = (s: NonNullable<RequestView['design']>['screens'][number]): HTMLElement => {
+    const wrap = h('div', { class: 'shot-wrap' });
+    if (s.after) {
+      wrap.append(h('img', { class: 'shot zoomable', src: `/__spec/shots/${s.after}`, alt: `${s.screen} 시안`, title: '누르면 원본 크기로 봅니다', onclick: () => lightbox(s.screen, s.after, s.before) }));
+      for (const hl of s.highlights ?? []) wrap.append(h('div', { class: 'hl', style: `left:${hl.l}%;top:${hl.t}%;width:${hl.w}%;height:${hl.h}%` }, h('span', null, hl.label)));
+    }
+    const source = s.isNew ? chip('ag', '신규 화면 · 현행 없음')
+      : s.beforeSource === 'tool' ? chip('ok', `현행: 운영 화면 그대로${s.capturedAt ? ` · ${fmt(s.capturedAt)} 촬영` : ''}`)
+      : s.beforeSource === 'manual' ? chip('bad', '손으로 올림 · 현행이 아닐 수 있음') : null;
+    return h('div', { class: 'box' }, h('div', { class: 'hint' }, `화면 변경 · ${s.screen}${s.link ? ' (Claude Design)' : ''}`),
+      wrap, h('div', { class: 'shot-src' }, source, s.after ? h('span', { class: 'hint' }, s.highlights?.length ? '그림을 누르면 원본 크기 · 초록 상자는 현행과 달라진 곳' : '그림을 누르면 원본 크기') : null),
+      s.note ? h('div', null, s.note) : null,
+      !s.isNew && s.before ? h('a', { class: 'lnk', href: hash('manage', `${r.id}/compare`, { screen: s.screen }) }, '현행과 비교해서 보기 ›') : null);
   };
   return h('div', { class: 'dres' }, h('div', { class: 'hint' }, `설계 결과 · 정보 변경 ${d.changes.length}건 · 화면 변경 ${d.screens.length}건 — 한꺼번에 승인합니다`),
-    h('div', { class: 'grid2' },
-      byInfo.length || links.length ? h('div', { class: 'box' }, h('div', { class: 'hint' }, `정보 변경 · ${byInfo.join(', ') || '연결'}`), byInfo.map(infoBox),
-        links.map((c) => h('div', { class: 'chg link' }, h('span', { class: 'mk' }, '↔'), h('span', null, h('b', null, `연결 · ${c.info} → ${c.field}`), c.note ? ` — ${c.note}` : ''))),
-        h('a', { class: 'lnk', href: hash('manage', `${r.id}/info`) }, '정보 변경 겹쳐 보기 ›')) : null,
-      d.screens.map((s) => h('div', { class: 'box' }, h('div', { class: 'hint' }, `화면 변경 · ${s.screen}${s.link ? ' (Claude Design)' : ''}`),
-        s.after ? h('img', { class: 'shot', src: `/__spec/shots/${s.after}`, alt: `${s.screen} 변경 후` }) : null, s.note ? h('div', null, s.note) : null,
-        h('a', { class: 'lnk', href: hash('manage', `${r.id}/compare`, { screen: s.screen }) }, '현행과 비교해서 보기 ›')))));
+    infoSummary(model, r), h('div', { class: 'grid2' }, d.screens.map(screenBox)));
+}
+
+/** 설계 글: "이렇게 이해했습니다" 한 줄 요약과 영역별 표(영역·바뀌는 것·설명). 영역별 항목이 없는 옛 설계는 글만 보인다. "이렇게 처리하겠습니다"는 정보·화면 변경이 없는 요청에서만 보인다 */
+function designText(d: NonNullable<RequestView['design']>): Kid {
+  if (d.none) return h('div', { class: 'grid2' }, h('div', { class: 'box' }, h('b', null, '이렇게 이해했습니다'), h('div', null, d.understanding)), d.approach ? h('div', { class: 'box' }, h('b', null, '이렇게 처리하겠습니다'), h('div', null, d.approach)) : null);
+  const areas = (d.points ?? []).map((p) => p.area);
+  return h('div', { class: 'box dpts' }, h('b', null, '이렇게 이해했습니다'), h('div', { class: 'dpts-sum' }, d.understanding),
+    d.points?.length ? h('table', { class: 'dpts-tbl' }, h('thead', null, h('tr', null, h('th', null, '영역'), h('th', null, '바뀌는 것'), h('th', null, '설명'))),
+      h('tbody', null, d.points.map((p, i) => h('tr', { class: areas.indexOf(p.area) === i ? 'first' : '' }, h('td', { class: 'dpts-area' }, areas.indexOf(p.area) === i ? p.area : ''), h('td', { class: 'dpts-t' }, p.title), h('td', null, p.text))))) : null);
 }
 
 /** 테스트 확인표 한 시나리오: 기본 흐름 단계와, 이번 요청이 바꾼 갈래 단계 */
@@ -185,12 +223,13 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   const implEvents = r.events.filter((e) => e.kind === 'impl' || e.kind === 'test-requested');
   const comps = [...new Set((r.scope.scenarios ?? []).flatMap((n) => model.scenarios.find((s) => s.name === n)?.steps.map((st) => st.owner) ?? []))];
   const cards: HTMLElement[] = [
-    fold('agent', '맡은 에이전트', idx === 0, r.agent.name ? [chip('ag', r.agent.name), ` 마지막 기록 ${fmt(r.events[r.events.length - 1].at)}`] : '아직 정해지지 않았습니다',
-      r.agent.name ? h('div', { class: 'rm' }, h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, `claude attach ${r.agent.name}`), h('button', { class: 'btn sm', onclick: () => { void copyText(`claude attach ${r.agent.name}`).then(() => toast('복사했습니다')); } }, '복사'), h('span', { class: 'hint' }, `VS Code는 세션 목록에서 "${r.agent.name}"`))
-        : h('div', { class: 'hint' }, '이 요청만 알고 일하는 에이전트입니다. 맡으면 이름이 여기에 나옵니다.')),
+    fold('agent', '맡은 에이전트', idx === 0, r.agent.name ? [chip('ag', r.agent.name), ` 마지막 기록 ${fmt(r.events[r.events.length - 1].at)}`, r.cost && (r.cost.start || r.cost.wake) ? ` · 비용 약 $${r.cost.usd.toFixed(2)}` : ''] : '아직 정해지지 않았습니다',
+      [r.agent.name ? h('div', { class: 'rm' }, h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, `claude attach ${r.agent.name}`), h('button', { class: 'btn sm', onclick: () => { void copyText(`claude attach ${r.agent.name}`).then(() => toast('복사했습니다')); } }, '복사'), h('span', { class: 'hint' }, `VS Code는 세션 목록에서 "${r.agent.name}"`))
+        : h('div', { class: 'hint' }, '이 요청만 알고 일하는 에이전트입니다. 맡으면 이름이 여기에 나옵니다.'),
+      r.cost && (r.cost.start || r.cost.wake) ? h('div', { class: 'rm cost' }, h('b', null, '이 요청에 쓴 세션 비용'), chip('me', `약 $${r.cost.usd.toFixed(2)}`), h('span', { class: 'hint' }, `세션 시작 ${r.cost.start}번 · 깨움 ${r.cost.wake}번 · 토큰 입력 ${r.cost.inputTokens.toLocaleString()} · 출력 ${r.cost.outputTokens.toLocaleString()}`)) : null]),
     fold('origin', '요청 원문', idx === 0, r.origin.text ? `"${sumText(r.origin.text)}"` : '원문이 없습니다', r.origin.text ? h('div', { class: 'quote' }, r.origin.text) : h('div', { class: 'hint' }, '원문이 기록되지 않았습니다.')),
     fold('design', '설계', idx === 0, approved ? `${fmt(approved.at)} 사용자 승인 · ${dsum}` : dsum,
-      [d && !d.none ? h('div', { class: 'grid2' }, h('div', { class: 'box' }, h('b', null, '이렇게 이해했습니다'), h('div', null, d.understanding)), h('div', { class: 'box' }, h('b', null, '이렇게 처리하겠습니다'), h('div', null, d.approach))) : null,
+      [d && (!d.none || d.understanding) ? designText(d) : null,
         designResult(model, r), designEvents.length ? h('div', { class: 'tl' }, designEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`, e.quote ? h('div', { class: 'hint', style: 'margin-top:2px' }, `사용자가 한 말: “${e.quote}”`) : null)))) : h('div', { class: 'hint' }, '설계 기록이 없습니다.')],
       { label: designState, cur: idx === 0 }),
     fold('impl', '구현', idx === 1, r.commits?.length ? `커밋 ${r.commits.length}개 (${r.commits.join(', ')})${at('test-requested') ? ` · ${fmt(at('test-requested')!.at)} 테스트 요청` : ''}` : idx < 1 ? '설계 승인 뒤에 시작합니다' : '남은 커밋 기록이 없습니다',
@@ -203,7 +242,8 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
     fold('done', '완료', idx === 3, idx === 3 ? `${fmt(r.events[r.events.length - 1].at)} 끝남` : '테스트를 승인하면 이 칸에 결과가 남습니다', h('div', { class: 'hint' }, idx === 3 ? r.events[r.events.length - 1].note : ''), { later: idx < 3 }),
   ];
   const designSide = r.stage === 'design' && r.step === 'submitted' ? designApproval(r, onChange)
-    : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : r.step === 'queued' ? '시작 전' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : r.step === 'queued' ? '아직 시작하지 않았습니다. 우선순위를 정해 시작하면 에이전트가 설계를 작성합니다. 에이전트에게 "할 일 뭐있지"라고 하면 순서를 같이 정합니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.'))
+    : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : r.step === 'queued' ? '접수' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : r.step === 'queued' ? '우선순위를 정했으면 시작합니다. 누르면 이 요청을 맡을 담당 세션이 새로 만들어지고, 설계를 작성해 승인을 기다립니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.'),
+      r.step === 'queued' ? h('button', { class: 'btn pri', style: 'margin-top:10px', onclick: () => act('start', { id: r.id }, `요청 #${r.id}을 시작했습니다. 담당 세션이 설계를 쓰는 중입니다`, onChange) }, '시작') : null)
     : r.stage === 'impl' ? h('div', { class: 'card' }, h('h3', null, '구현 중'), h('div', { class: 'hint' }, '에이전트가 구현하고 있습니다. 끝내고 테스트를 올리면 여기서 확인합니다.'))
     : r.stage === 'done' ? h('div', { class: 'card' }, h('h3', null, '끝난 요청'), h('div', { class: 'hint' }, '모든 칸은 펼쳐서 볼 수 있습니다.')) : null;
   const testing = r.stage === 'test';

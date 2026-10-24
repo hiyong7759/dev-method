@@ -125,7 +125,7 @@ export function describeRequests(list: Request[], componentsOf: (r: Request) => 
         components: theirs.filter((c) => mine.includes(c)),
       };
     }).filter((o) => o.screens.length || o.infos.length || o.components.length);
-    return { ...r, stageLabel: STAGE_LABEL[r.stage], stepLabel: meta.label, turn: meta.turn, overlaps, waitingFor };
+    return { ...r, stageLabel: STAGE_LABEL[r.stage], stepLabel: meta.label, turn: meta.turn, overlaps, waitingFor, cost: { start: 0, wake: 0, inputTokens: 0, outputTokens: 0, usd: 0 } };
   });
 }
 
