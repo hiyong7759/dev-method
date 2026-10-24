@@ -1,5 +1,5 @@
 /**
- * @why 서버가 쉬는 담당 세션만 깨우는지(열린 세션·설정 꺼짐은 건드리지 않는지)와, 깨울 때 "압축 → 이어서 하라는 지시" 순서로 부르는지 지킨다. 진짜 claude 대신 부른 인자를 기록하는 가짜 claude를 PATH 앞에 둬서 비용 없이 시험한다.
+ * @why 서버가 쉬는 담당 세션만 깨우는지(열린 세션·설정 꺼짐은 건드리지 않는지), 깨울 때 "압축 → 이어서 하라는 지시" 순서로 부르는지, 담당이 한 번도 없으면 새 세션을 만들어 맡기는지, 부를 때마다 든 비용을 요청별로 적는지 지킨다. 진짜 claude 대신 부른 인자를 기록하고 비용 JSON을 돌려주는 가짜 claude를 PATH 앞에 둬서 비용 없이 시험한다.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { wakeOwner } from '../src/wake.js';
+import { startOwner, parseUsage } from '../src/session.js';
 import { addRequest } from '../src/request.js';
 import { tempProject } from './helpers.js';
 
@@ -15,14 +16,14 @@ function fakeEnv(): { calls: string; transcript: (root: string, sid: string) => 
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-wake-'));
   const bin = path.join(base, 'bin'); fs.mkdirSync(bin);
   const calls = path.join(base, 'calls.txt');
-  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\necho "$@" >> "${calls}"\n`, { mode: 0o755 });
+  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\necho "$@" >> "${calls}"\necho '{"total_cost_usd":0.5,"usage":{"input_tokens":10,"cache_creation_input_tokens":5,"cache_read_input_tokens":100,"output_tokens":7}}'\n`, { mode: 0o755 });
   const old = { PATH: process.env.PATH, HOME: process.env.HOME };
   process.env.PATH = `${bin}:${old.PATH}`; process.env.HOME = base;
   const transcript = (root: string, sid: string): string => path.join(base, '.claude', 'projects', fs.realpathSync(root).replace(/[^A-Za-z0-9]/g, '-'), `${sid}.jsonl`);
   return { calls, transcript, restore: () => { process.env.PATH = old.PATH; process.env.HOME = old.HOME; } };
 }
 const own = (root: string, sid: string, request: number): void => fs.writeFileSync(path.join(root, '.spec', 'sessions.json'), JSON.stringify({ [sid]: { request, seen: '' } }));
-const wait = async (f: () => boolean): Promise<void> => { for (let i = 0; i < 60 && !f(); i++) await new Promise((ok) => setTimeout(ok, 50)); };
+const wait = async (f: () => boolean): Promise<void> => { for (let i = 0; i < 200 && !f(); i++) await new Promise((ok) => setTimeout(ok, 50)); };
 
 test('설정에서 wake를 켜지 않으면 아무것도 하지 않는다', () => {
   const { root, src } = tempProject(); addRequest(src, { title: 'a' }); own(root, 'S1', 1);
@@ -30,10 +31,52 @@ test('설정에서 wake를 켜지 않으면 아무것도 하지 않는다', () =
   assert.equal(fs.existsSync(path.join(root, '.spec', 'wake.log')), false);
 });
 
-test('담당 세션이 없으면 깨울 곳이 없고 로그에 이유를 남긴다', () => {
-  const { root, src } = tempProject({ wake: true }); addRequest(src, { title: 'a' });
-  assert.deepEqual(wakeOwner(src, 1), []);
-  assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /담당 세션이 없어/);
+test('담당 세션이 한 번도 없으면 결정 때 새 세션을 만들어 그 일을 맡긴다', async () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = tempProject({ wake: true }); addRequest(src, { title: '새 세션 요청' });
+    const made = wakeOwner(src, 1);
+    assert.equal(made.length, 1, '세션 하나를 새로 만든다');
+    const sessions = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'sessions.json'), 'utf8')) as Record<string, { request: number }>;
+    assert.equal(sessions[made[0]].request, 1, '만든 세션을 담당으로 바로 적는다');
+    await wait(() => fs.existsSync(env.calls));
+    const line = fs.readFileSync(env.calls, 'utf8').trim().split('\n')[0];
+    assert.match(line, new RegExp(`--session-id ${made[0]}`));
+    assert.match(line, /request agent --id 1/);
+    assert.match(line, /사용자가 결정했습니다/);
+    const req = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'requests', '1.json'), 'utf8')) as { events: { kind: string }[] };
+    assert.ok(req.events.some((e) => e.kind === 'session-started'), '진행 기록에 세션을 만들었다고 남긴다');
+    const costs = path.join(root, '.spec', 'session-costs.json');
+    await wait(() => fs.existsSync(costs));
+    assert.equal((JSON.parse(fs.readFileSync(costs, 'utf8')) as { kind: string }[])[0].kind, 'start');
+  } finally { env.restore(); }
+});
+
+test('요청을 시작할 때 담당이 없으면 설계를 쓰고 승인 대기에서 멈추는 세션을 만든다', async () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = tempProject({ wake: true }); addRequest(src, { title: '시작할 요청' });
+    const sid = startOwner(src, 1, 'start');
+    assert.ok(sid);
+    await wait(() => fs.existsSync(env.calls));
+    const line = fs.readFileSync(env.calls, 'utf8').trim().split('\n')[0];
+    assert.match(line, /request design --id 1/);
+    assert.match(line, /승인 대기에서 멈추세요/);
+    assert.equal(startOwner(src, 1, 'start'), null, '담당이 이미 있으면 새로 만들지 않는다');
+    assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /이미 있어 새로 만들지 않음/);
+  } finally { env.restore(); }
+});
+
+test('설정에서 wake를 꺼 두면 세션을 만들지 않는다', () => {
+  const { root, src } = tempProject(); addRequest(src, { title: 'a' });
+  assert.equal(startOwner(src, 1, 'start'), null);
+  assert.equal(fs.existsSync(path.join(root, '.spec', 'sessions.json')), false);
+});
+
+test('claude 결과에서 토큰과 비용을 읽고, 읽을 수 없으면 null', () => {
+  assert.deepEqual(parseUsage('{"total_cost_usd":0.25,"usage":{"input_tokens":2,"cache_creation_input_tokens":3,"cache_read_input_tokens":5,"output_tokens":7}}'), { inputTokens: 10, outputTokens: 7, usd: 0.25 });
+  assert.equal(parseUsage('이건 JSON이 아니다'), null);
+  assert.equal(parseUsage('{"usage":{}}'), null);
 });
 
 test('최근에 움직인(열린) 세션은 훅에 맡기고 깨우지 않는다', () => {
@@ -57,8 +100,13 @@ test('닫힌 세션은 압축한 뒤 이어서 하라고 지시한다', async ()
     await wait(() => fs.existsSync(env.calls) && fs.readFileSync(env.calls, 'utf8').trim().split('\n').length >= 2);
     const lines = fs.readFileSync(env.calls, 'utf8').trim().split('\n');
     assert.match(lines[0], /^-p \/compact --resume S1/);
-    assert.match(lines[1], /^-p \[spec-view\] 요청 #1 "깨울 요청".*--resume S1 --allowedTools Read Edit Write Bash\(node:\*\) Bash\(npm:\*\)/);
-    assert.doesNotMatch(lines[1], /git/, '커밋은 미리 허락하지 않는다');
+    assert.match(lines[1], /^-p \[spec-view\] 요청 #1 "깨울 요청".*--resume S1 --allowedTools Read Edit Write Bash\(node:\*\) Bash\(npm:\*\).*Bash\(git add:\*\) Bash\(git commit:\*\)/);
+    assert.doesNotMatch(lines[1], /git push|git reset|git checkout/, '그 일의 커밋만 허락하고 위험한 git은 허락하지 않는다');
+    const costs = path.join(root, '.spec', 'session-costs.json');
+    await wait(() => fs.existsSync(costs) && (JSON.parse(fs.readFileSync(costs, 'utf8')) as unknown[]).length >= 2);
+    const rows = JSON.parse(fs.readFileSync(costs, 'utf8')) as { request: number; kind: string; inputTokens: number; outputTokens: number; usd: number }[];
+    assert.equal(rows.length, 2, '압축과 지시 두 번 모두 비용을 적는다');
+    assert.deepEqual({ request: rows[0].request, kind: rows[0].kind, inputTokens: rows[0].inputTokens, outputTokens: rows[0].outputTokens, usd: rows[0].usd }, { request: 1, kind: 'wake', inputTokens: 115, outputTokens: 7, usd: 0.5 });
     assert.match(lines[1], /requests\/1\.json/);
     assert.match(lines[1], /todo --src src/);
     assert.match(lines[1], /그 일만 하고, 끝나면 멈추세요/);

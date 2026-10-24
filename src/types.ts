@@ -203,13 +203,51 @@ export interface DesignScreen {
   note: string;
   /** 추가·바뀜·삭제 개수 */
   counts: { add: number; change: number; remove: number };
+  /** 현행 그림이 어디서 왔나: 도구가 운영 화면에서 찍음(tool) / 사람이 파일로 올림(manual). 현행 그림이 없으면 비움 */
+  beforeSource?: 'tool' | 'manual';
+  /** 도구가 현행 그림을 찍은 때 */
+  capturedAt?: string;
+  /** 현행이 없는 신규 화면이면 참. 참이면 현행과 비교 단추를 두지 않는다 */
+  isNew?: boolean;
+  /** 시안 그림에서 현행과 달라진 곳(그림 크기에 대한 백분율 위치와 이름표) */
+  highlights?: { l: number; t: number; w: number; h: number; label: string }[];
+}
+
+/** 설계 글의 한 항목: 어느 영역에서 무엇이 바뀌는지 */
+export interface DesignPoint {
+  /** 영역(서버·세션, 요청 목록, 요청 상세, 도구·규칙 등) */
+  area: string;
+  /** 바뀌는 것(짧은 제목) */
+  title: string;
+  /** 설명(글 기호 없이 글자만) */
+  text: string;
+}
+
+/** 담당 세션을 만들거나 깨울 때 든 비용 한 번(.spec/session-costs.json, 커밋하지 않음) */
+export interface SessionCost {
+  /** 어느 요청에 쓴 비용인지 */
+  request: number;
+  /** 어느 세션인지 */
+  session: string;
+  /** 세션을 새로 만들었나(start) 닫힌 세션을 깨웠나(wake) */
+  kind: 'start' | 'wake';
+  /** 언제 */
+  at: string;
+  /** 넣은 토큰 수(캐시 포함) */
+  inputTokens: number;
+  /** 받은 토큰 수 */
+  outputTokens: number;
+  /** 비용(달러). claude가 알려 주는 값 그대로 */
+  usd: number;
 }
 
 /** 에이전트가 낸 설계 */
 export interface RequestDesign {
-  /** 이렇게 이해했다 */
+  /** 이렇게 이해했다(짧은 한 줄 요약. 자세한 것은 points) */
   understanding: string;
-  /** 이렇게 처리하겠다 */
+  /** 이렇게 이해한 것을 영역별로 나눈 항목들(화면이 영역·바뀌는 것·설명 표로 보인다) */
+  points?: DesignPoint[];
+  /** 이렇게 처리하겠다(정보·화면 변경이 없는 "설계 없음" 요청에서만 보인다) */
   approach: string;
   /** 정보 변경들 */
   changes: DesignChange[];
@@ -820,7 +858,7 @@ export interface ProjectConfig {
   start?: string;
   /** 설계 디자인을 요청마다 모아 두는 Claude Design 캔버스 주소 */
   designCanvas?: string;
-  /** true면 사용자가 결정했을 때 닫혀 있는 담당 세션을 서버가 깨운다(비용이 들어 기본은 꺼짐) */
+  /** true면 요청을 시작할 때 담당 세션을 새로 만들고, 사용자가 결정했을 때 닫혀 있는 담당 세션을 서버가 깨운다(비용이 들어 기본은 꺼짐) */
   wake?: boolean;
   /** 화면 이동을 읽는 방법: 라우트 표의 이름과 이동 도우미 함수들 */
   navigation?: {

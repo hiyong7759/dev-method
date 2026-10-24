@@ -220,6 +220,11 @@ export function setAgent(scanRoot: string, id: number, name: string): Request {
   return record(scanRoot, r, 'agent', 'agent', `맡은 에이전트: ${name.trim()}`);
 }
 
+/** 담당 세션을 새로 만들었음을 진행 기록에 적는다 */
+export function noteSessionStarted(scanRoot: string, id: number, sid: string): Request {
+  return record(scanRoot, loadOne(scanRoot, id), 'agent', 'session-started', `담당 세션을 새로 만듦(${sid.slice(0, 8)})`);
+}
+
 /** 요청 번호 없이 남은 커밋을 사용자가 요청으로 기록한다: 이미 끝난 요청 하나가 되어 그 커밋이 연결된다 */
 export function recordUntracked(scanRoot: string, hash: string, title: string): Request {
   if (!hash || !title?.trim()) throw new Error('커밋과 제목이 필요하다');
@@ -293,7 +298,9 @@ export async function main(argv: string[]): Promise<number | undefined> {
     } else if (pos[0] === 'list') {
       for (const r of describeRequests(loadRequests(scanRoot))) console.log(`#${r.id} [${r.stageLabel} · ${r.stepLabel}] ${r.title}`);
     } else if (pos[0] === 'start') {
-      const r = startDesign(scanRoot, id); console.log(`요청 #${r.id}: 설계를 시작한다`);
+      const r = startDesign(scanRoot, id);
+      const sid = (await import('./session.js')).startOwner(scanRoot, id, 'start');
+      console.log(`요청 #${r.id}: 설계를 시작한다${sid ? ` · 담당 세션을 새로 만들었다(${sid.slice(0, 8)}, 진행은 .spec/wake.log)` : ''}`);
     } else if (pos[0] === 'design') {
       const input = opts.file ? JSON.parse(fs.readFileSync(opts.file, 'utf8')) as DesignInput : {};
       const r = submitDesign(scanRoot, id, { ...input, none: input.none || opts.none === 'true' });
