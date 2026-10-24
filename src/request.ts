@@ -96,8 +96,8 @@ function loadOne(scanRoot: string, id: number): Request {
   return r;
 }
 /** 진행 기록 한 줄을 더하고 저장한다 */
-function record(scanRoot: string, r: Request, by: Actor, kind: string, note: string): Request {
-  r.events.push({ at: new Date().toISOString(), by, kind, note });
+function record(scanRoot: string, r: Request, by: Actor, kind: string, note: string, quote?: string): Request {
+  r.events.push({ at: new Date().toISOString(), by, kind, note, ...(quote ? { quote } : {}) });
   save(scanRoot, r);
   return r;
 }
@@ -223,11 +223,11 @@ export function recordUntracked(scanRoot: string, hash: string, title: string): 
 // ── 사용자가 하는 일 (설계서 보기 화면에서만) ─────────────
 
 /** 설계 승인(설계 없음 포함) → 구현 */
-export function approveDesign(scanRoot: string, id: number): Request {
+export function approveDesign(scanRoot: string, id: number, quote?: string): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'design' || r.step !== 'submitted') throw new Error('승인 대기 중인 설계가 아니다');
   move(r, 'impl', 'working');
-  return record(scanRoot, r, 'user', 'design-approved', r.design?.none ? '설계 없음 승인' : '설계 승인');
+  return record(scanRoot, r, 'user', 'design-approved', `${r.design?.none ? '설계 없음 승인' : '설계 승인'}${quote ? ' (대화에서 한 승인을 인용해 기록함)' : ''}`, quote);
 }
 /** 설계 반려(이유 한 줄) → 에이전트가 다시 작성 */
 export function rejectDesign(scanRoot: string, id: number, note: string): Request {
@@ -248,13 +248,13 @@ export function checkTest(scanRoot: string, id: number, key: string, done: boole
   return r;
 }
 /** 테스트 승인(테스트 없음 포함) → 완료 */
-export function approveTest(scanRoot: string, id: number, none: boolean): Request {
+export function approveTest(scanRoot: string, id: number, none: boolean, quote?: string): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'test' || r.step !== 'requested') throw new Error('승인 대기 중인 테스트가 아니다');
   r.test = r.test ?? { checks: {}, found: [], none: false };
   r.test.none = none;
   move(r, 'done', 'done');
-  return record(scanRoot, r, 'user', 'test-approved', none ? '테스트 없음 승인' : '테스트 승인');
+  return record(scanRoot, r, 'user', 'test-approved', `${none ? '테스트 없음 승인' : '테스트 승인'}${quote ? ' (대화에서 한 승인을 인용해 기록함)' : ''}`, quote);
 }
 /** 테스트에서 문제 발견(이유 한 줄) → 에이전트가 같은 요청에서 고친다 */
 export function testProblem(scanRoot: string, id: number, note: string): Request {
@@ -293,6 +293,12 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const r = requestTest(scanRoot, id); console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
     } else if (pos[0] === 'found') {
       const r = foundOutside(scanRoot, id, opts.text); console.log(`요청 #${r.id}: 범위 밖 발견을 리포트로도 올렸다`);
+    } else if (pos[0] === 'approve-design' || pos[0] === 'approve-test') {
+      // 사용자가 대화에서 승인했을 때만 쓴다. 그때 한 말을 그대로 --quote에 적어야 하고, 인용이 없으면 기록하지 않는다
+      const quote = (opts.quote ?? '').trim();
+      if (quote.length < 4) throw new Error('--quote에 사용자가 대화에서 승인하며 한 말을 그대로 적어야 한다(사용자가 승인하지 않았다면 이 명령을 쓰지 않는다)');
+      const r = pos[0] === 'approve-design' ? approveDesign(scanRoot, id, quote) : approveTest(scanRoot, id, opts.none === 'true', quote);
+      console.log(`요청 #${r.id}: ${pos[0] === 'approve-design' ? '설계 승인' : '테스트 승인'}을 인용과 함께 기록했다 → ${r.stage}`);
     } else if (pos[0] === 'agent') {
       const r = setAgent(scanRoot, id, opts.name); console.log(`요청 #${r.id}: 맡은 에이전트 ${r.agent.name}`);
     } else {
@@ -302,6 +308,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
         '  test --id N                      (구현을 마치고 테스트를 올림. 고친 뒤 다시 올릴 때도 같다)',
         '  found --id N --text "범위 밖에서 발견한 것"',
+        '  approve-design --id N --quote "사용자가 한 말"   (사용자가 대화에서 설계를 승인했을 때만. 인용이 없으면 못 한다)',
+        '  approve-test --id N --quote "사용자가 한 말" [--none true]   (사용자가 대화에서 테스트를 승인했을 때만)',
         '  agent --id N --name 세션이름',
         '  list'].join('\n'));
       return 1;

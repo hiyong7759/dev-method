@@ -17,14 +17,62 @@
   "agent": {
     "name": ""
   },
-  "stage": "design",
-  "step": "drafting",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-22T12:26:22.910Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-24T06:44:20.359Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-24T06:44:20.359Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "시안으로 설계를 봤다고 가정해도 될것 같은데 여기서 승인한것도 다 요청에 대한 승인으로 가져가야할것 같은데"
+    },
+    {
+      "at": "2026-10-24T06:44:20.360Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 302d0b5"
+    },
+    {
+      "at": "2026-10-24T06:44:20.361Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-24T06:44:20.362Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "완료한건 완료처리하고"
     }
-  ]
+  ],
+  "design": {
+    "understanding": "설계 승인한 적 없는데 왜 테스트 단계냐 → a로 되돌림",
+    "approach": "fix: 설계 승인 없이 테스트 단계로 적혀 있던 요청 #1·#2를 설계 단계로 되돌림",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0
+  },
+  "commits": [
+    "302d0b5"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false
+  }
 }

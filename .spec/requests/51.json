@@ -1,0 +1,30 @@
+{
+  "id": 51,
+  "title": "확인 필요 원인 분류: 코드에는 있는데 사용 흐름에 안 나오는 동작(의도 확인)과 도구가 못 읽는 모양(도구 개선으로 전달)",
+  "source": "user",
+  "origin": {
+    "text": "시안 17번의 의도 확인 묶음과 '도구가 못 읽는 모양' 접힌 줄. 도구 한계는 프로젝트 문제로 보이지 않고 도구 개선 리포트로 가게 함",
+    "channel": "대화",
+    "at": "2026-10-24T06:44:29.673Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-24T06:44:29.673Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

@@ -173,6 +173,8 @@ export interface RequestEvent {
   kind: string;
   /** 사람이 읽을 설명 */
   note: string;
+  /** 사용자가 대화에서 승인했다면 그때 한 말(에이전트가 기록하되 인용이 없으면 기록할 수 없다) */
+  quote?: string;
 }
 
 /** 설계가 바꾸는 정보 한 곳 */
@@ -948,6 +950,8 @@ export interface CommentTarget {
   no?: number;
   /** 영역을 그렸다면 그 자리(보이는 화면 기준) */
   rect?: { x: number; y: number; w: number; h: number };
+  /** 부품을 골랐다면 그 부품이 화면에서 차지한 자리(캡처에 테두리를 그리는 데 쓴다. 저장은 하지만 읽는 쪽은 부품 이름과 소스 위치를 본다) */
+  box?: { x: number; y: number; w: number; h: number };
 }
 /** 코멘트 안의 글 한 줄 */
 export interface CommentMsg {

@@ -17,14 +17,62 @@
   "agent": {
     "name": ""
   },
-  "stage": "design",
-  "step": "drafting",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-23T08:51:46.282Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-24T06:44:20.679Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-24T06:44:20.680Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "시안으로 설계를 봤다고 가정해도 될것 같은데 여기서 승인한것도 다 요청에 대한 승인으로 가져가야할것 같은데"
+    },
+    {
+      "at": "2026-10-24T06:44:20.680Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 01497ae"
+    },
+    {
+      "at": "2026-10-24T06:44:20.681Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-24T06:44:20.682Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "완료한건 완료처리하고"
     }
-  ]
+  ],
+  "design": {
+    "understanding": "리포트 번호로 에이전트에게 바로 물어 답을 얻을 수 있어야 함",
+    "approach": "feat: 리포트에 번호를 붙이고, 번호로 근거와 소스 위치를 읽는 report show를 추가함",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0
+  },
+  "commits": [
+    "01497ae"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false
+  }
 }

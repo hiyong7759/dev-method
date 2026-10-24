@@ -1,5 +1,7 @@
 /**
  * @spec comment-tool 공통 코멘트 도구
+ * @shell
+ * @anchor dom:.cm-fab
  * @why 어느 화면에서든 같은 단추 하나로 화면의 어느 부분인지 정해 에이전트에게 바로 묻거나 요청할 수 있어야 한다. 설명이 애매할 때는 부품을 고르거나 화면 캡처를 같이 보내는 것이 가장 정확하다. 화면마다 코멘트 기능을 따로 만들지 않고, 모든 화면 위에 얹히는 도구 하나로 둔다.
  * @basis 대상은 세 방식으로 정한다: 부품 고르기(화면 위 번호표나 data-ctarget이 붙은 곳), 영역 그리기(끌어서 네모), 화면 전체. 글쓰기와 대화는 오른쪽 코멘트 창에서만 한다. 코멘트는 서버(.spec/comments.json)에 쌓이고 에이전트가 명령으로 읽고 답한다.
  * @contract 화면 코드는 이 도구를 모르고, 눌러서 코멘트 대상이 될 곳에 data-ctarget(JSON)만 붙인다. 모델이 바뀌어도 이 도구는 다시 그려지지 않고 update(model)만 받는다.
@@ -29,14 +31,33 @@ function viewLabel(hashText: string): { label: string; screen?: string } {
 }
 
 /** 화면 캡처: 화면 설계서에서는 실제 화면(프레임 안)을, 그 밖에는 설계서 보기 본문을 찍는다. 못 찍으면 빈 글(코멘트는 캡처 없이 간다) */
-async function capture(): Promise<string> {
+async function capture(target: CommentTarget): Promise<string> {
   try {
     const w = window as unknown as { htmlToImage?: { toPng: (n: HTMLElement, o?: object) => Promise<string> } };
     if (!w.htmlToImage) await new Promise<void>((ok, bad) => { const s = document.createElement('script'); s.src = '/__spec/vendor/html-to-image.js'; s.onload = () => ok(); s.onerror = () => bad(new Error('캡처 도구를 못 불러옴')); document.head.append(s); });
     const frame = document.querySelector<HTMLIFrameElement>('iframe');
     const node = (frame?.contentDocument?.documentElement ?? document.getElementById('app')) as HTMLElement;
-    return await (window as unknown as { htmlToImage: { toPng: (n: HTMLElement, o?: object) => Promise<string> } }).htmlToImage.toPng(node, { pixelRatio: 1, filter: (n: Node) => !(n instanceof HTMLElement && n.classList.contains('cm-ui')) });
+    const url = await (window as unknown as { htmlToImage: { toPng: (n: HTMLElement, o?: object) => Promise<string> } }).htmlToImage.toPng(node, { pixelRatio: 1, filter: (n: Node) => !(n instanceof HTMLElement && n.classList.contains('cm-ui')) });
+    return await mark(url, target, frame ? frame.getBoundingClientRect() : document.getElementById('app')?.getBoundingClientRect() ?? null);
   } catch { return ''; }
+}
+
+/** 찍은 그림에 고른 부분을 표시한다: 영역은 그 자리만 잘라 내고(바깥은 어둡게 두지 않고 잘라서), 부품은 테두리를 그린다 */
+async function mark(dataUrl: string, target: CommentTarget, base: DOMRect | null): Promise<string> {
+  const box = target.rect ?? target.box;
+  if (!box || !base) return dataUrl;
+  const img = new Image(); img.src = dataUrl; await img.decode();
+  const x = box.x - base.left, y = box.y - base.top, w = box.w, hh = box.h;
+  const c = document.createElement('canvas');
+  if (target.kind === 'region') {
+    const sx = Math.max(0, x), sy = Math.max(0, y), cw = Math.min(img.width - sx, w), ch = Math.min(img.height - sy, hh);
+    if (cw < 8 || ch < 8) return dataUrl;
+    c.width = cw; c.height = ch; c.getContext('2d')?.drawImage(img, sx, sy, cw, ch, 0, 0, cw, ch); return c.toDataURL('image/png');
+  }
+  c.width = img.width; c.height = img.height;
+  const g = c.getContext('2d'); if (!g) return dataUrl;
+  g.drawImage(img, 0, 0); g.lineWidth = 4; g.strokeStyle = '#5b6fb8'; g.strokeRect(x - 2, y - 2, w + 4, hh + 4); g.fillStyle = 'rgba(91,111,184,.12)'; g.fillRect(x, y, w, hh);
+  return c.toDataURL('image/png');
 }
 
 /** 화면 틀이 쥐고 있는 코멘트 도구: 모델이 바뀌면 update로 알려 준다 */
@@ -55,25 +76,29 @@ export function commentTool(init: Model): CommentTool {
 
   const fab = h('button', { class: 'cm-ui cm-fab', onclick: () => { open = !open; if (!open) stopPick(); draw(); } });
   const bar = h('div', { class: 'cm-ui cm-bar hidden' });
+  const dim = h('div', { class: 'cm-ui cm-dim hidden' });
   const drawer = h('aside', { class: 'cm-ui cm-drawer hidden' });
-  document.body.append(fab, bar, drawer);
+  document.body.append(fab, dim, bar, drawer);
 
   const here = (): string => viewLabel(location.hash).label;
+  /** 코멘트를 남긴 곳이 지금 보는 곳과 같은가(쿼리·선택 상태는 빼고 주소의 앞 두 칸만 본다) */
+  const sameView = (c: Comment): boolean => { const k = (u = ''): string => u.slice(1).split('?')[0].split('/').slice(0, 3).join('/'); return k(c.target.view) === k(location.hash); };
   const live = (): Comment[] => model.comments.filter((c) => c.status !== 'closed');
 
-  function stopPick(): void { picking = false; document.body.classList.remove('cm-picking'); bar.classList.add('hidden'); hover?.remove(); hover = null; }
+  function stopPick(): void { picking = false; document.body.classList.remove('cm-picking'); bar.classList.add('hidden'); dim.classList.add('hidden'); hover?.remove(); hover = null; }
   let hover: HTMLElement | null = null;
   const showHover = (r: { left: number; top: number; width: number; height: number } | null, text = ''): void => {
-    if (!r) { hover?.remove(); hover = null; return; }
+    if (!r) { hover?.remove(); hover = null; dim.classList.toggle('hidden', !picking); return; }
     if (!hover) { hover = h('div', { class: 'cm-ui cm-hover' }); document.body.append(hover); }
     hover.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`; hover.dataset.t = text;
+    dim.classList.add('hidden');
   };
   function drawBar(): void {
     bar.replaceChildren(h('b', null, '코멘트 모드 · 화면에서 대상을 고르고, 글은 오른쪽에 쓰세요'),
       h('span', { class: 'cm-modes' }, MODES.map(([k, l]) => h('button', { class: k === mode ? 'on' : '', onclick: () => { mode = k; showHover(null); drawBar(); if (k === 'screen') pickScreen(); } }, l))),
       h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => { stopPick(); draw(); } }, '끝내기'));
   }
-  function startPick(): void { open = true; picking = true; document.body.classList.add('cm-picking'); bar.classList.remove('hidden'); drawBar(); draw(); }
+  function startPick(): void { open = true; picking = true; document.body.classList.add('cm-picking'); bar.classList.remove('hidden'); dim.classList.remove('hidden'); drawBar(); draw(); }
 
   /** 화면 설계서에서 점 위의 부품(가장 작은 번호표 틀)을 찾는다 */
   function partAt(x: number, y: number): { el: HTMLElement; target: CommentTarget } | null {
@@ -86,7 +111,8 @@ export function commentTool(init: Model): CommentTool {
     if (best) {
       const sp = model.specs.find((s) => s.id === best?.dataset.id);
       const no = best.querySelector('.mbadge')?.textContent ?? '';
-      return { el: best, target: { kind: 'part', label: `${v.screen ?? v.label} › ${no ? `${no} ` : ''}${sp?.title ?? best.dataset.id ?? ''}`, view: location.hash, screen: v.screen, part: sp?.title ?? best.dataset.id, src: sp ? `${sp.file}:${sp.line}` : undefined } };
+      const br = best.getBoundingClientRect();
+      return { el: best, target: { kind: 'part', box: { x: br.left, y: br.top, w: br.width, h: br.height }, label: `${v.screen ?? v.label} › ${no ? `${no} ` : ''}${sp?.title ?? best.dataset.id ?? ''}`, view: location.hash, screen: v.screen, part: sp?.title ?? best.dataset.id, src: sp ? `${sp.file}:${sp.line}` : undefined } };
     }
     return null;
   }
@@ -100,7 +126,7 @@ export function commentTool(init: Model): CommentTool {
   async function pickTarget(target: CommentTarget): Promise<void> {
     stopPick(); open = true;
     draft = { target, shot: '', text: draft?.text ?? '' }; draw();
-    const shot = await capture();
+    const shot = await capture(target);
     if (draft && draft.target === target) { draft.shot = shot; draw(); }
   }
   function pickScreen(): void { const v = viewLabel(location.hash); void pickTarget({ kind: 'screen', label: v.label, view: location.hash, screen: v.screen }); }
@@ -174,8 +200,8 @@ export function commentTool(init: Model): CommentTool {
     drawer.classList.toggle('hidden', !open);
     if (!open) return;
     const cur = here();
-    const list = model.comments.filter((c) => (filter === 'waiting' ? c.status === 'waiting' : filter === 'here' ? c.target.label.startsWith(cur.split(' › ')[0]) : true)).sort((a, b) => b.id - a.id);
-    const chips = ([['here', '이 화면'], ['all', '전체'], ['waiting', '답 기다림']] as const).map(([k, l]) => h('button', { class: `fc${filter === k ? ' on' : ''}`, onclick: () => { filter = k; draw(); } }, l, h('small', null, String(k === 'waiting' ? waiting : k === 'all' ? model.comments.length : model.comments.filter((c) => c.target.label.startsWith(cur.split(' › ')[0])).length))));
+    const list = model.comments.filter((c) => (filter === 'waiting' ? c.status === 'waiting' : filter === 'here' ? sameView(c) : true)).sort((a, b) => b.id - a.id);
+    const chips = ([['here', '이 화면'], ['all', '전체'], ['waiting', '답 기다림']] as const).map(([k, l]) => h('button', { class: `fc${filter === k ? ' on' : ''}`, onclick: () => { filter = k; draw(); } }, l, h('small', null, String(k === 'waiting' ? waiting : k === 'all' ? model.comments.length : model.comments.filter(sameView).length))));
     const kids: Kid[] = [
       h('div', { class: 'cm-head' }, h('h3', null, '코멘트 · 모든 화면'), h('button', { class: 'sp-x', 'aria-label': '닫기', onclick: () => { open = false; stopPick(); draw(); } }, '✕')),
       h('div', { class: 'fchips' }, chips),
@@ -186,10 +212,30 @@ export function commentTool(init: Model): CommentTool {
     if (document.activeElement && drawer.contains(document.activeElement) && document.activeElement.tagName === 'TEXTAREA') return;
     drawer.replaceChildren(...kids.flat() as Node[]);
   }
+  /** 코멘트가 달린 부품·줄 위에 개수 점을 단다(없어진 것은 걷는다). 화면이 다시 그려져도 따라붙게 주기적으로 맞춘다 */
+  function paintDots(): void {
+    const want = new Map<HTMLElement, number>();
+    const v = viewLabel(location.hash);
+    for (const c of live()) {
+      const t = c.target;
+      let el: HTMLElement | null = null;
+      if (t.part && t.screen && t.screen === v.screen) el = [...document.querySelectorAll<HTMLElement>('.mbox')].find((e) => model.specs.find((s) => s.id === e.dataset.id)?.title === t.part) ?? null;
+      else if (t.kind === 'item') el = [...document.querySelectorAll<HTMLElement>('[data-ctarget]')].find((e) => { try { return (JSON.parse(e.dataset.ctarget ?? '{}') as CommentTarget).label === t.label; } catch { return false; } }) ?? null;
+      const host = el && el.tagName === 'TR' ? (el.firstElementChild as HTMLElement | null) : el;
+      if (host) want.set(host, (want.get(host) ?? 0) + 1);
+    }
+    for (const d of document.querySelectorAll<HTMLElement>('.cm-dot')) { const p = d.parentElement as HTMLElement; if (want.get(p) !== Number(d.textContent)) d.remove(); }
+    for (const [el, n] of want) {
+      if (el.querySelector(':scope > .cm-dot')) continue;
+      if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+      el.append(h('span', { class: 'cm-dot cm-ui', title: `코멘트 ${n}건 — 눌러서 보기`, onclick: (e: Event) => { e.stopPropagation(); open = true; draw(); } }, String(n)));
+    }
+  }
+  setInterval(paintDots, 1500);
   draw();
   return { update(m: Model): void {
     model = m;
     const sig = JSON.stringify(m.comments);
-    if (sig !== lastSig) { lastSig = sig; draw(); }
+    if (sig !== lastSig) { lastSig = sig; draw(); paintDots(); }
   } };
 }

@@ -699,3 +699,8 @@ table.t tr.hit>td{background:var(--amber-bg)}
 .cm-new{display:flex;flex-direction:column;gap:6px}
 .cm-hover{position:fixed;z-index:57;pointer-events:none;outline:3px solid var(--accent);background:rgba(91,111,184,.18);border-radius:6px}
 body.cm-picking{cursor:crosshair}
+.cm-dim{position:fixed;left:0;top:102px;bottom:0;width:calc(100% - 380px);background:rgba(10,8,6,.5);z-index:55;pointer-events:none}
+.cm-dim.hidden{display:none}
+.cm-hover{background:transparent;box-shadow:0 0 0 9999px rgba(10,8,6,.5);outline:3px solid var(--accent)}
+/* 코멘트가 달린 곳의 점 */
+.cm-dot{position:absolute;right:-8px;top:-10px;min-width:20px;height:20px;border-radius:999px;background:var(--amber);color:#14161f;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);z-index:3;cursor:pointer}
