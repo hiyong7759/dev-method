@@ -34,8 +34,8 @@
   "agent": {
     "name": "요청 #15 담당"
   },
-  "stage": "design",
-  "step": "submitted",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-21T14:00:45.729Z",
@@ -251,6 +251,36 @@
       "by": "agent",
       "kind": "design-submitted",
       "note": "설계 제출 (정보 변경 21건 · 화면 변경 9건)"
+    },
+    {
+      "at": "2026-10-24T08:58:12.745Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 승인"
+    },
+    {
+      "at": "2026-10-24T09:12:01.075Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 3eb10e8"
+    },
+    {
+      "at": "2026-10-24T09:12:01.177Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 c797196"
+    },
+    {
+      "at": "2026-10-24T09:12:01.271Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 21826a3"
+    },
+    {
+      "at": "2026-10-24T09:12:01.364Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
     }
   ],
   "design": {
@@ -500,7 +530,10 @@
   "commits": [
     "c548eea",
     "034142f",
-    "ee8e1ef"
+    "ee8e1ef",
+    "3eb10e8",
+    "c797196",
+    "21826a3"
   ],
   "test": {
     "checks": {},
