@@ -24,7 +24,8 @@
       "RequestEvent",
       "RequestView",
       "ProjectConfig",
-      "RequestDesign"
+      "RequestDesign",
+      "DesignPoint"
     ],
     "scenarios": [],
     "steps": [],
@@ -238,6 +239,12 @@
       "by": "agent",
       "kind": "design-submitted",
       "note": "설계 제출 (정보 변경 17건 · 화면 변경 8건)"
+    },
+    {
+      "at": "2026-10-24T08:50:49.337Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 제출 (정보 변경 21건 · 화면 변경 9건)"
     }
   ],
   "design": {
@@ -329,22 +336,46 @@
         "note": "의미를 넓힘: 켜면 시작 때 새 담당 세션을 만들고, 결정 때 닫힌 세션도 깨움(한 설정으로 둘 다)"
       },
       {
+        "info": "DesignScreen",
+        "kind": "add",
+        "field": "highlights",
+        "note": "시안 그림에서 현행과 달라진 곳의 위치(그림 안 상대 위치)"
+      },
+      {
+        "info": "DesignPoint",
+        "kind": "add",
+        "field": "area",
+        "note": "영역(서버·세션, 요청 목록, 요청 상세, 도구·규칙 등)"
+      },
+      {
+        "info": "DesignPoint",
+        "kind": "add",
+        "field": "title",
+        "note": "바뀌는 것(짧은 제목)"
+      },
+      {
+        "info": "DesignPoint",
+        "kind": "add",
+        "field": "text",
+        "note": "설명(글 기호 없이 글자만)"
+      },
+      {
+        "info": "DesignPoint",
+        "kind": "link",
+        "field": "RequestDesign",
+        "note": "설계 하나에 항목 여러 개"
+      },
+      {
         "info": "RequestDesign",
         "kind": "change",
         "field": "understanding",
-        "note": "설계 칸에서 보이는 방식을 바꿈(보기 편한 방식은 사용자와 정하는 중)"
+        "note": "긴 글 대신 DesignPoint 목록으로 올리고, 화면에서 영역별 표(영역·바뀌는 것·설명)로 보임"
       },
       {
         "info": "RequestDesign",
         "kind": "change",
         "field": "approach",
         "note": "변경이 있는 설계에서는 보이지 않게 함(정보·화면 변경이 없는 요청에서만 보임)"
-      },
-      {
-        "info": "DesignScreen",
-        "kind": "add",
-        "field": "highlights",
-        "note": "시안 그림에서 현행과 달라진 곳의 위치(그림 안 상대 위치)"
       }
     ],
     "screens": [
@@ -433,13 +464,25 @@
         }
       },
       {
-        "screen": "요청 상세 정보 변경 칸",
+        "screen": "요청 상세 설계 칸 글",
         "after": "r15-d8-after.png",
         "before": "r15-d8-before.png",
         "link": "",
-        "note": "현행: 정보 변경이 한 칸에 모두 들어 길게 이어짐(그림은 앞부분만) → 시안: 정보(테이블) 하나에 한 칸, 요약 한 줄과 바뀐 칸 이름만 보이고 자세한 내용은 겹쳐 보기에서 봄",
+        "note": "현행: 글이 한 덩어리로 붙고 2열로 좁음 → 시안: 영역별 표(영역·바뀌는 것·설명) 한 줄 전체 너비. \"이렇게 처리하겠습니다\"는 정보·화면 변경이 없는 요청에서만 보임",
         "counts": {
-          "add": 6,
+          "add": 0,
+          "change": 2,
+          "remove": 1
+        }
+      },
+      {
+        "screen": "요청 상세 정보 변경 칸",
+        "after": "r15-d9-after.png",
+        "before": "r15-d9-before.png",
+        "link": "",
+        "note": "현행: 정보 변경이 한 칸에 모두 들어 길게 이어짐(그림은 앞부분만) → 시안: 한 칸에 정보 하나당 한 줄 요약(이름·바뀐 정도·핵심). 자세한 내용은 정보 변경 겹쳐 보기에서 봄. 시안은 6줄인데 DesignPoint가 새 정보로 더해지면 7줄",
+        "counts": {
+          "add": 1,
           "change": 0,
           "remove": 1
         }
