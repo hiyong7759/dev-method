@@ -12,3 +12,11 @@ export const hash = (view: string, arg = '', params: Record<string, string | und
 
 /** 주소를 바꿔 이동한다(replace면 뒤로 가기 기록을 남기지 않는다) */
 export const nav = (hh: string, replace?: boolean): void => { if (replace) history.replaceState(null, '', hh); else location.hash = hh; };
+
+/** 테스트 경로로 화면을 열 때 실제 화면 주소: 주소에 :id가 있고 예시 주소가 없으면 그 요청 번호를 넣는다(안 넣으면 "요청 #:id을 찾지 못했다"가 뜬다) */
+export const testAt = (screens: { name: string; route: string; sample: string }[], name: string, req: number): string | undefined => {
+  const s = screens.find((x) => x.name === name);
+  if (!s || s.sample) return undefined;
+  const at = s.route.replace(':id', String(req));
+  return at !== s.route && !at.includes(':') ? at : undefined;
+};

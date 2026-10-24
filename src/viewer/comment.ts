@@ -8,7 +8,7 @@
  */
 import { h, post, chip, tag, toast, errorText } from './util.js';
 import type { Kid } from './util.js';
-import { nav, hash } from './route.js';
+import { nav, hash, testAt } from './route.js';
 import { basket, onBasket, addToBasket, editBasket, removeFromBasket, sendBasket } from './comment-basket.js';
 import type { BasketItem } from './comment-basket.js';
 import type { Comment, CommentTarget, Model, Scenario, ScenarioStep } from '../types.js';
@@ -277,7 +277,7 @@ export function commentTool(init: Model): CommentTool {
       const st = steps[i]; if (!st || !path) return;
       path = { ...path, step: st.id }; savePath(path); stopPick(); draft = null;
       const scr = st.screens[0];
-      if (scr && viewLabel(location.hash).screen !== scr) nav(hash('screen', scr, { tr: String(path.req), ts: sc.name, tn: st.id })); else draw();
+      if (scr && viewLabel(location.hash).screen !== scr) nav(hash('screen', scr, { tr: String(path.req), ts: sc.name, tn: st.id, at: testAt(model.screens, scr, path.req) })); else draw();
     };
     const row = (st: ScenarioStep, i: number): HTMLElement => {
       const key = `${sc.name}#${st.id}`;
