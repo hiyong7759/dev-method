@@ -2,12 +2,14 @@
  * @spec testdata-command 테스트 데이터 자리·시나리오별 데이터 기록 명령
  * @why 테스트하려면 데이터를 넣어야 하는데 운영 데이터에 그대로 넣기 애매하고, 사용자가 정상 경우조차 못 보고 테스트를 승인하는 일이 많았다. 소스는 하나로 두고 데이터만 테스트용으로 나누되, 그 자리를 저장소 밖에 두어 커밋될 수 없게 하고, 시나리오마다 어떤 데이터로 어떤 경우를 보는지 남겨 테스트를 올릴 때 확인한다.
  * @basis 프로젝트마다 .spec/config.json의 testData에 테스트 환경을 적는다. kind는 folder(저장소 밖 폴더: dev-method), remote(회사 공용 테스트 서버: 접속 주소와 운영 주소 표시), local-db(내 컴퓨터 테스트 DB)다. 설정이 없는 프로젝트는 이 검사의 대상이 아니다. 운영 환경 칸과 배포 절차는 이번 범위 밖이다.
- * @contract `testdata path`는 테스트 데이터 자리를 확인해 보이고(folder면 없을 때 만든다) 저장소 안이거나 운영을 가리키면 오류로 거부한다. `testdata seed --id N --scenario 시나리오 --kind normal|edge|error --label 이름 [--shot 캡처] [--how 만든 방법]`은 시나리오 하나의 경우 하나를 자리 안 seeds/N.json에 적는다(같은 시나리오·이름은 덮어쓴다). `testdata seed --id N`만 주면 지금 기록을 보인다. `testdata reset [--id N]`은 기록을 지운다(remote는 [테스트-#번호] 표시 데이터를 프로젝트 시드 스크립트가 지우므로 기록만 지운다). 원격 서버의 남의 데이터는 읽기만 한다.
+ * @contract `testdata path`는 테스트 데이터 자리를 확인해 보이고(folder면 없을 때 만든다) 저장소 안이거나 운영을 가리키면 오류로 거부한다. `testdata seed --id N --scenario 시나리오 --kind normal|edge|error --label 이름 [--shot 캡처] [--how 만든 방법]`은 시나리오 하나의 경우 하나를 자리 안 seeds/N.json에 적는다(같은 시나리오·이름은 덮어쓴다). `testdata seed --id N`만 주면 지금 기록을 보인다. `testdata serve [--port N] [--fresh true]`는 folder 프로젝트의 테스트용 설계서 서버를 운영과 다른 포트(기본: 설정 포트+100)에 띄운다: 처음에 운영 .spec의 요청·리포트를 자리 안 .spec으로 복사하고(담당 세션 기록·로그·계정은 빼고, --fresh true면 다시 복사), 서버는 환경변수 SPEC_TEST_DIR로 그 .spec만 읽고 쓰며 담당 세션을 깨우지 않고 화면 위쪽에 "테스트 데이터" 표시를 단다. `testdata reset [--id N]`은 기록을 지운다(remote는 [테스트-#번호] 표시 데이터를 프로젝트 시드 스크립트가 지우므로 기록만 지운다). 원격 서버의 남의 데이터는 읽기만 한다.
  */
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { parseArgs, errorText } from './cli.js';
+import { LAUNCHER } from './paths.js';
 import { readConfig } from './config.js';
 import { projectRoot } from './project.js';
 import type { Request, SeedCase, SeedFile, TestDataConfig } from './types.js';
@@ -66,6 +68,18 @@ export function seedProblem(scanRoot: string, r: Request): string {
   return `시나리오마다 정상 경우의 테스트 데이터와 그것이 화면에 나온 캡처가 있어야 한다. 빠진 시나리오: ${lacks.join(', ')}. \`testdata seed --id ${r.id} --scenario … --kind normal --label … --shot 캡처\`로 남긴다(경계·오류 경우도 함께 남긴다)`;
 }
 
+/** 테스트용 서버에 처음 채워 넣을 때 운영 .spec에서 복사하지 않는 것(담당 세션 기록·로그·계정·실행 흔적) */
+const NOT_COPIED = new Set(['sessions.json', 'session-costs.json', 'wake-out', 'wake.log', 'pids.json', 'local.json', 'serve-stamp', 'serve.log', 'live-shots', 'comment-shots', 'review-shots', 'pending-shots.json']);
+
+/** 운영 .spec의 요청·리포트·용어집 등을 테스트 자리의 .spec으로 복사한다(원본은 읽기만 한다). fresh면 이미 있어도 지우고 다시 복사한다 */
+export function copyBase(root: string, dir: string, fresh: boolean): boolean {
+  const to = path.join(dir, '.spec');
+  if (fs.existsSync(to) && !fresh) return false;
+  fs.rmSync(to, { recursive: true, force: true });
+  fs.cpSync(path.join(root, '.spec'), to, { recursive: true, filter: (src) => !NOT_COPIED.has(path.basename(src)) && !src.endsWith('.log') });
+  return true;
+}
+
 /** 명령 입구 */
 export async function main(argv: string[]): Promise<number | undefined> {
   const { pos, opts } = parseArgs(argv);
@@ -94,12 +108,21 @@ export async function main(argv: string[]): Promise<number | undefined> {
       }
       const f = readSeeds(root, c, id);
       console.log(f.cases.length ? f.cases.map((x) => `${x.scenario} · ${KIND_LABEL[x.kind]} · ${x.label}${x.shot ? ` · 캡처 ${x.shot}` : ' · 캡처 없음'}`).join('\n') : `요청 #${id}: 기록된 테스트 데이터가 없다`);
+    } else if (pos[0] === 'serve') {
+      // 테스트용 설계서 서버: 운영과 다른 포트, 운영 .spec 대신 저장소 밖 테스트 자리의 .spec을 읽고 쓰며, 담당 세션은 깨우지 않는다
+      if (c.kind !== 'folder') throw new Error('이 명령은 folder 종류(저장소 밖 폴더) 프로젝트에서만 쓴다. remote는 테스트 서버 주소로, local-db는 테스트 DB 접속 주소로 앱을 띄운다');
+      const fresh = copyBase(root, dir, opts.fresh === 'true');
+      const port = Number(opts.port || (readConfig(root).port || 5290) + 100);
+      const log = fs.openSync(path.join(dir, 'serve.log'), 'a');
+      const child = spawn(process.execPath, [LAUNCHER, 'serve', '--project', root, '--src', path.relative(root, scanRoot) || '.', '--port', String(port)], { cwd: root, detached: true, stdio: ['ignore', log, log], env: { ...process.env, SPEC_TEST_DIR: dir } });
+      child.unref();
+      console.log(`${fresh ? '운영 요청·리포트를 복사해 테스트 자리를 채웠다. ' : '기존 테스트 자리를 그대로 쓴다. '}테스트용 서버: http://localhost:${port}/__spec/  (자리 ${dir}/.spec, 화면 위쪽에 "테스트 데이터" 표시, 담당 세션은 깨우지 않음)`);
     } else if (pos[0] === 'reset') {
       const target = id ? [seedFile(root, c, id)] : fs.existsSync(path.join(dir, 'seeds')) ? fs.readdirSync(path.join(dir, 'seeds')).map((n) => path.join(dir, 'seeds', n)) : [];
       for (const t of target) fs.rmSync(t, { force: true });
       console.log(`테스트 데이터 기록 ${target.length}건을 지웠다${c.kind === 'remote' ? '(서버의 [테스트-#번호] 표시 데이터는 프로젝트 시드 스크립트로 지운다)' : ''}`);
     } else {
-      console.log('사용: testdata path | seed --id N [--scenario 시나리오 --kind normal|edge|error --label 이름 --shot 캡처 --how 방법] | reset [--id N]   (--src 소스 폴더)');
+      console.log('사용: testdata path | serve [--port N] [--fresh true] | seed --id N [--scenario 시나리오 --kind normal|edge|error --label 이름 --shot 캡처 --how 방법] | reset [--id N]   (--src 소스 폴더)');
     }
   } catch (e) { console.error(`오류: ${errorText(e)}`); return 1; }
   return 0;

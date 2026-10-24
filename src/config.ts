@@ -12,5 +12,9 @@ export const configFile = (project: string): string => path.join(project, '.spec
 
 /** 프로젝트 설정을 읽는다. 없거나 깨졌으면 빈 설정 */
 export function readConfig(project: string): ProjectConfig {
-  try { return JSON.parse(fs.readFileSync(configFile(project), 'utf8')) as ProjectConfig; } catch { return {}; }
+  try {
+    const c = JSON.parse(fs.readFileSync(configFile(project), 'utf8')) as ProjectConfig;
+    // 테스트용 서버는 담당 세션을 깨우거나 새로 만들지 않는다(테스트 데이터로 눌러 본 결정이 진짜 세션에 가면 안 되므로)
+    return process.env.SPEC_TEST_DIR ? { ...c, wake: false } : c;
+  } catch { return {}; }
 }

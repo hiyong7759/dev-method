@@ -20,5 +20,7 @@ export const projectRoot = (scanRoot: string): string => {
   rootCache.set(scanRoot, root);
   return root;
 };
-/** 도구가 저장하는 파일을 모아 두는 프로젝트의 .spec 폴더 */
-export const specDir = (scanRoot: string): string => path.join(projectRoot(scanRoot), '.spec');
+/** 테스트용 서버로 띄웠을 때 요청·리포트 등 저장 파일을 두는 저장소 밖 자리(없으면 운영 .spec). `testdata serve`가 환경변수로 넘긴다 */
+export const testServerDir = (): string => process.env.SPEC_TEST_DIR ?? '';
+/** 도구가 저장하는 파일을 모아 두는 프로젝트의 .spec 폴더. 테스트용 서버면 저장소 밖 테스트 자리의 .spec이라 운영 요청을 건드리지 않는다 */
+export const specDir = (scanRoot: string): string => path.join(testServerDir() || projectRoot(scanRoot), '.spec');

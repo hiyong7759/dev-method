@@ -231,7 +231,7 @@ export function buildModel(scanRoot: string): Model {
   const rawRequests = loadRequests(scanRoot);
   const requests = describeRequests(rawRequests, componentsOf, (r) => deliveryOf(scanRoot, r)).map((r) => ({ ...r, cost: costOf(scanRoot, r.id) }));
   return {
-    project: path.basename(root), generatedAt: new Date().toISOString(),
+    project: path.basename(root), ...(process.env.SPEC_TEST_DIR ? { testEnv: '테스트 데이터' } : {}), generatedAt: new Date().toISOString(),
     screens, specs: out.specs, infos, relations, reports: rows, glossary: loadGlossary(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
     requests, designs: designViews(root), designCanvas: readConfig(root).designCanvas ?? '', comments: loadComments(scanRoot), untracked: untrackedCommits(scanRoot, rawRequests),
     summary: {

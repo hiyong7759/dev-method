@@ -82,6 +82,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* 상단 바 */
 .top{flex:none;overflow:hidden;height:56px;display:flex;align-items:center;gap:16px;padding:0 20px;background:var(--bg);border-bottom:1px solid var(--line)}
 .top.tall{height:62px}
+.testenv{font-size:11px;padding:3px 8px;border-radius:4px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-deep);font-weight:700;white-space:nowrap}
 .dev{font-size:11px;padding:3px 8px;border-radius:4px;background:var(--accent);color:var(--on-accent);font-weight:700}
 .top .ttl{font-size:17px;font-weight:700}
 .top .sub{font-size:12px;color:var(--dim)}

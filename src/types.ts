@@ -852,6 +852,8 @@ export interface UntrackedCommit {
 export interface Model {
   /** 프로젝트 이름 */
   project: string;
+  /** 테스트용 서버로 띄웠을 때만 있다. 화면 위쪽에 이 글을 표시해 운영 데이터와 헷갈리지 않게 한다 */
+  testEnv?: string;
   /** 모델을 만든 시각 */
   generatedAt: string;
   /** 화면들 */

@@ -84,7 +84,7 @@ function topbar(m: Model, r: Route): HTMLElement {
     ? h('div', { class: 'tabs-top' }, item('요청', r.view === 'manage', hash('manage')), item(['리포트', s.reportsOpen ? h('b', { class: 'cnt' }, s.reportsOpen) : null], r.view === 'reports', hash('manage', 'reports')), item('용어집', r.view === 'glossary', hash('manage', 'glossary')), item('시안 현황', r.view === 'designs', hash('manage', 'designs')))
     : h('div', { class: 'tabs-top' }, item('사용 흐름', r.view === 'flow', hash('flow')), item('정보 흐름', r.view === 'info' && !r.arg, hash('info')),
       menuBtn('화면', 'screens', r.view === 'screen', () => screenMenuItems(m, r.view === 'screen' ? r.arg : '')), menuBtn('정보', 'infos', r.view === 'info' && !!r.arg, () => infoMenuItems(m, r.view === 'info' ? r.arg : '')));
-  return h('header', { class: 'top' }, h('span', { class: 'dev mono' }, 'DEV'), h('span', { class: 'ttl' }, m.project), seg, nav2, h('span', { class: 'grow' }), mine, themeButton());
+  return h('header', { class: 'top' }, h('span', { class: 'dev mono' }, 'DEV'), m.testEnv ? h('span', { class: 'testenv', title: '운영 요청·리포트가 아닌 저장소 밖 테스트 데이터로 띄운 화면입니다' }, m.testEnv) : null, h('span', { class: 'ttl' }, m.project), seg, nav2, h('span', { class: 'grow' }), mine, themeButton());
 }
 
 /** 주소에 맞는 화면을 그린다 */
