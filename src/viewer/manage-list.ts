@@ -5,7 +5,7 @@
  */
 import { h, post, pageHead, filterChips, chip, fmt, toast, errorText, buls, type BulKind } from './util.js';
 import { hash, nav } from './route.js';
-import { chipFor, scopeTags, currentDesignApproval } from './manage-parts.js';
+import { chipFor, scopeTags, currentDesignApproval, deliveryReason, notDelivered, unread } from './manage-parts.js';
 import type { Model, RequestView } from '../types.js';
 
 /** 요청 카드의 구분 점: 지금 단계(설계·구현·테스트)와 에이전트 발견 여부. 거르기 칩의 점과 짝이다 */
@@ -23,10 +23,11 @@ function row(r: RequestView, onChange: () => void): HTMLDivElement {
   // 카드 전체가 열기 영역이다. 카드 안의 단추는 카드 열기와 따로 움직이게 눌림이 위로 번지지 않게 한다
   const own = (f: () => void) => (e: Event): void => { e.stopPropagation(); f(); };
   const start = (): void => { post('/__spec/request/start', { id: r.id }).then(() => { toast(`요청 #${r.id}을 시작했습니다. 담당 세션이 설계를 쓰는 중입니다`); onChange(); }).catch((err: unknown) => toast(errorText(err))); };
-  return h('div', { class: `mg-req${r.turn === 'user' ? ' mine' : ''}`, onclick: () => nav(hash('manage', String(r.id))) },
+  return h('div', { class: `mg-req${r.turn === 'user' ? ' mine' : ''}${notDelivered(r) ? ' undelivered' : ''}`, onclick: () => nav(hash('manage', String(r.id))) },
     h('div', { class: 'rid' }, `#${r.id}`),
     h('div', null, h('div', { class: 'rt' }, buls(bulsOf(r)), r.title),
       h('div', { class: 'rm' }, scopeTags(r), o ? chip('me', `겹침 ${r.overlaps.map((x) => `#${x.id}`).join(' ')}${where}`) : null,
+        unread(r) ? h('span', { class: notDelivered(r) ? 'dlv-why bad' : 'dlv-why' }, deliveryReason(r)) : null,
         h('span', null, waiting ? `#${r.waitingFor.join(', #')}가 끝난 뒤 시작하도록 대기 중` : extra))),
     h('div', { class: 'ract' }, chipFor(r),
       waiting ? h('button', { class: 'btn', onclick: own(() => nav(hash('manage', String(r.id)))) }, '순서 바꾸기')
@@ -65,6 +66,8 @@ export function manageList(root: HTMLElement, { model, kind, onChange }: { model
     { key: 'impl', label: '구현', bul: 'imp' as BulKind | undefined, list: all.filter((r) => r.stage === 'impl') },
     { key: 'test', label: '테스트', bul: 'tst' as BulKind | undefined, list: all.filter((r) => r.stage === 'test') },
     { key: 'done', label: '완료', bul: 'cmp' as BulKind | undefined, list: all.filter((r) => r.stage === 'done') },
+    // 결정이 담당 세션에 전달되지 않은 요청만 골라 본다(없으면 칩을 보이지 않는다)
+    ...(all.some(notDelivered) ? [{ key: 'undelivered', label: '전달 안 됨', bul: undefined as BulKind | undefined, list: all.filter(notDelivered) }] : []),
     // 요청 없는 변경은 칩이 아니라 목록 아래 한 줄로 보인다(주소의 kind=untracked로만 연다)
     { key: 'untracked', label: '요청 없는 변경', bul: 'nrq' as BulKind | undefined, list: [] as RequestView[] },
   ];

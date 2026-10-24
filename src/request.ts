@@ -11,7 +11,7 @@ import { specDir, projectRoot } from './project.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { addReport } from './report.js';
 import { seedProblem } from './testdata.js';
-import type { Actor, DesignChange, DesignPoint, DesignScreen, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
+import type { Actor, DesignChange, DesignPoint, DesignScreen, Delivery, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
 
 /** 화면에 보이는 단계 이름. 사람이 읽는 말이라 여기서만 정한다 */
 export const STAGE_LABEL: Record<RequestStage, string> = { design: '설계', impl: '구현', test: '테스트', done: '완료', cancelled: '취소' };
@@ -138,8 +138,9 @@ const mergeable = (r: Request): boolean => r.stage === 'design' && (r.step === '
 
 /** 화면 쪽에 보여 줄 모양으로: 이름표, 누구 차례인지, 진행 중인 다른 요청과 겹치는 곳, 기다릴 요청을 붙인다.
  *  componentsOf는 요청이 건드리는 시나리오의 단계 자리(컴포넌트)를 돌려주는 함수(model.ts가 시나리오에서 계산해 준다) */
-export function describeRequests(list: Request[], componentsOf: (r: Request) => string[] = () => []): RequestView[] {
+export function describeRequests(list: Request[], componentsOf: (r: Request) => string[] = () => [], deliveryOf: (r: Request) => Delivery | null = () => null): RequestView[] {
   return list.map((r) => {
+    const delivery = deliveryOf(r);
     const waitingFor = (r.waitFor ?? []).filter((id) => { const o = list.find((x) => x.id === id); return !!o && !ended(o); });
     const base = STEP[`${r.stage}:${r.step}`] ?? { label: r.step, turn: null };
     const meta = r.stage === 'impl' && waitingFor.length ? STEP['impl:waiting'] : base;
@@ -153,7 +154,10 @@ export function describeRequests(list: Request[], componentsOf: (r: Request) => 
         components: theirs.filter((c) => mine.includes(c)),
       };
     }).filter((o) => o.screens.length || o.infos.length || o.components.length);
-    return { ...r, stageLabel: STAGE_LABEL[r.stage], stepLabel: r.mergedInto ? `#${r.mergedInto}에 합침` : meta.label, turn: meta.turn, overlaps, waitingFor, cost: { start: 0, wake: 0, inputTokens: 0, outputTokens: 0, usd: 0 } };
+    // 에이전트 차례 글은 전달 기록으로 나눈다: 담당 세션이 읽기 전에는 일하는 것처럼 보이지 않게 한다
+    const notRead = meta.turn === 'agent' && !!delivery && (delivery.state === 'sending' || delivery.state === 'hook-wait' || delivery.state === 'failed');
+    const stepLabel = r.mergedInto ? `#${r.mergedInto}에 합침` : notRead ? (delivery!.state === 'failed' ? '전달 안 됨' : '결정 전달 중') : meta.label;
+    return { ...r, ...(delivery ? { delivery } : {}), stageLabel: STAGE_LABEL[r.stage], stepLabel, turn: meta.turn, overlaps, waitingFor, cost: { start: 0, wake: 0, inputTokens: 0, outputTokens: 0, usd: 0 } };
   });
 }
 

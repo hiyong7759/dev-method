@@ -389,8 +389,39 @@ export interface RequestOverlap {
   components: string[];
 }
 
+/** 결정이 담당 세션에 어디까지 갔나: 반영됨, 읽음(반영 전), 전달 중(읽기 전), 훅 대기(보내는 장치가 꺼짐), 전달 안 됨(재전송 끝) */
+export type DeliveryState = 'applied' | 'read' | 'sending' | 'hook-wait' | 'failed';
+
+/** 가장 최근 결정의 전달 상태(눌림→보냄→읽음→반영). 시각이 없는 칸은 null */
+export interface Delivery {
+  /** 결정 기록의 글(예: 설계 승인) */
+  decision: string;
+  /** 결정 기록 종류 */
+  kind: string;
+  /** 사용자가 결정 단추를 누른 시각 */
+  pressed: string;
+  /** 담당 세션에 보냈거나 훅에 맡긴 시각 */
+  sent: string | null;
+  /** 담당 세션이 결정을 읽은 시각 */
+  read: string | null;
+  /** 결정 뒤 에이전트가 처음 요청 기록을 남긴 시각(반영) */
+  applied: string | null;
+  /** 지금까지 자동·수동으로 다시 보낸 횟수 */
+  resent: number;
+  /** 자동 재전송 최대 횟수 */
+  maxResend: number;
+  /** 화면이 이름표·카드 색을 고르는 기준(어디까지 갔나) */
+  state: DeliveryState;
+  /** 마지막으로 보낸 때부터 지난 분 */
+  waitMin: number;
+  /** 다음 자동 재전송 시각(더 보낼 게 없으면 null) */
+  nextResendAt: string | null;
+}
+
 /** 화면에 보여 줄 요청: 이름표, 누구 차례인지, 겹치는 요청을 붙인 것 */
 export interface RequestView extends Request {
+  /** 가장 최근 결정의 전달 상태(전달 기록이 없는 옛 결정은 없음) */
+  delivery?: Delivery;
   /** 단계의 화면용 이름 */
   stageLabel: string;
   /** 상태의 화면용 이름 */

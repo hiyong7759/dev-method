@@ -6,7 +6,7 @@
 import { h, post, pageHead, chip, tag, fmt, toast, errorText, copyText, sidePanel } from './util.js';
 import type { Kid } from './util.js';
 import { hash, nav, liveAt } from './route.js';
-import { stepperBig, chipFor, scopeTags, withPanel, currentDesignApproval } from './manage-parts.js';
+import { stepperBig, chipFor, scopeTags, withPanel, currentDesignApproval, deliveryCard, unread } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
 import { basket, sendBasket } from './comment-basket.js';
 import type { Model, RequestView, Scenario, ScenarioStep } from '../types.js';
@@ -292,9 +292,11 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
     : r.stage === 'impl' ? h('div', { class: 'card' }, h('h3', null, '구현 중'), h('div', { class: 'hint' }, '에이전트가 구현하고 있습니다. 끝내고 테스트를 올리면 여기서 확인합니다.'))
     : r.stage === 'done' ? h('div', { class: 'card' }, h('h3', null, '끝난 요청'), h('div', { class: 'hint' }, '모든 칸은 펼쳐서 볼 수 있습니다.')) : null;
   const testing = r.stage === 'test';
+  // 결정을 누른 뒤에는 결정 카드 대신 전달 카드가 그 자리를 차지한다(읽기 전까지)
+  const dlv = deliveryCard(r, () => act('resend', { id: r.id }, '담당 세션에 결정을 다시 보냈습니다', onChange));
   const tools = h('div', { class: 'tools' }, h('span', { class: 'hint' }, '칸 제목을 누르면 접고 폅니다'),
     h('button', { class: 'btn sm', onclick: () => { for (const c of cards) if (!c.classList.contains('later')) { FOLD.set(`${r.id}:${c.dataset.fold}`, true); c.classList.remove('shut'); c.querySelector('.tg')!.textContent = '접기'; } } }, '모두 펼치기'),
     h('button', { class: 'btn sm', onclick: () => { for (const k of [...FOLD.keys()]) if (k.startsWith(`${r.id}:`)) FOLD.delete(k); root.replaceChildren(); manageDetail(root, { model, id, sub, onChange }); } }, '단계 기본으로'));
   root.append(withPanel(h('div', { class: 'wrap' }, head, h('div', { class: 'card' }, stepperBig(r)), tools, h('div', { class: 'dcol' }, cards)),
-    sidePanel({ title: testing ? '사용 시나리오 테스트' : `요청 #${r.id}`, fold: 'request', body: [testing ? testCard(model, r, onChange) : designSide] })));
+    sidePanel({ title: testing && !unread(r) ? '사용 시나리오 테스트' : `요청 #${r.id}`, fold: 'request', body: unread(r) ? [dlv] : [dlv, testing ? testCard(model, r, onChange) : designSide] })));
 }

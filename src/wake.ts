@@ -10,6 +10,7 @@ import { readConfig } from './config.js';
 import { loadRequests } from './request.js';
 import { projectRoot } from './project.js';
 import { aliveStatus, ownersOf, resumeOwner, startOwner } from './session.js';
+import { dueForResend, markSent, openDelivery } from './delivery.js';
 
 /** 세션 기록 파일 위치: ~/.claude/projects/<실제 프로젝트 경로에서 글자·숫자 아닌 것을 -로 바꾼 이름>/<세션>.jsonl */
 function transcriptOf(root: string, sid: string): string {
@@ -23,26 +24,38 @@ export function wakeOwner(scanRoot: string, id: number, force = false): string[]
   const woken: string[] = [];
   try {
     const root = projectRoot(scanRoot);
-    if (!readConfig(root).wake) return woken;
     const req = loadRequests(scanRoot).find((r) => r.id === id);
+    // 전달 기록은 보내는 장치(wake)가 꺼져 있어도 만든다: 그때는 훅이 읽을 때까지 '훅 대기'로 보인다
+    openDelivery(scanRoot, req);
+    if (!readConfig(root).wake) return woken;
     const last = req?.events[req.events.length - 1];
     const decided = last?.note ?? '';
     const log = path.join(root, '.spec', 'wake.log');
     const owners = ownersOf(root, id);
     if (!owners.length) {
       const sid = startOwner(scanRoot, id, 'decision', decided);
-      if (sid) woken.push(sid);
+      if (sid) { woken.push(sid); markSent(scanRoot, id, 'wake', force); }
       return woken;
     }
     for (const sid of owners) {
       // 세션이 지금 일하는 중(busy)이면 같은 대화에 서버가 끼어들지 않는다. 곧 도구를 쓰므로 훅이 그때 전달한다. 기다리는 중(idle)이거나 살아 있지 않으면(열어 둔 세션, 일을 마치고 쉬는 세션, 오래된 세션) 똑같이 글을 보내 이어서 하게 한다. 기다리는 세션은 말을 걸거나 도구를 쓰는 일이 없어 훅이 움직일 수 없기 때문이다
-      if (!force && aliveStatus(sid) === 'busy') { fs.appendFileSync(log, `${new Date().toISOString()} #${id} ${sid} 일하는 중이라 훅에 맡김\n`); continue; }
+      if (!force && aliveStatus(sid) === 'busy') { fs.appendFileSync(log, `${new Date().toISOString()} #${id} ${sid} 일하는 중이라 훅에 맡김\n`); markSent(scanRoot, id, 'hook'); continue; }
       let idleMs = Infinity, bytes = 0;
       try { const st = fs.statSync(transcriptOf(root, sid)); idleMs = Date.now() - st.mtimeMs; bytes = st.size; } catch { /* 기록이 없으면 처음부터 읽는 것 */ }
       resumeOwner(scanRoot, id, sid, decided, { idleMs, bytes });
       fs.appendFileSync(log, `${new Date().toISOString()} #${id} ${sid} 깨움\n`);
       woken.push(sid);
+      markSent(scanRoot, id, 'wake', force);
     }
   } catch { /* 사용자 결정은 깨우기 실패와 상관없이 성공해야 한다 */ }
   return woken;
+}
+
+/** 서버가 1분마다 부른다: 보낸 지 5분이 지나도 읽히지 않은 결정을 다시 보낸다(최대 2번, 일하는 중인 세션에도). 실패해도 서버는 계속 돈다 */
+export function resendUnread(scanRoot: string): number[] {
+  try {
+    const ids = dueForResend(scanRoot, loadRequests(scanRoot));
+    for (const id of ids) wakeOwner(scanRoot, id, true);
+    return ids;
+  } catch { return []; }
 }

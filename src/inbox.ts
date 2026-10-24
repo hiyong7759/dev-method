@@ -7,12 +7,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { configFile } from './config.js';
 import { loadRequests } from './request.js';
+import { markRead } from './delivery.js';
 
 /** 훅이 넘기는 JSON 중 쓰는 것 */
 interface HookInput {
   session_id?: string;
   cwd?: string;
   hook_event_name?: string;
+  /** UserPromptSubmit에서 사용자가(또는 깨움 명령이) 입력한 글 */
+  prompt?: string;
   tool_name?: string;
   tool_input?: { command?: string };
   tool_response?: unknown;
@@ -65,8 +68,11 @@ export async function main(): Promise<number> {
     const mine = sessions[sid];
     const req = mine ? requests.find((r) => r.id === mine.request) : undefined;
     if (!mine || !req) return 0;
+    // 깨움 글('[spec-view] 요청 #N')이 이 세션의 입력으로 들어왔으면 결정을 읽은 것이다
+    if (input.prompt?.includes(`[spec-view] 요청 #${req.id} `)) markRead(root, req.id);
     const news = req.events.filter((e) => e.by === 'user' && e.at > mine.seen && NEXT[e.kind]);
     if (!news.length) return 0;
+    markRead(root, req.id);
     mine.seen = req.events[req.events.length - 1].at;
     save();
     const lines = news.map((e) => `- ${e.note} (${e.at.slice(5, 16).replace('T', ' ')}): ${NEXT[e.kind](req.id, e.note)}`);

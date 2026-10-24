@@ -770,3 +770,15 @@ img.shot.zoomable{cursor:zoom-in}
 .opinion-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .rdone summary{border-style:dashed}
 @media (max-width:760px){.choices{grid-template-columns:1fr}}
+/* 결정 전달 카드(요청 상세 오른쪽 패널)와 요청 목록의 전달 이유 */
+.dlv{border-color:var(--amber-deep);background:var(--amber-bg)}
+.dlv.bad{border-color:var(--red-strong);background:var(--red-bg);border-width:2px}
+.dlv.bad h3{color:var(--red-text)}
+.dlv-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.dlv-c{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--dim)}
+.dlv-c i{width:22px;height:22px;border-radius:50%;border:1px solid var(--line2);display:grid;place-items:center;font-style:normal;font-size:12px}
+.dlv-c.on{color:var(--text)}.dlv-c.on i{background:var(--green-bg);border-color:var(--green-deep);color:var(--green)}
+.dlv-c.bad{color:var(--red-text)}.dlv-c.bad i{background:var(--red-strong);border-color:var(--red-strong);color:#fff;font-weight:700}
+.dlv-done{padding:2px 4px}
+.dlv-why{color:var(--amber)}.dlv-why.bad{color:var(--red-text);font-weight:600}
+.mg-req.undelivered{border-color:var(--red-strong);background:var(--red-bg)}
