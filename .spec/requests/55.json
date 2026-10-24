@@ -17,14 +17,21 @@
   "agent": {
     "name": ""
   },
-  "stage": "design",
-  "step": "queued",
+  "stage": "cancelled",
+  "step": "cancelled",
   "events": [
     {
       "at": "2026-10-24T07:23:27.763Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-24T08:15:12.999Z",
+      "by": "user",
+      "kind": "merged",
+      "note": "#15에 합침: 요구와 화면이 겹쳐 한 요청으로 진행",
+      "quote": "15번으로 합치고 요구사항명도 진행하는 내용에 맞춰서 다시 수정해"
     }
   ]
 }

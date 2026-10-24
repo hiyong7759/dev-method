@@ -21,8 +21,8 @@
   "agent": {
     "name": ""
   },
-  "stage": "design",
-  "step": "submitted",
+  "stage": "cancelled",
+  "step": "cancelled",
   "events": [
     {
       "at": "2026-10-24T07:12:49.412Z",
@@ -47,6 +47,19 @@
       "by": "agent",
       "kind": "design-submitted",
       "note": "설계 제출 (정보 변경 0건 · 화면 변경 2건)"
+    },
+    {
+      "at": "2026-10-24T08:11:45.621Z",
+      "by": "user",
+      "kind": "design-rejected",
+      "note": "설계 반려: 목록 카드에 버튼이랑 상테는 오른쪽에 붙어야 할것 같고 열기는 해당 버튼이 아니라 카드 전체가 이벤트 영역이어야할것 같아"
+    },
+    {
+      "at": "2026-10-24T08:15:12.999Z",
+      "by": "user",
+      "kind": "merged",
+      "note": "#15에 합침: 요구와 화면이 겹쳐 한 요청으로 진행",
+      "quote": "15번으로 합치고 요구사항명도 진행하는 내용에 맞춰서 다시 수정해"
     }
   ],
   "design": {
@@ -80,6 +93,6 @@
       }
     ],
     "none": false,
-    "rejected": 0
+    "rejected": 1
   }
 }
