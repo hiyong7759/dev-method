@@ -17,8 +17,8 @@
   "agent": {
     "name": "요청 #15 담당"
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-21T14:00:45.729Z",
@@ -69,6 +69,24 @@
       "by": "agent",
       "kind": "agent",
       "note": "맡은 에이전트: 요청 #15 담당"
+    },
+    {
+      "at": "2026-10-24T07:47:27.615Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: 요청 #15 담당"
+    },
+    {
+      "at": "2026-10-24T07:50:41.642Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 ee8e1ef"
+    },
+    {
+      "at": "2026-10-24T07:50:41.743Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
     }
   ],
   "design": {
@@ -81,7 +99,8 @@
   },
   "commits": [
     "c548eea",
-    "034142f"
+    "034142f",
+    "ee8e1ef"
   ],
   "test": {
     "checks": {},
