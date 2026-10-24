@@ -10,6 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { LAUNCHER } from './paths.js';
 import { configFile, readConfig } from './config.js';
 import { parseArgs } from './cli.js';
+import { testDataConfig, dataProblem } from './testdata.js';
 
 /** 검사 종류 */
 const SCRIPTS = ['extract', 'analyze-ts', 'nav'] as const;
@@ -44,6 +45,10 @@ export async function main(argv: string[]): Promise<number | undefined> {
   // 테스트 계정이 든 .spec/local.json이 커밋에 올라가지 않게 막는다
   const staged = spawnSync('git', ['diff', '--cached', '--name-only'], { cwd: root, encoding: 'utf8' }).stdout.split('\n');
   if (staged.some((f) => /(^|\/)\.spec\/local\.json$/.test(f))) { console.error('[spec-view] .spec/local.json에는 테스트 계정이 들어 있어 커밋할 수 없다. git reset HEAD .spec/local.json 으로 뺀다'); return 1; }
+  // 테스트 데이터 자리가 저장소 안을 가리키면 데이터가 커밋될 수 있어 막는다
+  const td = testDataConfig(root);
+  const tdBad = td ? dataProblem(root, td) : '';
+  if (tdBad && !tdBad.includes('운영')) { console.error(`[spec-view] ${tdBad}`); return 1; }
   let base: Baseline | null = null;
   try { base = JSON.parse(fs.readFileSync(baselineFile(root), 'utf8')) as Baseline; } catch { /* 기준선 없음 */ }
   const saving = flags.has('baseline');

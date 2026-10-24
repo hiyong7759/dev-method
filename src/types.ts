@@ -895,6 +895,8 @@ export interface ProjectConfig {
   designCanvas?: string;
   /** true면 요청을 시작할 때 담당 세션을 새로 만들고, 사용자가 결정했을 때 닫혀 있는 담당 세션을 서버가 깨운다(비용이 들어 기본은 꺼짐) */
   wake?: boolean;
+  /** 테스트 환경: 테스트 데이터를 어디서 얻는지. 없으면 이 검사의 대상이 아니다 */
+  testData?: TestDataConfig;
   /** 화면 이동을 읽는 방법: 라우트 표의 이름과 이동 도우미 함수들 */
   navigation?: {
     /** 이름 → 주소가 적힌 라우트 표의 변수 이름 */
@@ -1087,4 +1089,40 @@ export interface Comment {
   thread: CommentMsg[];
   /** 요청으로 만들었다면 그 번호 */
   request?: number;
+}
+
+/** 프로젝트의 테스트 환경 설정(.spec/config.json의 testData) */
+export interface TestDataConfig {
+  /** folder=저장소 밖 폴더(dev-method), remote=회사 공용 테스트 서버(품앗이 같은), local-db=내 컴퓨터 테스트 DB */
+  kind: 'folder' | 'remote' | 'local-db';
+  /** 테스트 데이터·기록을 두는 자리(~ 사용 가능). 저장소 안이면 거부한다. remote는 안 적으면 ~/.spec-testdata/<프로젝트> */
+  dir?: string;
+  /** remote의 테스트 서버 주소 */
+  url?: string;
+  /** 주소에 이런 글이 들어 있으면 운영으로 보고 테스트로 띄우지 않는다(예: 운영 서버 이름) */
+  productionMarks?: string[];
+}
+
+/** 시나리오 하나에 만들어 둔 테스트 데이터 한 경우 */
+export interface SeedCase {
+  /** 사용 시나리오 이름 */
+  scenario: string;
+  /** 정상, 경계(0건·긴 글 등), 오류·예외 */
+  kind: 'normal' | 'edge' | 'error';
+  /** 이 경우를 부르는 이름(예: 정상-홍길동) */
+  label: string;
+  /** 어떻게 만들었는지(시드 스크립트·API) */
+  how: string;
+  /** 이 데이터로 화면에 나온 것을 에이전트가 찍은 캡처 경로(프로젝트 루트 기준) */
+  shot: string;
+  /** 기록한 때 */
+  at: string;
+}
+
+/** 요청 하나의 테스트 데이터 기록(테스트 데이터 자리의 seeds/번호.json) */
+export interface SeedFile {
+  /** 요청 번호 */
+  request: number;
+  /** 시나리오마다 만들어 둔 경우들 */
+  cases: SeedCase[];
 }

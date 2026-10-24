@@ -9,5 +9,9 @@
     ],
     "hashPrefix": "/__spec/"
   },
-  "wake": true
+  "wake": true,
+  "testData": {
+    "kind": "folder",
+    "dir": "~/.spec-testdata/dev-method"
+  }
 }

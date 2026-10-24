@@ -10,6 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { specDir, projectRoot } from './project.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { addReport } from './report.js';
+import { seedProblem } from './testdata.js';
 import type { Actor, DesignChange, DesignPoint, DesignScreen, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
 
 /** 화면에 보이는 단계 이름. 사람이 읽는 말이라 여기서만 정한다 */
@@ -275,6 +276,9 @@ export function requestTest(scanRoot: string, id: number): Request {
   if (r.scope.screens.length && !(r.scope.scenarios ?? []).length) throw new Error(`요청 #${id}은 범위에 화면(${r.scope.screens.join(', ')})이 있는데 사용 시나리오가 없어 테스트를 올릴 수 없다. 시나리오를 소스(@does)에 올리고 \`request scope --id ${id} --scenarios …\`로 범위에 연결한다`);
   const bad = finishProblem(scanRoot);
   if (bad) throw new Error(`요청 #${id}의 테스트를 올릴 수 없다: ${bad}`);
+  // 테스트 환경이 설정된 프로젝트는 시나리오마다 정상 경우를 화면에서 먼저 확인했어야 한다
+  const noData = seedProblem(scanRoot, r);
+  if (noData) throw new Error(`요청 #${id}의 테스트를 올릴 수 없다: ${noData}`);
   const again = r.stage === 'test';
   move(r, 'test', 'requested');
   r.test = r.test ?? { checks: {}, found: [], none: false };
