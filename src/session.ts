@@ -9,15 +9,20 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readConfig } from './config.js';
-import { loadRequests, noteSessionStarted } from './request.js';
+import { loadRequests, noteSessionStarted, STAGE_LABEL, STEP } from './request.js';
 import { projectRoot, specDir } from './project.js';
-import type { SessionCost } from './types.js';
+import type { Request, SessionCost } from './types.js';
 
 /** 사람 없이 쓸 수 있게 미리 허락하는 도구: 문서·소스 읽기와 고치기, 설계서 보기 명령, 검사, 그리고 그 일의 커밋. 위험한 git 명령은 저장소의 차단 훅이 막는다 */
 export const ALLOWED = ['Read', 'Edit', 'Write', 'Bash(node:*)', 'Bash(npm:*)', 'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git add:*)', 'Bash(git commit:*)'];
 
 /** 담당 세션이 모두 쓰는 모델(소넷 보통). 비용과 품질을 한 가지로 맞추려고 한 곳에서 정한다 */
 const MODEL = 'sonnet';
+
+/** 이만큼 쉬면 프롬프트 캐시가 식어 이어 부를 때 대화 전체를 비싸게 다시 읽는다. 이때만 압축해서 줄인다 */
+const CACHE_COLD_MS = 60 * 60 * 1000;
+/** 대화 기록이 이만큼 커도 압축한다(캐시가 따뜻해도 매 턴 읽는 양이 크다) */
+const BIG_BYTES = 500 * 1024;
 
 /** 이 도구의 입구 파일(다른 프로젝트에서도 같은 도구를 부른다) */
 const SPEC_MJS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'skills', 'spec-view', 'spec.mjs');
@@ -100,19 +105,31 @@ function launch(root: string, scanRoot: string, id: number, sid: string, msg: st
     `rc=$?; echo "$(date -u +%Y-%m-%dT%H:%M:%S.000Z) #${id} ${sid} ${st.kind === 'start' ? '시작' : '깨움'} 단계 ${i + 1}/${steps.length} 끝남 종료코드=$rc" >> "$LOG"`,
     `node "$SPEC" cost --src "$SRC" --id ${id} --sid ${sid} --kind ${st.kind} --file "${base}-${i}.json" >> "$LOG" 2>&1`,
   ].join('; '));
-  spawn('sh', ['-c', lines.join('; ')], {
+  // 세션을 부르는 일은 한 번에 하나씩 차례로 한다. 앞 호출이 데운 캐시를 다음 호출이 쓰게 해 비용을 아낀다(잠금은 30분이 지나면 낡은 것으로 보고 푼다)
+  const lock = `LOCK="$ROOT/.spec/wake-out/lock"; until mkdir "$LOCK" 2>/dev/null; do if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ]; then rmdir "$LOCK" 2>/dev/null; fi; sleep 1; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT`;
+  spawn('sh', ['-c', `${lock}; ${lines.join('; ')}`], {
     cwd: root, detached: true, stdio: 'ignore',
-    env: { ...process.env, MSG: msg, SPEC: SPEC_MJS, SRC: src, LOG: logFile(root) },
+    env: { ...process.env, MSG: msg, SPEC: SPEC_MJS, SRC: src, LOG: logFile(root), ROOT: root },
   }).unref();
 }
 
-/** 새 담당 세션이 받는 글: 담당 등록 → 읽기 → 설계 올리고 승인 대기에서 멈춤. 사용자가 이미 결정한 상태(decided)면 그 일만 하게 한다 */
-function newOwnerMessage(scanRoot: string, root: string, id: number, title: string, decided: string): string {
+/** 요청 내용을 글에 직접 넣는다. 세션이 요청 파일을 읽느라 쓰는 턴(턴마다 기본 맥락을 다시 읽어 비용이 든다)을 없앤다 */
+function briefOf(req: Request | undefined): string {
+  if (!req) return '';
+  const events = req.events.slice(-4).map((e) => `- ${e.at.slice(5, 16).replace('T', ' ')} ${e.by === 'user' ? '사용자' : '에이전트'}: ${e.note}${e.quote ? ` (사용자가 한 말: "${e.quote}")` : ''}`).join('\n');
+  return `\n[요청 내용 — 아래에 넣었으니 요청 파일을 따로 읽지 않아도 됩니다]\n원문: ${req.origin.text.slice(0, 600)}\n상태: ${STAGE_LABEL[req.stage]} · ${STEP[`${req.stage}:${req.step}`]?.label ?? req.step}\n최근 기록:\n${events}\n`;
+}
+
+/** 설계 파일 모양(세션이 규칙 문서를 찾아 읽지 않아도 되게 줄여서 넣는다) */
+const DESIGN_SHAPE = '설계 파일(JSON) 모양: understanding(짧은 한 줄 요약), points[{area 영역, title 바뀌는 것, text 설명}], changes[{info, kind add|remove|change|link, field, note}], screens[{screen, after 시안 그림, note, counts, highlights, isNew}]. 이미 있는 화면은 먼저 `request shot --id 번호 --screen 화면 --url 운영 화면 주소`로 현행을 찍어 둔다(손으로 올린 그림은 경고가 붙는다). 설계서 보기에 없는 새 화면은 isNew: true. 정보도 화면도 안 바뀌면 `request design --id 번호 --none true`. "이렇게 처리하겠습니다"(approach)는 설계 없음에서만 쓴다.';
+
+/** 새 담당 세션이 받는 글: 담당 등록 → 설계 올리고 승인 대기에서 멈춤. 사용자가 이미 결정한 상태(decided)면 그 일만 하게 한다 */
+function newOwnerMessage(scanRoot: string, root: string, req: Request | undefined, id: number, decided: string): string {
   const src = path.relative(root, scanRoot) || '.';
-  const intro = `[spec-view] 당신은 요청 #${id} "${title}"의 담당 세션입니다. 이 요청 하나만 합니다.`;
+  const intro = `[spec-view] 당신은 요청 #${id} "${req?.title ?? ''}"의 담당 세션입니다. 이 요청 하나만 합니다.`;
   const register = `\`node ${SPEC_MJS} request agent --id ${id} --name "요청 #${id} 담당" --src ${src}\`로 담당을 등록하세요.`;
-  if (decided) return `${intro} 사용자가 결정했습니다(${decided}). ${register} 그 뒤 .spec/requests/${id}.json의 마지막 사용자 기록을 읽고, 사용자가 결정한 그 일만 하고 끝나면 멈추세요. 다른 일을 시작하지 마세요.`;
-  return `${intro} 1) ${register} 2) .spec/requests/${id}.json의 원문과 \`node ${SPEC_MJS} todo --src ${src}\`를 읽으세요. 3) 설계를 써서 \`request design --id ${id}\`로 올리고(화면이 바뀌면 현행·시안 그림과 함께), 사용자 승인 대기에서 멈추세요. 승인 전에는 구현하지 않고, 다른 요청은 건드리지 않습니다.`;
+  if (decided) return `${intro} 사용자가 결정했습니다(${decided}). ${register}${briefOf(req)}\n사용자가 결정한 그 일만 하고 끝나면 멈추세요. 다른 일을 시작하지 마세요. 더 알아야 하면 .spec/requests/${id}.json을 읽으세요.`;
+  return `${intro} 1) ${register} 2) 아래 요청 내용을 읽고 설계를 써서 \`request design --id ${id}\`로 올린 뒤(화면이 바뀌면 현행·시안 그림과 함께) 사용자 승인 대기에서 멈추세요. 승인 전에는 구현하지 않고, 다른 요청은 건드리지 않습니다.${briefOf(req)}\n${DESIGN_SHAPE} 더 알아야 하면 \`node ${SPEC_MJS} todo --src ${src}\`나 .spec/requests/${id}.json을 읽으세요.`;
 }
 
 /** 요청의 담당 세션을 새로 만든다. 만든 세션 번호를 돌려준다(설정이 꺼져 있거나 이미 담당이 있으면 null) */
@@ -124,7 +141,7 @@ export function startOwner(scanRoot: string, id: number, why: 'start' | 'decisio
     if (ownersOf(root, id).length) { fs.appendFileSync(log, `${new Date().toISOString()} #${id} 담당 세션이 이미 있어 새로 만들지 않음\n`); return null; }
     const req = loadRequests(scanRoot).find((r) => r.id === id);
     const sid = crypto.randomUUID();
-    const msg = newOwnerMessage(scanRoot, root, id, req?.title ?? '', why === 'decision' ? decided || '결정' : '');
+    const msg = newOwnerMessage(scanRoot, root, req, id, why === 'decision' ? decided || '결정' : '');
     registerOwner(root, sid, id);
     fs.appendFileSync(log, `${new Date().toISOString()} #${id} ${sid} 담당 세션을 새로 만듦(${why === 'start' ? '시작' : '결정'})\n`);
     noteSessionStarted(scanRoot, id, sid);
@@ -133,14 +150,15 @@ export function startOwner(scanRoot: string, id: number, why: 'start' | 'decisio
   } catch { return null; /* 시작·결정은 세션 만들기 실패와 상관없이 성공해야 한다 */ }
 }
 
-/** 닫힌 담당 세션을 깨운다: 압축하고 이어서 결정된 일만 하라고 보낸다 */
-export function resumeOwner(scanRoot: string, id: number, sid: string, decided: string): void {
+/** 닫힌 담당 세션을 깨운다. 오래 쉬어 캐시가 식었거나 대화 기록이 클 때만 먼저 압축하고, 그렇지 않으면 바로 결정된 일만 하라고 보낸다 */
+export function resumeOwner(scanRoot: string, id: number, sid: string, decided: string, state: { idleMs: number; bytes: number }): void {
   const root = projectRoot(scanRoot);
   const req = loadRequests(scanRoot).find((r) => r.id === id);
   const src = path.relative(root, scanRoot) || '.';
-  const msg = `[spec-view] 요청 #${id}${req ? ` "${req.title}"` : ''}에 사용자가 결정했습니다(${decided}). .spec/requests/${id}.json의 마지막 사용자 기록을 읽고, \`node ${SPEC_MJS} todo --src ${src}\`로 지금 할 일을 확인하세요. 사용자가 결정한 그 일만 하고, 끝나면 멈추세요. 다른 일을 시작하지 마세요.`;
-  launch(root, scanRoot, id, sid, msg, [
-    { args: `--resume ${sid}`, prompt: '"/compact"', kind: 'wake' },
-    { args: `--resume ${sid}`, prompt: '"$MSG"', kind: 'wake' },
-  ]);
+  const msg = `[spec-view] 요청 #${id}${req ? ` "${req.title}"` : ''}에 사용자가 결정했습니다(${decided}).${briefOf(req)}\n사용자가 결정한 그 일만 하고, 끝나면 멈추세요. 다른 일을 시작하지 마세요. 더 알아야 하면 .spec/requests/${id}.json과 \`node ${SPEC_MJS} todo --src ${src}\`로 지금 할 일을 확인하세요.`;
+  const why = state.idleMs >= CACHE_COLD_MS ? '1시간 넘게 쉬어 캐시가 식음' : state.bytes >= BIG_BYTES ? '대화 기록이 커서' : '';
+  const steps: Step[] = [{ args: `--resume ${sid}`, prompt: '"$MSG"', kind: 'wake' }];
+  if (why) steps.unshift({ args: `--resume ${sid}`, prompt: '"/compact"', kind: 'wake' });
+  fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} ${sid} ${why ? `압축하고 지시함(${why})` : '압축 없이 바로 지시함'}\n`);
+  launch(root, scanRoot, id, sid, msg, steps);
 }

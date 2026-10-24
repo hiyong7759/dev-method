@@ -16,7 +16,7 @@ function fakeEnv(): { calls: string; transcript: (root: string, sid: string) => 
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-wake-'));
   const bin = path.join(base, 'bin'); fs.mkdirSync(bin);
   const calls = path.join(base, 'calls.txt');
-  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\necho "$@" >> "${calls}"\necho '{"total_cost_usd":0.5,"usage":{"input_tokens":10,"cache_creation_input_tokens":5,"cache_read_input_tokens":100,"output_tokens":7}}'\n`, { mode: 0o755 });
+  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\necho "$*" | tr '\\n' ' ' >> "${calls}"; echo >> "${calls}"\necho '{"total_cost_usd":0.5,"usage":{"input_tokens":10,"cache_creation_input_tokens":5,"cache_read_input_tokens":100,"output_tokens":7}}'\n`, { mode: 0o755 });
   const old = { PATH: process.env.PATH, HOME: process.env.HOME };
   process.env.PATH = `${bin}:${old.PATH}`; process.env.HOME = base;
   const transcript = (root: string, sid: string): string => path.join(base, '.claude', 'projects', fs.realpathSync(root).replace(/[^A-Za-z0-9]/g, '-'), `${sid}.jsonl`);
@@ -110,11 +110,58 @@ test('닫힌 세션은 압축한 뒤 이어서 하라고 지시한다', async ()
     const rows = JSON.parse(fs.readFileSync(costs, 'utf8')) as { request: number; kind: string; inputTokens: number; outputTokens: number; usd: number }[];
     assert.equal(rows.length, 2, '압축과 지시 두 번 모두 비용을 적는다');
     assert.deepEqual({ request: rows[0].request, kind: rows[0].kind, inputTokens: rows[0].inputTokens, outputTokens: rows[0].outputTokens, usd: rows[0].usd }, { request: 1, kind: 'wake', inputTokens: 115, outputTokens: 7, usd: 0.5 });
+    assert.match(lines[1], /\[요청 내용/, '요청 내용을 글에 직접 넣어 읽는 턴을 줄인다');
     assert.match(lines[1], /requests\/1\.json/);
     assert.match(lines[1], /todo --src src/);
     assert.match(lines[1], /그 일만 하고, 끝나면 멈추세요/);
     await wait(() => /끝남 종료코드=0/.test(fs.existsSync(path.join(root, '.spec', 'wake.log')) ? fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8') : ''));
     assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /끝남 종료코드=0/);
+  } finally { env.restore(); }
+});
+
+/** 닫힌 세션 하나와 가짜 기록을 만든다: 쉰 시간(분)과 크기(바이트) */
+function closedSession(env: ReturnType<typeof fakeEnv>, idleMin: number, bytes: number): { root: string; src: string } {
+  const { root, src } = tempProject({ wake: true }); addRequest(src, { title: '압축 시험' }); own(root, 'S1', 1);
+  const t = env.transcript(root, 'S1'); fs.mkdirSync(path.dirname(t), { recursive: true }); fs.writeFileSync(t, 'x'.repeat(bytes));
+  const old = new Date(Date.now() - idleMin * 60 * 1000); fs.utimesSync(t, old, old);
+  return { root, src };
+}
+
+test('1시간 안에 쉰 작은 세션은 압축 없이 바로 지시만 한다(캐시가 아직 따뜻하다)', async () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = closedSession(env, 20, 1000);
+    assert.deepEqual(wakeOwner(src, 1), ['S1']);
+    await wait(() => fs.existsSync(env.calls));
+    await wait(() => /끝남 종료코드=0/.test(fs.existsSync(path.join(root, '.spec', 'wake.log')) ? fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8') : ''));
+    const lines = fs.readFileSync(env.calls, 'utf8').trim().split('\n');
+    assert.equal(lines.length, 1, '호출은 지시 한 번뿐이다');
+    assert.doesNotMatch(lines[0], /\/compact/);
+    assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /압축 없이 바로 지시함/);
+  } finally { env.restore(); }
+});
+
+test('1시간 넘게 쉬었거나 대화 기록이 크면 먼저 압축한다', async () => {
+  const env = fakeEnv();
+  try {
+    const big = closedSession(env, 20, 600 * 1024);
+    assert.deepEqual(wakeOwner(big.src, 1), ['S1']);
+    await wait(() => fs.existsSync(env.calls) && fs.readFileSync(env.calls, 'utf8').trim().split('\n').length >= 2);
+    assert.match(fs.readFileSync(env.calls, 'utf8').trim().split('\n')[0], /\/compact/);
+    assert.match(fs.readFileSync(path.join(big.root, '.spec', 'wake.log'), 'utf8'), /대화 기록이 커서/);
+  } finally { env.restore(); }
+});
+
+test('세션을 부르는 일은 한 번에 하나씩 차례로 한다(앞 호출이 데운 캐시를 쓰게)', async () => {
+  const env = fakeEnv();
+  try {
+    // 호출마다 시작·끝 시각을 남기고 잠깐 걸리는 가짜 claude
+    const bin = path.dirname(path.join(path.dirname(env.calls), 'bin', 'claude'));
+    fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\necho "시작" >> "${env.calls}"; sleep 1; echo "끝" >> "${env.calls}"\necho '{"total_cost_usd":0.1,"usage":{}}'\n`, { mode: 0o755 });
+    const { src } = tempProject({ wake: true }); addRequest(src, { title: 'a' }); addRequest(src, { title: 'b' });
+    assert.ok(startOwner(src, 1, 'start')); assert.ok(startOwner(src, 2, 'start'));
+    await wait(() => fs.existsSync(env.calls) && fs.readFileSync(env.calls, 'utf8').trim().split('\n').length >= 4);
+    assert.deepEqual(fs.readFileSync(env.calls, 'utf8').trim().split('\n'), ['시작', '끝', '시작', '끝'], '겹치지 않고 하나가 끝난 뒤 다음이 시작한다');
   } finally { env.restore(); }
 });
 
