@@ -132,13 +132,15 @@ function designResult(model: Model, r: RequestView): HTMLElement | null {
     infoSummary(model, r), h('div', { class: 'grid2' }, d.screens.map(screenBox)));
 }
 
-/** 설계 글: "이렇게 이해했습니다" 한 줄 요약과 영역별 표(영역·바뀌는 것·설명). 영역별 항목이 없는 옛 설계는 글만 보인다. "이렇게 처리하겠습니다"는 정보·화면 변경이 없는 요청에서만 보인다 */
+/** 설계 글: "이렇게 이해했습니다" 한 줄 요약과 영역별 표(영역·바뀌는 것·설명). 영역별 항목이 없는 옛 설계는 글만 보인다. "이렇게 처리하겠습니다"는 정보·화면 변경이 없는 요청에서만 보이고, 설계 없음이어도 영역별 항목을 적었으면 표로 보인다 */
 function designText(d: NonNullable<RequestView['design']>): Kid {
-  if (d.none) return h('div', { class: 'grid2' }, h('div', { class: 'box' }, h('b', null, '이렇게 이해했습니다'), h('div', null, d.understanding)), d.approach ? h('div', { class: 'box' }, h('b', null, '이렇게 처리하겠습니다'), h('div', null, d.approach)) : null);
+  const approach = d.none && d.approach ? h('div', { class: 'box' }, h('b', null, '이렇게 처리하겠습니다'), h('div', null, d.approach)) : null;
+  if (d.none && !d.points?.length) return h('div', { class: 'grid2' }, h('div', { class: 'box' }, h('b', null, '이렇게 이해했습니다'), h('div', null, d.understanding)), approach);
   const areas = (d.points ?? []).map((p) => p.area);
-  return h('div', { class: 'box dpts' }, h('b', null, '이렇게 이해했습니다'), h('div', { class: 'dpts-sum' }, d.understanding),
+  const table = h('div', { class: 'box dpts' }, h('b', null, '이렇게 이해했습니다'), h('div', { class: 'dpts-sum' }, d.understanding),
     d.points?.length ? h('table', { class: 'dpts-tbl' }, h('thead', null, h('tr', null, h('th', null, '영역'), h('th', null, '바뀌는 것'), h('th', null, '설명'))),
       h('tbody', null, d.points.map((p, i) => h('tr', { class: areas.indexOf(p.area) === i ? 'first' : '' }, h('td', { class: 'dpts-area' }, areas.indexOf(p.area) === i ? p.area : ''), h('td', { class: 'dpts-t' }, p.title), h('td', null, p.text))))) : null);
+  return approach ? h('div', null, table, approach) : table;
 }
 
 /** 테스트 확인표 한 시나리오: 기본 흐름 단계와, 이번 요청이 바꾼 갈래 단계 */
