@@ -12,7 +12,7 @@ import { extractSpecs } from './extract.js';
 import { buildModel } from './model.js';
 import { specDir } from './project.js';
 import { screenHistory } from './history.js';
-import { decide } from './report.js';
+import { decide, addNote } from './report.js';
 import { addComment, replyComment, closeComment, commentToRequest, shotDir } from './comment.js';
 import { addRequest, startDesign, recordUntracked, approveDesign, rejectDesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
 import { wakeOwner } from './wake.js';
@@ -110,7 +110,7 @@ export function specHandler(scanRoot: string): SpecHandler {
         // 사용자만 하는 결정: 리포트(확인 필요 포함) 처리와 요청의 승인·반려·순서. 에이전트용 명령은 이것들을 할 수 없다
         if (url === '/__spec/report/decide') {
           const id = String(b.id || ''), state = String(b.state || '');
-          if (state !== 'registered' && state !== 'intended' && state !== 'ignored') throw new Error('처리는 요청으로 등록·의도한 것·무시 중 하나다');
+          if (state !== 'registered' && state !== 'kept' && state !== 'tool') throw new Error('처리는 요청으로 처리·그냥 둠·도구 개선으로 전달 중 하나다(더 분석은 /__spec/report/analyze)');
           let request: number | undefined;
           if (state === 'registered') {
             const row = buildModel(scanRoot).reports.find((r) => r.id === id);
@@ -136,11 +136,17 @@ export function specHandler(scanRoot: string): SpecHandler {
         if (url === '/__spec/comment/reply') return json(res, replyComment(scanRoot, Number(b.id), 'user', String(b.text || '')));
         if (url === '/__spec/comment/close') return json(res, closeComment(scanRoot, Number(b.id)));
         if (url === '/__spec/comment/to-request') return json(res, commentToRequest(scanRoot, Number(b.id), String(b.title || '')));
+        // 더 분석: 사용자 의견(생략 가능)을 붙여 에이전트에게 더 조사시킨다. 결정은 아니므로 카드는 확인 중이 될 뿐이다
+        if (url === '/__spec/report/analyze') {
+          const id = String(b.id || '');
+          if (!buildModel(scanRoot).reports.some((r) => r.id === id)) throw new Error('이 항목을 찾지 못했다 — 화면을 새로 고쳐 다시 본다');
+          return json(res, addNote(scanRoot, id, { by: 'user', text: String(b.opinion || '') }));
+        }
         // 묶음 처리: 같은 판단을 여러 줄에 한꺼번에 내린다. 요청으로 등록하면 고칠 일 하나(요청 하나)로 모은다
         if (url === '/__spec/report/decide-many') {
           const ids = (Array.isArray(b.ids) ? b.ids : []).map(String), state = String(b.state || '');
           if (!ids.length) throw new Error('처리할 항목이 없다');
-          if (state !== 'registered' && state !== 'intended' && state !== 'ignored') throw new Error('처리는 요청으로 등록·의도한 것·무시 중 하나다');
+          if (state !== 'registered' && state !== 'kept' && state !== 'tool') throw new Error('처리는 요청으로 처리·그냥 둠·도구 개선으로 전달 중 하나다');
           let request: number | undefined;
           if (state === 'registered') {
             const rows = buildModel(scanRoot).reports.filter((r) => ids.includes(r.id));

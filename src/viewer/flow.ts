@@ -90,7 +90,7 @@ function touches(model: Model, sc: Scenario): { screens: string[]; components: s
   return { screens, components, infos };
 }
 /** 이 시나리오에 걸린 확인 필요(처리 전) */
-const reviewsOf = (model: Model, sc: Scenario): ReportRow[] => model.reports.filter((r) => r.review && !r.decision && r.review.scenarios.includes(sc.name));
+const reviewsOf = (model: Model, sc: Scenario): ReportRow[] => model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.scenarios.includes(sc.name));
 /** 이 시나리오를 범위로 하는 진행 중인 요청 */
 const requestsOf = (model: Model, sc: Scenario): RequestView[] => model.requests.filter((r) => r.turn !== null || (r.stage !== 'done' && r.stage !== 'cancelled')).filter((r) => (r.scope.scenarios ?? []).includes(sc.name));
 const hasBranch = (sc: Scenario): boolean => sc.steps.some((s) => !s.main);

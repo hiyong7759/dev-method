@@ -40,7 +40,7 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
   if (!info) return sidePanel({ title: name, onClose, body: h('div', { class: 'empty-note' }, `정보 ${name}을 찾지 못했다`) });
   const screenNames = new Set(model.screens.map((s) => s.name));
   const used = [...new Set(ROLES.flatMap((r) => info.flow[r]))].filter((n) => screenNames.has(n));
-  const flaggedProps = new Set(model.reports.filter((r) => r.review && !r.decision && r.review.info === name).map((r) => r.review?.prop));
+  const flaggedProps = new Set(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === name).map((r) => r.review?.prop));
   const flagged = info.flagged;
   const mine = new Set((model.screens.find((x) => x.name === currentScreen)?.fields ?? []).filter((f) => f.info === name).map((f) => f.prop));
   const sorted = [...info.props].sort((x, y) => Number(flaggedProps.has(y.name)) - Number(flaggedProps.has(x.name)));
@@ -54,7 +54,7 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
           const roles = ROLES.filter((r) => p.roles[r].length);
           return h('div', { class: `frow${focusField === p.name ? ' focus' : ''}${mine.has(p.name) ? ' mine' : ''}`, title: p.doc },
             h('span', { class: 'mono fname' }, p.name),
-            h('span', { class: 'froles' }, roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])), reportLink(model.reports.filter((r) => r.review && !r.decision && r.review.info === name && r.review.prop === p.name), `정보 흐름 · ${name}`)));
+            h('span', { class: 'froles' }, roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])), reportLink(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === name && r.review.prop === p.name), `정보 흐름 · ${name}`)));
         }))),
       h('div', { class: 'card' }, h('h3', null, '쓰이는 화면'),
         used.length ? h('div', { class: 'tagrow' }, used.map((n) => h('button', { class: `tag c${n === currentScreen ? ' here' : ''}`, onclick: () => openScreen(n) }, n))) : h('div', { class: 'hint' }, '화면에서 쓰이지 않는다(내부용)')),

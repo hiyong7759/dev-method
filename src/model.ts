@@ -222,8 +222,8 @@ export function buildModel(scanRoot: string): Model {
   }
   const store = loadReports(scanRoot);
   const numbers = assignNumbers(scanRoot, [...store.items.map((a) => a.id), ...reviews.map((r) => r.id).sort()]);
-  const rows = reportRows(store.items, reviews, store.decisions, numbers, new Set(screens.map((s) => s.name)), new Set(infos.map((i) => i.name)));
-  for (const i of infos) i.flagged = rows.filter((r) => r.review && !r.decision && r.review.info === i.name).length;
+  const rows = reportRows(store.items, reviews, store.decisions, store.notes, numbers, new Set(screens.map((s) => s.name)), new Set(infos.map((i) => i.name)));
+  for (const i of infos) i.flagged = rows.filter((r) => r.review && !r.decision && !r.tool && r.review.info === i.name).length;
 
   for (const i of infos) for (const p of i.props) p.evidence = p.evidence.slice(0, 12);
   const componentsOf = (r: Request): string[] => [...new Set(out.scenarios.filter((sc) => (r.scope.scenarios ?? []).includes(sc.name)).flatMap((sc) => sc.steps.map((st) => st.owner)))];

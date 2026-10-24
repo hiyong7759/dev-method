@@ -891,17 +891,35 @@ export interface ProjectConfig {
 
 // ── 확인 필요 · 리포트 · 용어집 ───────────────────────────
 
-/** 사람이 내린 결정: 요청으로 등록 / 의도한 것 / 무시 */
+/** 사람이 내린 결정: 요청으로 처리 / 그냥 둠 / 도구 개선으로 전달 (더 분석은 결정이 아니라 메모로 남는다) */
 export interface Decision {
-  /** 결정 */
-  state: 'registered' | 'intended' | 'ignored';
-  /** 요청으로 등록했다면 그 요청 번호 */
+  /** 결정 (예전 기록의 '의도한 것'·'무시'는 읽을 때 '그냥 둠'이 된다) */
+  state: 'registered' | 'kept' | 'tool';
+  /** 요청으로 처리했다면 그 요청 번호 */
   request?: number;
-  /** 의도한 것이면 이유 한 줄 */
+  /** 그냥 둔 이유 한 줄(생략 가능) */
   reason?: string;
   /** 결정한 시각 */
   at: string;
 }
+
+/** 세 갈래 중 사용자가 고를 수 있는 것(더 분석 포함) */
+export type Choice = 'registered' | 'kept' | 'analyze';
+
+/** 더 분석 기록 한 줄: 사용자 의견이나 에이전트 조사 결과 */
+export interface ReportNote {
+  /** 누가 남겼나 */
+  by: 'user' | 'agent';
+  /** 의견이나 조사 내용 */
+  text: string;
+  /** 에이전트가 남겼다면 새 추천 */
+  recommend?: Choice;
+  /** 남긴 시각 */
+  at: string;
+}
+
+/** 카드 상태: 처리 전 · 확인 중(사용자 의견을 달아 에이전트가 조사하는 중) · 결정 대기(조사 결과가 붙음) · 처리함 */
+export type ReportStage = '처리 전' | '확인 중' | '결정 대기' | '처리함';
 
 /** 에이전트가 올린 리포트(발견한 것) */
 export interface AgentReport {
@@ -921,6 +939,10 @@ export interface AgentReport {
   at: string;
   /** 이번 요청의 범위 밖에서 발견했는가 */
   outOfScope: boolean;
+  /** 에이전트 추천(없으면 아직 정리하지 않은 것) */
+  recommend?: Choice;
+  /** 추천 이유 한 줄 */
+  why?: string;
 }
 
 /** 확인 필요 한 건(코드에서 계산) */
@@ -971,6 +993,14 @@ export interface ReportRow {
   decision: Decision | null;
   /** 확인 필요라면 그 항목 */
   review: ReviewItem | null;
+  /** 도구가 못 읽어서 생긴 것인가(프로젝트 결정 대상이 아니라 도구 개선으로 전달할 것) */
+  tool: boolean;
+  /** 더 분석 기록(오래된 것부터) */
+  notes: ReportNote[];
+  /** 카드 상태 */
+  stage: ReportStage;
+  /** 에이전트 추천과 이유(추천이 없으면 pick이 없다) */
+  recommend: { pick: Choice | null; why: string };
 }
 
 /** 우리가 만든 용어 한 개 */
