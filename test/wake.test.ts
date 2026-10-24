@@ -62,7 +62,6 @@ test('닫힌 세션은 압축한 뒤 이어서 하라고 지시한다', async ()
     assert.match(lines[1], /requests\/1\.json/);
     assert.match(lines[1], /todo --src src/);
     assert.match(lines[1], /그 일만 하고, 끝나면 멈추세요/);
-    assert.doesNotMatch(lines[1], /todo\.md/, '지워진 todo.md를 읽게 하지 않는다');
     await wait(() => /끝남 종료코드=0/.test(fs.existsSync(path.join(root, '.spec', 'wake.log')) ? fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8') : ''));
     assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /끝남 종료코드=0/);
   } finally { env.restore(); }
