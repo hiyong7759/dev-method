@@ -71,6 +71,14 @@ function lastRejection(r: RequestView): HTMLElement | null {
     h('div', { class: 'quote' }, (e.note ?? '').replace(/^설계 반려:\s*/, '') || '(사유 없음)'));
 }
 
+/** 구현하다 막혀서 같이 고친 일 목록(없으면 null). 구현 칸과 테스트 확인에서 같은 모양으로 보인다 */
+function alsoFixedBox(r: RequestView, hint: boolean): HTMLElement | null {
+  const a = r.alsoFixed ?? [];
+  if (!a.length) return null;
+  return h('div', { class: 'box dash2' }, h('b', null, `구현하다 막혀서 함께 고친 것 ${a.length}건`), hint ? h('span', { class: 'hint' }, ' 이 요청의 테스트에 영향을 줍니다. 기능과 같이 확인하세요.') : null,
+    a.map((x) => h('div', { style: 'margin-top:6px' }, x.text, h('div', { class: 'hint' }, `${[x.where && `고친 곳: ${x.where}`, fmt(x.at), x.commit && `커밋 ${x.commit}`].filter(Boolean).join(' · ')}`))));
+}
+
 function designApproval(r: RequestView, onChange: () => void): HTMLElement {
   const d = r.design;
   const none = !!d?.none;
@@ -193,6 +201,7 @@ function testCard(model: Model, r: RequestView, onChange: () => void): HTMLEleme
     sendBasket({ request: r.id, note: stashed ? '' : note.value }).then(() => { toast('한번에 보내고 반려했습니다. 같은 요청에서 고칩니다'); onChange(); }).catch((e: unknown) => toast(errorText(e)));
   };
   return h('div', { class: 'card' }, h('h3', null, '테스트 요청 ', h('small', null, '범위 안의 단계만 보면 됩니다')),
+    alsoFixedBox(r, true),
     scs.length ? h('div', { class: 'hint' }, '시나리오 이름 옆 "첫 화면 열기"를 누르면 그 시나리오의 첫 화면이 새 창으로 열리고, 그 창의 오른쪽 코멘트 창에서 단계를 따라가며 코멘트를 담습니다. 다 본 뒤 거기서 "한번에 보내기(반려)"나 "승인"으로 끝내도 됩니다. 아래 순서대로 눌러 보고 확인 기준에 맞으면 체크하세요.') : null,
     scs.length ? scs.map((sc) => testScenario(model, r, sc, impact.has(sc.name), onChange))
       : noTestOnly ? h('div', { class: 'box' }, h('b', null, '테스트 없음'), h('div', null, r.noTest || '등록할 때 적은 이유가 없습니다(화면이 없는 요청).'))
@@ -222,6 +231,7 @@ function testCard(model: Model, r: RequestView, onChange: () => void): HTMLEleme
  * @does 접수된 요청의 "시작"을 누른다 | 설계 작성 중으로 바뀌고 요청을 맡을 담당 세션이 새로 만들어진다 | 요청을 시작하고 설계를 승인한다#1 | → 2
  * @does 올라온 설계(정보 변경 요약·화면 시안)를 읽고 승인하거나 반려한다 | 승인하면 구현으로, 반려하면 설계 다시 작성 중으로 넘어간다 | 요청을 시작하고 설계를 승인한다#2
  * @does 반려해서 설계 다시 작성 중인 요청의 오른쪽 패널을 본다 | 가장 최근 반려의 사유·시각·몇 번째인지가 보인다 | 반려한 사유를 다시 쓰는 동안 확인한다#1
+ * @does 함께 고친 것이 남은 요청의 구현 칸과 테스트 요청 카드를 본다 | 구현 칸에 "함께 고친 것 N건"이 보이고 테스트 요청 카드에 같은 목록이 점선 상자로 보인다 | 구현하다 막혀 함께 고친 것을 확인한다#1
  * @does 테스트 칸에서 시나리오 옆 "첫 화면 열기"를 누른다 | 새 창에 첫 화면이 열리고 오른쪽 코멘트 창에 경로 단계 목록이 나온다 | 테스트를 경로 따라가며 승인한다#1 | → 2
  * @does 단계마다 대상을 고르고 코멘트를 담은 뒤 "다음 화면"으로 간다 | 다음 단계의 화면으로 넘어가고 담은 코멘트가 쌓인다 | 테스트를 경로 따라가며 승인한다#2 | → 3
  * @does 경로 끝에서 "승인"이나 "한번에 보내기(반려)"를 누른다 | 승인하면 요청이 끝나고, 반려하면 담은 코멘트가 한 묶음으로 가며 같은 요청에서 고친다 | 테스트를 경로 따라가며 승인한다#3
@@ -265,8 +275,8 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
       [d && (!d.none || d.understanding) ? designText(d) : null,
         designResult(model, r), designEvents.length ? h('div', { class: 'tl' }, designEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`, e.quote ? h('div', { class: 'hint', style: 'margin-top:2px' }, `사용자가 한 말: “${e.quote}”`) : null)))) : h('div', { class: 'hint' }, '설계 기록이 없습니다.')],
       { label: designState, cur: idx === 0 }),
-    fold('impl', '구현', idx === 1, r.commits?.length ? `커밋 ${r.commits.length}개 (${r.commits.join(', ')})${at('test-requested') ? ` · ${fmt(at('test-requested')!.at)} 테스트 요청` : ''}` : idx < 1 ? '설계 승인 뒤에 시작합니다' : '남은 커밋 기록이 없습니다',
-      implEvents.length ? h('div', { class: 'tl' }, implEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${fmt(e.at)}`)))) : h('div', { class: 'hint' }, '구현 기록이 없습니다.'),
+    fold('impl', '구현', idx === 1, r.commits?.length ? `커밋 ${r.commits.length}개 (${r.commits.join(', ')})${at('test-requested') ? ` · ${fmt(at('test-requested')!.at)} 테스트 요청` : ''}${r.alsoFixed?.length ? ` · 함께 고친 것 ${r.alsoFixed.length}건` : ''}` : idx < 1 ? '설계 승인 뒤에 시작합니다' : `남은 커밋 기록이 없습니다${r.alsoFixed?.length ? ` · 함께 고친 것 ${r.alsoFixed.length}건` : ''}`,
+      [alsoFixedBox(r, false), implEvents.length ? h('div', { class: 'tl' }, implEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${fmt(e.at)}`)))) : h('div', { class: 'hint' }, '구현 기록이 없습니다.')],
       { later: idx < 1, cur: idx === 1, label: idx === 1 ? chip('me', '지금 단계') : null }),
     fold('scope', '범위', idx === 1 || idx === 2, `${(r.scope.scenarios ?? []).length}개 시나리오 · 화면 ${r.scope.screens.join(', ') || '없음'} · 정보 ${r.scope.infos.join(', ') || '없음'}${comps.length ? ` · 컴포넌트 ${comps.join(', ')}` : ''}`, scopeBody(model, r), { cur: idx === 2 }),
     fold('overlap', '다른 요청과 겹침', idx === 1 || idx === 2, r.overlaps.length ? `${r.overlaps.length}건 — ${r.overlaps.slice(0, 3).map((o) => `#${o.id}`).join(', ')}${r.overlaps.length > 3 ? ' …' : ''}` : '없음', overlapBody(r, onChange, model), { cur: idx === 2 }),

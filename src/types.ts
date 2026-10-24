@@ -291,6 +291,18 @@ export interface DesignView {
   verifyLater: string[];
 }
 
+/** 구현 중 막혀서 같은 세션에서 함께 고친 일 한 건 */
+export interface AlsoFixed {
+  /** 남긴 시각 */
+  at: string;
+  /** 막혔던 일과 고친 일(쉬운 말) */
+  text: string;
+  /** 고친 곳(화면 이름이나 파일, 없으면 빈 글) */
+  where: string;
+  /** 고친 커밋(짧은 해시, 없으면 빈 글) */
+  commit: string;
+}
+
 /** .spec/requests/<번호>.json 하나 */
 export interface Request {
   /** 요청 번호(커밋의 요청 줄과 이어 주는 열쇠) */
@@ -338,6 +350,8 @@ export interface Request {
   test?: RequestTest;
   /** 구현으로 남은 커밋들(짧은 해시) */
   commits?: string[];
+  /** 구현하다 막혀서 같은 세션에서 함께 고친 일들(요청 상세의 구현 칸과 테스트 확인에 보인다) */
+  alsoFixed?: AlsoFixed[];
   /** 이 요청이 끝나길 기다려야 하는 요청 번호들(겹치는 요청의 순서) */
   waitFor?: number[];
   /** 화면도 시나리오도 없는 요청이 등록할 때 적은 "테스트 없음" 이유(설계에 화면이 생기면 효력이 없어진다) */

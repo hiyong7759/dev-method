@@ -2,7 +2,7 @@
  * @spec requests 변경 요청 저장
  * @why 현재를 바꾸는 모든 일을 "요청" 하나의 흐름(설계 → 구현 → 테스트 → 완료)으로 모아, 언제 왜 어떻게 바뀌었는지 한곳에서 따라가게 한다. 요청 하나가 파일 하나(.spec/requests/<번호>.json)라서 여러 PC에서 git으로 나눠 써도 서로 다른 요청은 부딪치지 않는다.
  * @basis 모든 변경이 같은 요청 흐름을 거친다 (사용자 결정)
- * @contract 새 요청은 접수 절차(rules/intake.md)를 거쳐 합칠 요청을 먼저 찾는다: `similar`는 후보를 보이기만 하고, `merge`는 사용자 말 인용이 있어야 접수·설계 작성 중인 요청끼리 합친다. 요청 파일의 모양(types.ts의 Request)을 바꾸면 model.ts의 요청 목록과 viewer/manage-*.ts의 관리 화면도 함께 고친다. 에이전트는 이 모듈의 명령(add, design, impl, test, fixed, found, agent, list)으로만 요청을 움직이고, 승인·반려·순서 정하기는 사용자 화면(middleware.ts)이 하고, 대화로 결정했을 때는 사용자 말 인용을 붙인 approve-*·reject-design·test-problem이 같은 기록과 담당 세션 전달을 한다.
+ * @contract 새 요청은 접수 절차(rules/intake.md)를 거쳐 합칠 요청을 먼저 찾는다: `similar`는 후보를 보이기만 하고, `merge`는 사용자 말 인용이 있어야 접수·설계 작성 중인 요청끼리 합친다. 요청 파일의 모양(types.ts의 Request)을 바꾸면 model.ts의 요청 목록과 viewer/manage-*.ts의 관리 화면도 함께 고친다. 에이전트는 이 모듈의 명령(add, design, impl, test, fixed, found, also, agent, list)으로만 요청을 움직이고, 승인·반려·순서 정하기는 사용자 화면(middleware.ts)이 하고, 대화로 결정했을 때는 사용자 말 인용을 붙인 approve-*·reject-design·test-problem이 같은 기록과 담당 세션 전달을 한다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -281,6 +281,15 @@ export function requestTest(scanRoot: string, id: number): Request {
   return record(scanRoot, r, 'agent', 'test-requested', again ? '고친 뒤 테스트 다시 요청' : '구현을 마치고 테스트 요청');
 }
 
+/** 구현하다 막혀서 같은 세션에서 함께 고친 일을 요청에 남긴다(구현·테스트 단계에서만, 크기는 사용자가 보고 판단한다) */
+export function addAlsoFixed(scanRoot: string, id: number, o: { text: string; where?: string; commit?: string }): Request {
+  if (!o.text?.trim()) throw new Error('함께 고친 내용(--text)이 비었다');
+  const r = loadOne(scanRoot, id);
+  if (r.stage !== 'impl' && r.stage !== 'test') throw new Error(`요청 #${id}은 함께 고친 것을 남길 단계가 아니다(지금: ${STAGE_LABEL[r.stage]}). 구현 중에 막혔을 때만 남긴다`);
+  r.alsoFixed = [...(r.alsoFixed ?? []), { at: new Date().toISOString(), text: o.text.trim(), where: (o.where ?? '').trim(), commit: (o.commit ?? '').trim() }];
+  return record(scanRoot, r, 'agent', 'also-fixed', `함께 고침: ${o.text.trim()}`);
+}
+
 /** 요청의 범위에 사용 시나리오(와 바뀌는 단계)를 연결한다. 이미 있는 것에 더한다 */
 export function setScope(scanRoot: string, id: number, o: { scenarios?: string[]; steps?: string[]; impactOnly?: string[] }): Request {
   const r = loadOne(scanRoot, id);
@@ -482,6 +491,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const r = requestTest(scanRoot, id); console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
     } else if (pos[0] === 'scope') {
       const r = setScope(scanRoot, id, { scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact) }); console.log(`요청 #${r.id}: 범위에 시나리오를 연결했다`);
+    } else if (pos[0] === 'also') {
+      const r = addAlsoFixed(scanRoot, id, { text: opts.text, where: opts.where, commit: opts.commit }); console.log(`요청 #${r.id}: 함께 고친 것 ${r.alsoFixed!.length}건째를 남겼다`);
     } else if (pos[0] === 'found') {
       const r = foundOutside(scanRoot, id, opts.text); console.log(`요청 #${r.id}: 범위 밖 발견을 리포트로도 올렸다`);
     } else if (['approve-design', 'approve-test', 'reject-design', 'test-problem'].includes(pos[0])) {
@@ -509,6 +520,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
         '  test --id N                      (구현을 마치고 테스트를 올림. 고친 뒤 다시 올릴 때도 같다)',
         '  scope --id N [--scenarios 시나리오1,…] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오]   (범위에 시나리오를 연결. 화면이 있는 요청은 시나리오가 있어야 test를 올릴 수 있다)',
+        '  also --id N --text "막혔던 일과 고친 일" [--where 화면이나 파일] [--commit 해시]   (구현하다 막혀서 같은 세션에서 함께 고친 일을 남긴다. 구현·테스트 단계에서만. 화면 모양·정보·사용 흐름이 바뀌는 일이면 남기지 말고 멈춰서 설계로 간다)',
         '  found --id N --text "범위 밖에서 발견한 것"',
         '  approve-design --id N --quote "사용자가 한 말"   (사용자가 대화에서 설계를 승인했을 때만. 인용이 없으면 못 한다)',
         '  approve-test --id N --quote "사용자가 한 말" [--none true]   (사용자가 대화에서 테스트를 승인했을 때만)',
