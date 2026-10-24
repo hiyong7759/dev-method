@@ -1,0 +1,30 @@
+{
+  "id": 60,
+  "title": "요청을 접수할 때 겹치는 요청을 먼저 찾아, 같은 흐름이면 새로 만들지 않고 그 요청에 요구를 덧붙인다",
+  "source": "user",
+  "origin": {
+    "text": "연관있거나 같이 처리해야할 내용들은 요구사항을 합쳐서 같이 처리하게 해야지",
+    "channel": "대화",
+    "at": "2026-10-24T08:18:44.123Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "queued",
+  "events": [
+    {
+      "at": "2026-10-24T08:18:44.123Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
