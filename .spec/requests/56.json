@@ -1,0 +1,36 @@
+{
+  "id": 56,
+  "title": "인수인계 메모(todo.md)를 없애고 내용을 규칙 문서로 옮김",
+  "source": "user",
+  "origin": {
+    "text": "todo.md가 왜 필요한거야? 왜 자꾸 쓸때없이 중복관리되게 만들지? 메모리랑 claude.md랑 스킬에 적절한곳에 넣고 할일은 요청 목록에 있는데 / 어 정리해",
+    "channel": "대화",
+    "at": "2026-10-24T07:45:18.962Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "drafting",
+  "events": [
+    {
+      "at": "2026-10-24T07:45:18.962Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-24T07:45:19.134Z",
+      "by": "agent",
+      "kind": "started",
+      "note": "설계를 시작함(우선순위를 정해 시작)"
+    }
+  ]
+}

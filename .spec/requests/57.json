@@ -1,0 +1,30 @@
+{
+  "id": 57,
+  "title": "전역 브라우저 차단 훅 등록과 pupai·cozaway·chungbuk-twin에 commit-msg·담당 세션 훅 설치",
+  "source": "user",
+  "origin": {
+    "text": "todo.md의 사용자 확인 대기 항목을 요청으로 옮김(사용자 확인 뒤에 진행)",
+    "channel": "대화",
+    "at": "2026-10-24T07:45:19.049Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "queued",
+  "events": [
+    {
+      "at": "2026-10-24T07:45:19.049Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
