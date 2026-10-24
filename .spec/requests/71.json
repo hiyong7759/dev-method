@@ -21,8 +21,8 @@
   "agent": {
     "name": "요청 #71 담당"
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-24T13:34:08.409Z",
@@ -71,6 +71,18 @@
       "by": "agent",
       "kind": "scope",
       "note": "범위에 시나리오 연결: 구현하다 막혀 함께 고친 것을 확인한다"
+    },
+    {
+      "at": "2026-10-24T14:00:03.364Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 b150f68"
+    },
+    {
+      "at": "2026-10-24T14:01:35.228Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
     }
   ],
   "design": {
@@ -126,5 +138,13 @@
     ],
     "none": false,
     "rejected": 0
+  },
+  "commits": [
+    "b150f68"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false
   }
 }
