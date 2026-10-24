@@ -784,20 +784,10 @@ img.shot.zoomable{cursor:zoom-in}
 .dlv-why{color:var(--amber)}.dlv-why.bad{color:var(--red-text);font-weight:600}
 .mg-req.undelivered{border-color:var(--red-strong);background:var(--red-bg)}
 
-/* 요청 상세의 "검토 화면" 칸: 안쪽 화면만 테스트 데이터로 띄운다 */
-.review-card{border-color:var(--amber-deep)}
-.review-card .rf-head{display:flex;gap:10px;align-items:center;margin-bottom:8px}
-.review-card .rchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-.rchip{border:1px solid var(--line);border-radius:14px;padding:3px 12px;background:transparent;color:var(--text);font:inherit;font-size:12px;cursor:pointer}
-.rchip.on{background:var(--amber-bg);border-color:var(--amber-deep);color:var(--amber);font-weight:700}
-.review-frame{background:var(--inset)}
-
-/* 검토 화면 확대: 뒤는 어둡고 흐리게, 가장자리는 호박색으로 "테스트 데이터"임을 알린다 */
-.rf-veil{position:fixed;inset:0;z-index:1000;background:rgba(10,10,14,.6);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center}
-.rf-full{width:calc(100vw - 80px);height:calc(100vh - 56px);display:flex;flex-direction:column;border:3px solid var(--amber-deep);border-radius:12px;background:var(--bg);box-shadow:0 0 0 6px rgba(240,180,41,.25),0 20px 60px rgba(0,0,0,.6);overflow:hidden}
-.rf-bar{display:flex;gap:10px;align-items:center;padding:8px 14px;background:var(--amber-bg);border-bottom:1px solid var(--amber-deep);flex-wrap:wrap}
-.rf-bar .grow{flex:1}
-.rf-full .review-frame{flex:1;width:100%;height:auto;border:0;border-radius:0}
-.review-card .rf-head .grow{flex:1}
-.rf-how{padding:6px 14px;border-bottom:1px solid var(--line);background:var(--bg2);min-height:0}
-.rf-how:empty{display:none}
+/* 테스트 데이터로 하는 테스트임을 눌러 보기 전에 알리는 안내와, 그 데이터로 뜬 서버 화면의 표시 */
+.td-notice{margin:0 0 12px;padding:12px 14px;border:2px solid var(--amber-deep);border-radius:10px;background:var(--amber-bg);color:var(--amber);font-size:14px;line-height:1.5}
+.td-notice b{font-size:15px}
+a.open.td{border-color:var(--amber-deep);color:var(--amber)}
+.td-band{position:fixed;left:0;right:0;top:0;z-index:2000;background:var(--hl);color:var(--on-hl);font-weight:800;font-size:15px;padding:7px 16px;text-align:center}
+.td-edge{position:fixed;inset:0;border:5px solid var(--hl);pointer-events:none;z-index:1999}
+body.td-on{padding-top:34px;box-sizing:border-box}
