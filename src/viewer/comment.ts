@@ -146,7 +146,7 @@ export function commentTool(init: Model): CommentTool {
   async function pickTarget(target: CommentTarget): Promise<void> {
     stopPick(); open = true;
     draft = { target, shot: '', text: draft?.text ?? '' }; draw();
-    if (target.kind === 'part') return; // 부품은 번호·이름·소스 위치로 충분하다. 캡처는 영역·화면 전체·항목에만 붙인다
+    if (target.kind === 'part' || target.kind === 'item') return; // 부품·항목은 이름과 소스 위치로 충분하다. 캡처는 영역 그리기·화면 전체에만 붙인다
     const shot = await capture(target);
     if (draft && draft.target === target) { draft.shot = shot; draw(); }
   }
@@ -196,7 +196,7 @@ export function commentTool(init: Model): CommentTool {
     ta.value = d.text;
     return h('div', { class: 'cm-th new' },
       h('div', { class: 'cm-tg' }, chip('ag', '작성 중'), tag('c', t.label), t.kind === 'region' ? tag('', '영역 지정') : null),
-      h('span', { class: 'hint' }, '자동으로 붙는 것: ', t.src ? h('span', { class: 'mono' }, `${t.src} · `) : null, '지금 화면 주소', d.shot ? ' · 화면 캡처' : t.kind === 'part' ? '' : ' · (캡처는 못 찍었습니다)'),
+      h('span', { class: 'hint' }, '자동으로 붙는 것: ', t.src ? h('span', { class: 'mono' }, `${t.src} · `) : null, '지금 화면 주소', d.shot ? ' · 화면 캡처' : t.kind === 'part' || t.kind === 'item' ? '' : ' · (캡처는 못 찍었습니다)'),
       ta, d.shot ? h('img', { class: 'cm-shot', src: d.shot, alt: '같이 보낼 캡처' }) : null,
       h('div', { class: 'cm-foot' }, h('button', { class: 'btn pri sm', onclick: () => { void send(); } }, '에이전트에게 보내기'), h('button', { class: 'btn sm', onclick: () => { draft = null; draw(); } }, '취소'),
         h('button', { class: 'btn sm', onclick: startPick }, '대상 다시 고르기')));
