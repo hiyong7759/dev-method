@@ -2,7 +2,7 @@
  * @spec open 설계서 보기 한 번에 띄우기
  * @why 프로젝트 이름만 대면 서버 둘을 따로 띄우지 않아도 설계서 보기가 열리게 한다. 사용자도 에이전트도 같은 한 줄이다. 앱 개발 서버(꺼져 있으면 시작) → 설계서 보기 서버(serve) → 브라우저 순서로 띄운다.
  * @basis 프로젝트 이름은 install.sh spec으로 등록된 프로젝트의 폴더 이름(spec-projects.txt)이고, 설정은 <프로젝트>/.spec/config.json이다. 앱 개발 서버가 없는 프로젝트는 설정의 app을 null로 둔다.
- * @contract 옵션: --no-open은 브라우저를 열지 않는다(에이전트가 끝낼 때 확인용으로 띄울 때), --stop은 이 도구가 띄운 서버를 끈다. 띄운 서버의 번호는 <프로젝트>/.spec/pids.json에 적는다.
+ * @contract 옵션: --no-open은 ego-browser를 열지 않는다(에이전트가 끝낼 때 확인용으로 띄울 때), --stop은 이 도구가 띄운 서버를 끈다. 띄운 서버의 번호는 <프로젝트>/.spec/pids.json에 적는다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -114,8 +114,10 @@ export async function main(argv: string[]): Promise<number | undefined> {
   }
   console.log(`\n설계서 보기: ${base}/`);
   if (!flags.has('no-open')) {
-    const opener: [string, string[]] = process.platform === 'darwin' ? ['open', [`${base}/`]] : process.platform === 'win32' ? ['cmd', ['/c', 'start', '', `${base}/`]] : ['xdg-open', [`${base}/`]];
-    spawnSync(opener[0], opener[1], { stdio: 'ignore' });
+    // 화면을 여는 브라우저는 ego-browser만 쓴다(운영체제 기본 브라우저나 Chrome을 직접 열지 않는다)
+    const task = `const task = await taskSpace("설계서 보기"); const page = task.page("p1"); await page.goto(${JSON.stringify(`${base}/`)});`;
+    const r = spawnSync('ego-browser', ['nodejs'], { input: task, encoding: 'utf8', timeout: 60000 });
+    if (r.error || r.status !== 0) console.error(`ego-browser로 열지 못했다. 직접 열려면 ${base}/ — ${r.error ? r.error.message : (r.stderr || r.stdout).trim().split('\n').slice(-1)[0]}`);
   }
   return 0;
 }
