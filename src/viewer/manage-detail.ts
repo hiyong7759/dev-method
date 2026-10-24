@@ -79,14 +79,25 @@ function reviewFrameCard(model: Model, r: RequestView): HTMLElement | null {
   const KIND: Record<string, string> = { normal: '● 정상', edge: '▲ 경계', error: '■ 오류' };
   const urlOf = (c?: { label: string; scenario: string }): string => (c ? `${f.url}${f.url.includes('?') ? '&' : '?'}dataset=${encodeURIComponent(c.label)}&scenario=${encodeURIComponent(c.scenario)}` : f.url);
   const first = cases.find((c) => c.kind === 'normal') ?? cases[0];
-  const frame = h('iframe', { class: 'review-frame', src: urlOf(first), title: '검토 화면(테스트 데이터)' });
-  const chips = cases.map((c) => {
-    const b = h('button', { class: `rchip ${c.kind}${c === first ? ' on' : ''}`, title: c.how || c.scenario, onclick: () => { frame.setAttribute('src', urlOf(c)); b.parentElement?.querySelectorAll('.rchip').forEach((x) => x.classList.toggle('on', x === b)); } }, `${KIND[c.kind]} · ${c.label}`);
-    return b;
-  });
-  return h('div', { class: 'card review-card' }, h('div', { class: 'rf-head' }, h('b', null, '검토 화면'), h('span', { class: 'testenv' }, '테스트 데이터'), h('span', { class: 'hint' }, '저장소 밖 · 운영 데이터 아님')),
-    cases.length ? h('div', { class: 'rchips' }, chips) : h('div', { class: 'hint' }, '아직 이 요청의 테스트 데이터가 없습니다. 에이전트가 `testdata seed`로 정상·경계·오류 데이터를 채우면 칩으로 고를 수 있습니다.'),
-    frame);
+  let cur = first;
+  /** 전체 화면으로 확대: 뒤는 어둡고 흐리게 가리고 가장자리에 호박색 테두리와 "테스트 데이터" 띠를 둬, 운영이 아님이 한눈에 보이게 한다. 안쪽 화면은 확대할 때만 띄운다 */
+  const open = (): void => {
+    const frame = h('iframe', { class: 'review-frame', src: urlOf(cur), title: '검토 화면(테스트 데이터)' });
+    const bar = h('div', { class: 'rf-bar' });
+    const close = (): void => { document.removeEventListener('keydown', onKey); veil.remove(); };
+    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') close(); };
+    const chips = cases.map((c) => {
+      const b = h('button', { class: `rchip ${c.kind}${c === cur ? ' on' : ''}`, title: c.how || c.scenario, onclick: () => { cur = c; frame.setAttribute('src', urlOf(c)); bar.querySelectorAll('.rchip').forEach((x) => x.classList.toggle('on', x === b)); } }, `${KIND[c.kind]} · ${c.label}`);
+      return b;
+    });
+    bar.append(h('span', { class: 'testenv' }, '테스트 데이터'), h('b', null, '운영 데이터가 아닙니다'), ...chips, h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: close }, '닫기 ✕'));
+    const veil = h('div', { class: 'rf-veil', onclick: (e) => { if (e.target === veil) close(); } }, h('div', { class: 'rf-full' }, bar, frame));
+    document.addEventListener('keydown', onKey);
+    document.body.append(veil);
+  };
+  return h('div', { class: 'card review-card' }, h('div', { class: 'rf-head' }, h('b', null, '검토 화면'), h('span', { class: 'testenv' }, '테스트 데이터'), h('span', { class: 'hint' }, '저장소 밖 · 운영 데이터 아님'), h('span', { class: 'grow' }),
+    h('button', { class: 'btn pri', onclick: open }, '확대해서 보기 ⤢')),
+    cases.length ? h('div', { class: 'hint' }, `데이터 묶음 ${cases.length}개 (${cases.map((c) => KIND[c.kind]).join(' ')}) — 확대하면 위쪽 칩으로 바꿔 가며 써 볼 수 있습니다.`) : h('div', { class: 'hint' }, '아직 이 요청의 테스트 데이터가 없습니다. 에이전트가 `testdata seed`로 정상·경계·오류 데이터를 채우면 확대한 화면 위 칩으로 고를 수 있습니다.'));
 }
 
 /** 구현·테스트 중 설계가 틀렸을 때 설계 단계로 되돌리는 칸(허락 없이 누를 수 있고 이유만 적는다) */
@@ -264,7 +275,7 @@ function testCard(model: Model, r: RequestView, onChange: () => void): HTMLEleme
  * @does 올라온 설계(정보 변경 요약·화면 시안)를 읽고 승인하거나 반려한다 | 승인하면 구현으로, 반려하면 설계 다시 작성 중으로 넘어간다 | 요청을 시작하고 설계를 승인한다#2
  * @does 반려해서 설계 다시 작성 중인 요청의 오른쪽 패널을 본다 | 가장 최근 반려의 사유·시각·몇 번째인지가 보인다 | 반려한 사유를 다시 쓰는 동안 확인한다#1
  * @does 함께 고친 것이 남은 요청의 구현 칸과 테스트 요청 카드를 본다 | 구현 칸에 "함께 고친 것 N건"이 보이고 테스트 요청 카드에 같은 목록이 점선 상자로 보인다 | 구현하다 막혀 함께 고친 것을 확인한다#1
- * @does 구현·테스트 중인 요청에서 가운데 "검토 화면" 칸 위의 정상·경계·오류 칩을 누른다 | 칸 안쪽의 검토 대상 화면만 그 데이터 묶음(테스트 데이터)으로 바뀌고 위쪽 줄과 오른쪽 승인 칸은 그대로 운영이다 | 시나리오별 정상·경계·오류 데이터를 직접 써 본다#1
+ * @does 구현·테스트 중인 요청에서 "검토 화면" 칸의 "확대해서 보기"를 누르고 위쪽 정상·경계·오류 칩을 누른다 | 검토 대상 화면이 전체 화면으로 커지고 뒤는 어둡고 흐려지며 호박색 테두리와 "운영 데이터가 아닙니다" 띠가 붙고, 칩에 따라 그 데이터 묶음(테스트 데이터)으로 바뀐다 | 시나리오별 정상·경계·오류 데이터를 직접 써 본다#1
  * @does 구현·테스트 중 설계가 틀렸다고 보고 오른쪽 패널의 "설계가 잘못됨 → 설계로 되돌리기"를 눌러 이유를 적는다 | 허락 없이 요청이 설계 다시 작성 중으로 돌아가고 이유가 진행 기록에 남으며 담당 세션에 전달된다 | 잘못된 설계를 안고 가지 않고 설계를 고쳐 다시 승인받는다#1
  * @does 테스트 칸에서 시나리오 옆"첫 화면 열기"를 누른다 | 새 창에 첫 화면이 열리고 오른쪽 코멘트 창에 경로 단계 목록이 나온다 | 테스트를 경로 따라가며 승인한다#1 | → 2
  * @does 단계마다 대상을 고르고 코멘트를 담은 뒤 "다음 화면"으로 간다 | 다음 단계의 화면으로 넘어가고 담은 코멘트가 쌓인다 | 테스트를 경로 따라가며 승인한다#2 | → 3

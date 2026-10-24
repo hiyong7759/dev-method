@@ -790,4 +790,12 @@ img.shot.zoomable{cursor:zoom-in}
 .review-card .rchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .rchip{border:1px solid var(--line);border-radius:14px;padding:3px 12px;background:transparent;color:var(--text);font:inherit;font-size:12px;cursor:pointer}
 .rchip.on{background:var(--amber-bg);border-color:var(--amber-deep);color:var(--amber);font-weight:700}
-.review-frame{width:100%;height:420px;border:2px dashed var(--amber-deep);border-radius:8px;background:var(--inset)}
+.review-frame{background:var(--inset)}
+
+/* 검토 화면 확대: 뒤는 어둡고 흐리게, 가장자리는 호박색으로 "테스트 데이터"임을 알린다 */
+.rf-veil{position:fixed;inset:0;z-index:1000;background:rgba(10,10,14,.6);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center}
+.rf-full{width:calc(100vw - 80px);height:calc(100vh - 56px);display:flex;flex-direction:column;border:3px solid var(--amber-deep);border-radius:12px;background:var(--bg);box-shadow:0 0 0 6px rgba(240,180,41,.25),0 20px 60px rgba(0,0,0,.6);overflow:hidden}
+.rf-bar{display:flex;gap:10px;align-items:center;padding:8px 14px;background:var(--amber-bg);border-bottom:1px solid var(--amber-deep);flex-wrap:wrap}
+.rf-bar .grow{flex:1}
+.rf-full .review-frame{flex:1;width:100%;height:auto;border:0;border-radius:0}
+.review-card .rf-head .grow{flex:1}
