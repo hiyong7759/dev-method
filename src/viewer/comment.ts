@@ -156,7 +156,7 @@ export function commentTool(init: Model): CommentTool {
       if (el.closest('.cm-ui')) return null;
       if (r.width >= 24 && r.height >= 16 && r.width * r.height < root.width * root.height * 0.6 && (el.textContent ?? '').trim()) {
         const ox = inFrame && fr ? fr.left : 0, oy = inFrame && fr ? fr.top : 0, v = viewLabel(location.hash);
-        const text = (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 30);
+        const text = (el.innerText ?? el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 30);
         const box = new DOMRect(r.left + ox, r.top + oy, r.width, r.height);
         return { box, target: { kind: 'item', label: `${v.label} › ${text}`, view: location.hash, screen: v.screen, box: { x: box.x, y: box.y, w: box.width, h: box.height } } };
       }
