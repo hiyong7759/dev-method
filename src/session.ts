@@ -74,6 +74,15 @@ export function ownersOf(root: string, id: number): string[] {
   } catch { return []; }
 }
 
+/** 요청의 담당 기록을 모두 지운다(담당을 정한 적 없는 세션이 담당으로 남은 옛 기록을 걷어 낼 때) */
+function unregisterOwners(root: string, id: number): void {
+  try {
+    const all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')) as Record<string, { request: number }>;
+    for (const sid of Object.keys(all)) if (all[sid].request === id) delete all[sid];
+    fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
+  } catch { /* 기록이 없으면 지울 것도 없다 */ }
+}
+
 /** 세션이 어느 요청의 담당인지 적는다(훅이 적는 것과 같은 모양) */
 function registerOwner(root: string, sid: string, id: number): void {
   let all: Record<string, { request: number; seen: string }> = {};
@@ -138,8 +147,13 @@ export function startOwner(scanRoot: string, id: number, why: 'start' | 'decisio
     const root = projectRoot(scanRoot);
     if (!readConfig(root).wake) return null;
     const log = logFile(root);
-    if (ownersOf(root, id).length) { fs.appendFileSync(log, `${new Date().toISOString()} #${id} 담당 세션이 이미 있어 새로 만들지 않음\n`); return null; }
     const req = loadRequests(scanRoot).find((r) => r.id === id);
+    if (ownersOf(root, id).length) {
+      // 담당을 정한 적 없는(request agent를 안 부른) 요청의 옛 담당 기록은 요청을 접수한 세션이 남긴 것이라 담당이 아니다
+      if (req?.agent.name) { fs.appendFileSync(log, `${new Date().toISOString()} #${id} 담당 세션이 이미 있어 새로 만들지 않음\n`); return null; }
+      unregisterOwners(root, id);
+      fs.appendFileSync(log, `${new Date().toISOString()} #${id} 담당을 정한 적 없는 옛 기록이라 걷어 내고 새로 만듦\n`);
+    }
     const sid = crypto.randomUUID();
     const msg = newOwnerMessage(scanRoot, root, req, id, why === 'decision' ? decided || '결정' : '');
     registerOwner(root, sid, id);

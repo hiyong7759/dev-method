@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { wakeOwner } from '../src/wake.js';
 import { startOwner, parseUsage } from '../src/session.js';
-import { addRequest } from '../src/request.js';
+import { addRequest, setAgent } from '../src/request.js';
 import { tempProject } from './helpers.js';
 
 /** 가짜 claude와 가짜 홈을 만들어 환경에 건다. 돌려주는 함수가 원래대로 되돌린다 */
@@ -63,8 +63,21 @@ test('요청을 시작할 때 담당이 없으면 설계를 쓰고 승인 대기
     const line = fs.readFileSync(env.calls, 'utf8').trim().split('\n')[0];
     assert.match(line, /request design --id 1/);
     assert.match(line, /승인 대기에서 멈추세요/);
+    setAgent(src, 1, '요청 #1 담당'); // 새 세션이 request agent로 담당을 정한 뒤
     assert.equal(startOwner(src, 1, 'start'), null, '담당이 이미 있으면 새로 만들지 않는다');
     assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /이미 있어 새로 만들지 않음/);
+  } finally { env.restore(); }
+});
+
+test('요청을 접수만 한 세션이 담당으로 남아 있어도, 담당을 정한 적 없으면 시작할 때 새 세션을 만든다', async () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = tempProject({ wake: true }); addRequest(src, { title: '접수한 세션이 남긴 기록' }); own(root, 'OLD', 1);
+    const sid = startOwner(src, 1, 'start');
+    assert.ok(sid && sid !== 'OLD', '새 세션을 만든다');
+    const sessions = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'sessions.json'), 'utf8')) as Record<string, unknown>;
+    assert.deepEqual(Object.keys(sessions), [sid], '접수한 세션의 옛 담당 기록은 걷어 낸다');
+    await wait(() => fs.existsSync(env.calls));
   } finally { env.restore(); }
 });
 
