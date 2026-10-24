@@ -26,6 +26,7 @@ const NEXT: Record<string, (id: number, note: string) => string> = {
   'design-rejected': (id) => `반려 이유를 읽고 설계를 고쳐 request design --id ${id}로 다시 올리세요.`,
   'test-approved': () => '요청이 완료됐습니다. 더 할 일이 없으면 마무리하세요.',
   'test-problem': (id) => `같은 요청에서 고친 뒤 request test --id ${id}로 테스트를 다시 올리세요.`,
+  merged: (id) => `이 요청에 새 요구가 합쳐졌습니다. 요청 파일(.spec/requests/${id}.json)의 원문을 다시 읽고 설계에 반영하세요.`,
   order: () => '끝나는 순서가 정해졌습니다. 기다려야 하면 먼저 끝나는 요청이 끝난 뒤 시작하세요.',
 };
 

@@ -335,6 +335,12 @@ export interface Request {
   commits?: string[];
   /** 이 요청이 끝나길 기다려야 하는 요청 번호들(겹치는 요청의 순서) */
   waitFor?: number[];
+  /** 이 요청에 합쳐진 요구들(합친 때, 원문, 사용자가 한 말, 없어진 요청 번호) */
+  mergedFrom?: { at: string; text: string; quote: string; from?: number }[];
+  /** 다른 요청에 합쳐져 닫혔으면 남은 요청 번호 */
+  mergedInto?: number;
+  /** 설계가 이미 올라간 요청에는 합칠 수 없어 새로 접수하면서 이어 둔 기존 요청 번호 */
+  relatedTo?: number;
   /** 이 요청을 맡은 에이전트 */
   agent: {
     /** 맡은 세션의 이름(아직 없으면 빈 값) */

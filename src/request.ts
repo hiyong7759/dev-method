@@ -2,7 +2,7 @@
  * @spec requests 변경 요청 저장
  * @why 현재를 바꾸는 모든 일을 "요청" 하나의 흐름(설계 → 구현 → 테스트 → 완료)으로 모아, 언제 왜 어떻게 바뀌었는지 한곳에서 따라가게 한다. 요청 하나가 파일 하나(.spec/requests/<번호>.json)라서 여러 PC에서 git으로 나눠 써도 서로 다른 요청은 부딪치지 않는다.
  * @basis 모든 변경이 같은 요청 흐름을 거친다 (사용자 결정)
- * @contract 요청 파일의 모양(types.ts의 Request)을 바꾸면 model.ts의 요청 목록과 viewer/manage-*.ts의 관리 화면도 함께 고친다. 에이전트는 이 모듈의 명령(add, design, impl, test, fixed, found, agent, list)으로만 요청을 움직이고, 승인·반려·순서 정하기는 사용자 화면(middleware.ts)만 한다.
+ * @contract 새 요청은 접수 절차(rules/intake.md)를 거쳐 합칠 요청을 먼저 찾는다: `similar`는 후보를 보이기만 하고, `merge`는 사용자 말 인용이 있어야 접수·설계 작성 중인 요청끼리 합친다. 요청 파일의 모양(types.ts의 Request)을 바꾸면 model.ts의 요청 목록과 viewer/manage-*.ts의 관리 화면도 함께 고친다. 에이전트는 이 모듈의 명령(add, design, impl, test, fixed, found, agent, list)으로만 요청을 움직이고, 승인·반려·순서 정하기는 사용자 화면(middleware.ts)만 한다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -68,6 +68,8 @@ export interface NewRequest {
   steps?: string[];
   /** 바꾸지 않고 영향만 확인하는 시나리오들 */
   impactOnly?: string[];
+  /** 이어지는 기존 요청 번호(설계가 올라간 요청에는 합칠 수 없을 때) */
+  relatedTo?: number;
   /** 맡은 세션의 이름 */
   agent?: string;
   /** user(사용자 요청) 또는 report(에이전트가 올린 리포트에서 등록) */
@@ -75,7 +77,7 @@ export interface NewRequest {
 }
 
 /** 에이전트가 요청을 만든다 */
-export function addRequest(scanRoot: string, { title, origin = '', channel = '대화', screens = [], infos = [], scenarios = [], steps = [], impactOnly = [], agent = '', source = 'user' }: NewRequest): Request {
+export function addRequest(scanRoot: string, { title, origin = '', channel = '대화', screens = [], infos = [], scenarios = [], steps = [], impactOnly = [], agent = '', source = 'user', relatedTo }: NewRequest): Request {
   if (!title?.trim()) throw new Error('요청 제목이 비었다');
   if (source !== 'user' && source !== 'report') throw new Error('출처는 user(사용자 요청)나 report(에이전트가 올린 리포트)만 가능하다');
   const id = loadRequests(scanRoot).reduce((m, r) => Math.max(m, r.id), 0) + 1;
@@ -83,8 +85,9 @@ export function addRequest(scanRoot: string, { title, origin = '', channel = '�
   const req: Request = {
     id, title: title.trim(), source: source as RequestSource, origin: { text: origin.trim(), channel, at: now },
     scope: { screens, infos, scenarios, steps, impactOnly }, agent: { name: agent },
+    ...(relatedTo ? { relatedTo } : {}),
     stage: 'design', step: 'queued',
-    events: [{ at: now, by: 'agent', kind: 'created', note: '요청 등록' }],
+    events: [{ at: now, by: 'agent', kind: 'created', note: relatedTo ? `요청 등록(#${relatedTo}과 이어짐)` : '요청 등록' }],
   };
   save(scanRoot, req);
   return req;
@@ -108,6 +111,9 @@ const move = (r: Request, stage: RequestStage, step: string): void => { r.stage 
 /** 요청이 끝났거나 취소됐는가(겹침·대기 계산에서 빠진다) */
 const ended = (r: Request): boolean => r.stage === 'done' || r.stage === 'cancelled';
 
+/** 합칠 수 있는 요청인가: 접수, 설계 작성 중(설계가 승인 대기에 올라가면 사용자가 본 설계를 몰래 바꾸지 않도록 합치지 않는다) */
+const mergeable = (r: Request): boolean => r.stage === 'design' && (r.step === 'queued' || r.step === 'drafting');
+
 /** 화면 쪽에 보여 줄 모양으로: 이름표, 누구 차례인지, 진행 중인 다른 요청과 겹치는 곳, 기다릴 요청을 붙인다.
  *  componentsOf는 요청이 건드리는 시나리오의 단계 자리(컴포넌트)를 돌려주는 함수(model.ts가 시나리오에서 계산해 준다) */
 export function describeRequests(list: Request[], componentsOf: (r: Request) => string[] = () => []): RequestView[] {
@@ -125,7 +131,7 @@ export function describeRequests(list: Request[], componentsOf: (r: Request) => 
         components: theirs.filter((c) => mine.includes(c)),
       };
     }).filter((o) => o.screens.length || o.infos.length || o.components.length);
-    return { ...r, stageLabel: STAGE_LABEL[r.stage], stepLabel: meta.label, turn: meta.turn, overlaps, waitingFor, cost: { start: 0, wake: 0, inputTokens: 0, outputTokens: 0, usd: 0 } };
+    return { ...r, stageLabel: STAGE_LABEL[r.stage], stepLabel: r.mergedInto ? `#${r.mergedInto}에 합침` : meta.label, turn: meta.turn, overlaps, waitingFor, cost: { start: 0, wake: 0, inputTokens: 0, outputTokens: 0, usd: 0 } };
   });
 }
 
@@ -298,6 +304,63 @@ export function testProblem(scanRoot: string, id: number, note: string): Request
   move(r, 'test', 'fix');
   return record(scanRoot, r, 'user', 'test-problem', `테스트 반려: ${note.trim()}`);
 }
+/** 합칠 후보 하나: 어느 요청이고 왜 후보인지 */
+export interface MergeCandidate {
+  /** 후보 요청 번호 */
+  id: number;
+  /** 후보 요청 제목 */
+  title: string;
+  /** 왜 후보인지(겹치는 화면·정보, 또는 둘 다 작은 일) */
+  why: string[];
+}
+
+/** 새 요구(또는 이미 접수된 요청끼리)와 합칠 만한 요청을 찾는다. 후보를 보이기만 하고 합치지 않는다.
+ *  기준: (1) 같은 화면·정보·시나리오를 건드린다, (2) 둘 다 범위를 적지 않은 작은 일(설계 없음으로 끝날 것). 겹침이 큰 것부터 */
+export function similarRequests(scanRoot: string, probe: { screens?: string[]; infos?: string[]; scenarios?: string[] }): MergeCandidate[] {
+  const scopeOf = (s: { screens?: string[]; infos?: string[]; scenarios?: string[] }): string[] => [...(s.screens ?? []).map((x) => `화면 ${x}`), ...(s.infos ?? []).map((x) => `정보 ${x}`), ...(s.scenarios ?? []).map((x) => `시나리오 ${x}`)];
+  const mine = scopeOf(probe);
+  return loadRequests(scanRoot).filter(mergeable).map((r) => {
+    const theirs = scopeOf(r.scope);
+    const shared = theirs.filter((x) => mine.includes(x));
+    const why = shared.length ? [`같이 건드림: ${shared.join(', ')}`] : !mine.length && !theirs.length ? ['둘 다 범위를 적지 않은 작은 일(설계 없음으로 끝날 것)'] : [];
+    return { id: r.id, title: r.title, why, size: shared.length };
+  }).filter((c) => c.why.length).sort((a, b) => b.size - a.size).map(({ id, title, why }) => ({ id, title, why }));
+}
+
+/** 합치기. `text`는 남는 요청에 덧붙일 새 요구, `from`은 이 요청에 합쳐 닫을 이미 접수된 요청. 사용자 말 인용이 있어야 한다 */
+export function mergeRequests(scanRoot: string, into: number, o: { text?: string; from?: number; quote?: string }): Request {
+  const quote = (o.quote ?? '').trim();
+  if (quote.length < 4) throw new Error('--quote에 사용자가 합치기로 정하며 한 말을 그대로 적어야 한다(사용자가 합치기로 정하지 않았다면 이 명령을 쓰지 않는다)');
+  const r = loadOne(scanRoot, into);
+  if (!mergeable(r)) throw new Error(`요청 #${into}은 합칠 수 없다(지금: ${STAGE_LABEL[r.stage]} · ${STEP[`${r.stage}:${r.step}`]?.label ?? r.step}). 접수나 설계 작성 중인 요청만 합친다. 새 요청으로 접수하고 --related ${into}로 이어 둔다`);
+  const now = new Date().toISOString();
+  let text = (o.text ?? '').trim();
+  let from: Request | undefined;
+  if (o.from !== undefined) {
+    if (o.from === into) throw new Error('같은 요청끼리는 합칠 수 없다');
+    from = loadOne(scanRoot, o.from);
+    if (!mergeable(from)) throw new Error(`요청 #${from.id}은 합칠 수 없다(접수나 설계 작성 중인 요청만 합친다)`);
+    text = from.origin.text || from.title;
+  }
+  if (!text) throw new Error('합칠 요구(--text) 또는 합칠 요청(--from)이 필요하다');
+  const day = now.slice(0, 10);
+  const n = (r.mergedFrom?.length ?? 0) + 2;
+  r.origin.text = `${r.origin.text}\n(${n}) ${day} 합침${from ? ` (#${from.id})` : ''}: ${text}`;
+  r.mergedFrom = [...(r.mergedFrom ?? []), { at: now, text, quote, ...(from ? { from: from.id } : {}) }];
+  if (from) {
+    r.title = `${r.title} / ${from.title}`;
+    r.scope = {
+      screens: [...new Set([...r.scope.screens, ...from.scope.screens])], infos: [...new Set([...r.scope.infos, ...from.scope.infos])],
+      scenarios: [...new Set([...(r.scope.scenarios ?? []), ...(from.scope.scenarios ?? [])])], steps: [...new Set([...(r.scope.steps ?? []), ...(from.scope.steps ?? [])])],
+      impactOnly: [...new Set([...(r.scope.impactOnly ?? []), ...(from.scope.impactOnly ?? [])])],
+    };
+    from.mergedInto = into;
+    move(from, 'cancelled', 'cancelled');
+    record(scanRoot, from, 'user', 'merged-into', `#${into}에 합침`, quote);
+  }
+  return record(scanRoot, r, 'user', 'merged', from ? `요청 #${from.id}을 이 요청에 합침` : '새 요구를 이 요청에 합침', quote);
+}
+
 /** 겹치는 두 요청의 순서: first를 먼저 끝내고 other는 그 뒤에 시작한다 */
 export function setOrder(scanRoot: string, first: number, other: number): Request {
   loadOne(scanRoot, first);
@@ -313,8 +376,20 @@ export async function main(argv: string[]): Promise<number | undefined> {
   const id = Number(opts.id);
   try {
     if (pos[0] === 'add') {
-      const r = addRequest(scanRoot, { title: opts.title, origin: opts.origin, channel: opts.channel, screens: csv(opts.screens), infos: csv(opts.infos), scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact), agent: opts.agent, source: opts.source });
+      const r = addRequest(scanRoot, { title: opts.title, origin: opts.origin, channel: opts.channel, screens: csv(opts.screens), infos: csv(opts.infos), scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact), agent: opts.agent, source: opts.source, relatedTo: opts.related ? Number(opts.related) : undefined });
       console.log(`요청 #${r.id}: 등록 (설계서 보기 "관리"에서 보인다)`);
+    } else if (pos[0] === 'similar') {
+      // 새 요청을 등록하기 전에 합칠 후보를 본다(--all이면 이미 접수된 요청끼리 합칠 것도 함께)
+      const found = similarRequests(scanRoot, { screens: csv(opts.screens), infos: csv(opts.infos), scenarios: csv(opts.scenarios) });
+      console.log(found.length ? found.map((c) => `#${c.id} ${c.title}\n   ${c.why.join(' / ')}`).join('\n') : '합칠 후보 없음');
+      if (opts.all === 'true') {
+        const open = loadRequests(scanRoot).filter(mergeable);
+        const pairs = open.flatMap((a, i) => open.slice(i + 1).map((b) => ({ a, b, c: similarRequests(scanRoot, a.scope).find((x) => x.id === b.id) }))).filter((p) => p.c);
+        console.log(pairs.length ? `\n이미 접수된 요청끼리:\n${pairs.map((p) => `#${p.a.id} + #${p.b.id}: ${p.c!.why.join(' / ')}`).join('\n')}` : '\n이미 접수된 요청끼리 합칠 후보 없음');
+      }
+    } else if (pos[0] === 'merge') {
+      const r = mergeRequests(scanRoot, Number(opts.into), { text: opts.text, from: opts.from ? Number(opts.from) : undefined, quote: opts.quote });
+      console.log(`요청 #${r.id}: 합쳤다${opts.from ? `(#${opts.from}은 #${r.id}에 합침으로 닫음)` : ''}`);
     } else if (pos[0] === 'list') {
       for (const r of describeRequests(loadRequests(scanRoot))) console.log(`#${r.id} [${r.stageLabel} · ${r.stepLabel}] ${r.title}`);
     } else if (pos[0] === 'start') {
@@ -355,7 +430,9 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const r = setAgent(scanRoot, id, opts.name); console.log(`요청 #${r.id}: 맡은 에이전트 ${r.agent.name}`);
     } else {
       console.log(['사용: node <스킬 폴더>/spec.mjs request <명령> --src <소스 폴더> …',
-        '  add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--scenarios 시나리오1] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오] [--agent 세션이름]',
+        '  add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--scenarios 시나리오1] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오] [--agent 세션이름] [--related 이어지는 요청 번호]',
+        '  similar [--screens …] [--infos …] [--scenarios …] [--all true]   (새 요청을 등록하기 전에 합칠 후보를 본다. 보이기만 한다)',
+        '  merge --into 남는번호 (--text "새 요구" | --from 없어질번호) --quote "사용자가 한 말"   (접수·설계 작성 중인 요청끼리만. 인용이 없으면 못 한다)',
         '  start --id N                     (시작 전 요청의 설계를 시작. 할 일을 정할 때 우선순위를 정한 뒤에만)',
         '  wake --id N                      (사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정을 다시 보낸다)',
         '  session --id N                   (시작은 했는데 담당 세션이 안 만들어진 요청에 담당 세션을 다시 만든다. 설정 wake가 켜져 있어야 한다)',

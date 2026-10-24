@@ -119,3 +119,28 @@ test('설계 글은 영역별 항목(points)으로 올릴 수 있다', () => {
   const r = submitDesign(src, 1, { understanding: '요약', points: [{ area: '서버', title: '세션', text: '만든다' }] });
   assert.deepEqual(r.design!.points, [{ area: '서버', title: '세션', text: '만든다' }]);
 });
+
+test('합칠 후보를 찾고, 인용이 있을 때만 접수·설계 작성 중인 요청끼리 합친다', async () => {
+  const { similarRequests, mergeRequests } = await import('../src/request.js');
+  const { src } = tempProject();
+  addRequest(src, { title: '목록 색', screens: ['목록'] });
+  addRequest(src, { title: '작은 일 하나' });
+  addRequest(src, { title: '작은 일 둘' });
+  // 같은 화면을 건드리는 새 요구와, 범위 없는 작은 일끼리가 후보가 된다
+  assert.deepEqual(similarRequests(src, { screens: ['목록'] }).map((c) => c.id), [1]);
+  assert.deepEqual(similarRequests(src, {}).map((c) => c.id), [2, 3]);
+  assert.throws(() => mergeRequests(src, 2, { text: '새 요구' }), /--quote/);
+  const r = mergeRequests(src, 2, { text: '새 요구', quote: '이거 합쳐서 처리하자' });
+  assert.match(r.origin.text, /\(2\).*새 요구/);
+  assert.equal(r.mergedFrom?.length, 1);
+  // 이미 접수된 두 요청 합치기: 없어지는 쪽은 합침으로 닫히고 범위가 합쳐진다
+  const m = mergeRequests(src, 2, { from: 3, quote: '둘을 하나로 합치자' });
+  assert.match(m.title, /작은 일 둘/);
+  const closed = loadRequests(src).find((x) => x.id === 3)!;
+  assert.equal(closed.mergedInto, 2);
+  assert.equal(describeRequests([closed])[0].stepLabel, '#2에 합침');
+  // 설계가 올라간 요청에는 합칠 수 없다
+  startDesign(src, 1); submitDesign(src, 1, design);
+  assert.throws(() => mergeRequests(src, 1, { text: 'x', quote: '이거 합쳐서 처리하자' }), /합칠 수 없다/);
+  assert.equal(addRequest(src, { title: '이어짐', relatedTo: 1 }).relatedTo, 1);
+});
