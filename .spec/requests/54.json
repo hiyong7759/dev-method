@@ -10,7 +10,8 @@
   "scope": {
     "screens": [
       "요청 목록",
-      "요청 상세"
+      "요청 상세",
+      "요청 상세 단계 막대"
     ],
     "infos": [],
     "scenarios": [],
@@ -40,6 +41,12 @@
       "by": "agent",
       "kind": "design-submitted",
       "note": "설계 제출 (정보 변경 0건 · 화면 변경 2건)"
+    },
+    {
+      "at": "2026-10-24T07:30:22.215Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 제출 (정보 변경 0건 · 화면 변경 2건)"
     }
   ],
   "design": {
@@ -50,9 +57,9 @@
       {
         "screen": "요청 목록",
         "after": "r54-d1-after.png",
-        "before": "",
+        "before": "r54-d1-before.png",
         "link": "https://claude.ai/artifact/5MoFMTffYvnTHthTrWMn51",
-        "note": "시안 9번: 칩 단계 하나만, 행의 진행 표시 제거, 접수 묶음",
+        "note": "왼쪽 현행(지금 구현, 실제 요청 데이터) · 오른쪽 시안(샘플 데이터). 달라지는 곳: 위쪽 거르기 칩(접수·설계·구현·테스트·완료만), 행 가운데의 설계-구현-테스트-완료 표시 없어짐, 시작 전 → 접수, 요청 없는 변경은 아래 한 줄",
         "counts": {
           "add": 0,
           "change": 0,
@@ -60,11 +67,11 @@
         }
       },
       {
-        "screen": "요청 상세",
+        "screen": "요청 상세 단계 막대",
         "after": "r54-d2-after.png",
-        "before": "",
+        "before": "r54-d2-before.png",
         "link": "https://claude.ai/artifact/5MoFMTffYvnTHthTrWMn51",
-        "note": "시안 10번: 단계 막대 맨 앞에 접수",
+        "note": "단계 막대 맨 앞에 접수가 생긴다(위 현행: 설계부터 · 아래 시안: 접수부터)",
         "counts": {
           "add": 0,
           "change": 0,
