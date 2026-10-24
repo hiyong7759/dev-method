@@ -16,6 +16,9 @@ import type { SessionCost } from './types.js';
 /** 사람 없이 쓸 수 있게 미리 허락하는 도구: 문서·소스 읽기와 고치기, 설계서 보기 명령, 검사, 그리고 그 일의 커밋. 위험한 git 명령은 저장소의 차단 훅이 막는다 */
 export const ALLOWED = ['Read', 'Edit', 'Write', 'Bash(node:*)', 'Bash(npm:*)', 'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git add:*)', 'Bash(git commit:*)'];
 
+/** 담당 세션이 모두 쓰는 모델(소넷 보통). 비용과 품질을 한 가지로 맞추려고 한 곳에서 정한다 */
+const MODEL = 'sonnet';
+
 /** 이 도구의 입구 파일(다른 프로젝트에서도 같은 도구를 부른다) */
 const SPEC_MJS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'skills', 'spec-view', 'spec.mjs');
 
@@ -93,7 +96,7 @@ function launch(root: string, scanRoot: string, id: number, sid: string, msg: st
   fs.mkdirSync(dir, { recursive: true });
   const base = path.join(dir, `${Date.now()}-${id}-${sid.slice(0, 8)}`);
   const lines = steps.map((st, i) => [
-    `claude -p ${st.prompt} ${st.args} --allowedTools ${allowed} --output-format json > "${base}-${i}.json" 2>> "$LOG"`,
+    `claude -p ${st.prompt} ${st.args} --model ${MODEL} --allowedTools ${allowed} --output-format json > "${base}-${i}.json" 2>> "$LOG"`,
     `rc=$?; echo "$(date -u +%Y-%m-%dT%H:%M:%S.000Z) #${id} ${sid} ${st.kind === 'start' ? '시작' : '깨움'} 단계 ${i + 1}/${steps.length} 끝남 종료코드=$rc" >> "$LOG"`,
     `node "$SPEC" cost --src "$SRC" --id ${id} --sid ${sid} --kind ${st.kind} --file "${base}-${i}.json" >> "$LOG" 2>&1`,
   ].join('; '));

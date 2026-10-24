@@ -43,6 +43,7 @@ test('담당 세션이 한 번도 없으면 결정 때 새 세션을 만들어 �
     const line = fs.readFileSync(env.calls, 'utf8').trim().split('\n')[0];
     assert.match(line, new RegExp(`--session-id ${made[0]}`));
     assert.match(line, /request agent --id 1/);
+    assert.match(line, /--model sonnet/, '새 세션도 소넷으로');
     assert.match(line, /사용자가 결정했습니다/);
     const req = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'requests', '1.json'), 'utf8')) as { events: { kind: string }[] };
     assert.ok(req.events.some((e) => e.kind === 'session-started'), '진행 기록에 세션을 만들었다고 남긴다');
@@ -100,7 +101,9 @@ test('닫힌 세션은 압축한 뒤 이어서 하라고 지시한다', async ()
     await wait(() => fs.existsSync(env.calls) && fs.readFileSync(env.calls, 'utf8').trim().split('\n').length >= 2);
     const lines = fs.readFileSync(env.calls, 'utf8').trim().split('\n');
     assert.match(lines[0], /^-p \/compact --resume S1/);
-    assert.match(lines[1], /^-p \[spec-view\] 요청 #1 "깨울 요청".*--resume S1 --allowedTools Read Edit Write Bash\(node:\*\) Bash\(npm:\*\).*Bash\(git add:\*\) Bash\(git commit:\*\)/);
+    assert.match(lines[1], /^-p \[spec-view\] 요청 #1 "깨울 요청".*--resume S1 --model sonnet --allowedTools Read Edit Write Bash\(node:\*\) Bash\(npm:\*\).*Bash\(git add:\*\) Bash\(git commit:\*\)/);
+    assert.match(lines[0], /--model sonnet/, '압축 호출도 소넷으로');
+    assert.match(lines[1], /--model sonnet/, '지시 호출도 소넷으로');
     assert.doesNotMatch(lines[1], /git push|git reset|git checkout/, '그 일의 커밋만 허락하고 위험한 git은 허락하지 않는다');
     const costs = path.join(root, '.spec', 'session-costs.json');
     await wait(() => fs.existsSync(costs) && (JSON.parse(fs.readFileSync(costs, 'utf8')) as unknown[]).length >= 2);
