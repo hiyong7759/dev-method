@@ -6,7 +6,7 @@
 import { h, post, pageHead, chip, tag, fmt, toast, errorText, copyText, sidePanel } from './util.js';
 import type { Kid } from './util.js';
 import { hash, nav } from './route.js';
-import { stepperBig, chipFor, scopeTags, withPanel } from './manage-parts.js';
+import { stepperBig, chipFor, scopeTags, withPanel, currentDesignApproval } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
 import type { Model, RequestView, Scenario, ScenarioStep } from '../types.js';
 
@@ -167,7 +167,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   const stage = r.stage === 'cancelled' ? 'design' : r.stage;
   const idx = (['design', 'impl', 'test', 'done'] as const).indexOf(stage);
   const at = (kind: string): RequestView['events'][number] | undefined => [...r.events].reverse().find((e) => e.kind === kind);
-  const approved = at('design-approved');
+  const approved = currentDesignApproval(r);
   // 칸 하나: 제목줄(제목·이름표·한 줄 요약·펼치기/접기)과 속. 펼침은 단계별 기본값이고, 눌러서 바꾼 것은 기억한다
   const fold = (key: string, title: string, open: boolean, summary: Kid, body: Kid, o: { label?: Kid; later?: boolean; cur?: boolean } = {}): HTMLElement => {
     const k = `${r.id}:${key}`;

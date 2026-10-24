@@ -7,6 +7,7 @@ import { stepLabel } from './steps.js';
 import { h, get, post, fmt, errorText, filterChips, chip, tag, toast, buls } from './util.js';
 import type { Kid, BulKind } from './util.js';
 import { hash, nav } from './route.js';
+import { currentDesignApproval } from './manage-parts.js';
 import type { ScreenCtx } from './ctx.js';
 import type { HistoryItem, RequestView, Scenario, Spec } from '../types.js';
 
@@ -82,7 +83,7 @@ const HBUL: Record<string, BulKind> = { 설계: 'des', 테스트: 'tst', '변경
 function bulsOfRequest(r: RequestView): { kind: BulKind; label: string }[] {
   const has = (k: string): boolean => r.events.some((e) => e.kind === k);
   return [
-    ...(r.stage === 'design' || has('design-approved') ? [{ kind: 'des' as BulKind, label: '설계' }] : []),
+    ...(r.stage === 'design' || currentDesignApproval(r) ? [{ kind: 'des' as BulKind, label: '설계' }] : []),
     ...(r.stage === 'impl' || r.commits?.length ? [{ kind: 'imp' as BulKind, label: '변경(커밋)' }] : []),
     ...(r.stage === 'test' || has('test-approved') ? [{ kind: 'tst' as BulKind, label: '테스트' }] : []),
   ];
@@ -93,7 +94,7 @@ function requestTimeline(r: RequestView): HTMLElement {
   const ev = (kind: string): RequestView['events'][number] | undefined => r.events.find((e) => e.kind === kind);
   const steps: Kid[] = [];
   steps.push(h('div', { class: 'tli' }, h('i'), h('div', null, h('b', null, `요청 · ${r.source === 'user' ? '사용자' : '에이전트 발견'} · ${r.origin.channel} · ${fmt(r.origin.at)}`), r.origin.text ? h('div', { class: 'quote' }, r.origin.text) : null)));
-  const ap = ev('design-approved');
+  const ap = currentDesignApproval(r);
   if (ap) steps.push(h('div', { class: 'tli' }, h('i'), h('div', null, h('b', null, `${ap.note} · ${fmt(ap.at)}`),
     d && !d.none ? h('div', { class: 'hint' }, `정보 변경 ${d.changes.length}건 · 화면 변경 ${d.screens.length}건${d.rejected ? ` · 반려 ${d.rejected}번 후 승인` : ''}`) : null,
     d && !d.none ? h('div', { class: 'tagrow' }, d.changes.length ? h('a', { class: 'tag c', href: hash('manage', `${r.id}/info`) }, '정보 변경 스냅샷') : null, d.screens.length ? h('a', { class: 'tag c', href: hash('manage', `${r.id}/compare`) }, '화면 디자인 스냅샷') : null) : null)));

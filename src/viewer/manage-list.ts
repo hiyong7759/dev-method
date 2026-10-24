@@ -5,7 +5,7 @@
  */
 import { h, post, pageHead, filterChips, chip, fmt, toast, errorText, buls, type BulKind } from './util.js';
 import { hash, nav } from './route.js';
-import { stepper, chipFor, scopeTags } from './manage-parts.js';
+import { stepper, chipFor, scopeTags, currentDesignApproval } from './manage-parts.js';
 import type { Model, RequestView } from '../types.js';
 
 /** 요청 카드의 구분 점: 지금 단계(설계·구현·테스트)와 에이전트 발견 여부. 거르기 칩의 점과 짝이다 */
@@ -14,7 +14,7 @@ const bulsOf = (r: RequestView): { kind: BulKind; label: string }[] => [...(STAG
 
 /** 목록의 요청 한 줄 */
 function row(r: RequestView): HTMLDivElement {
-  const approvedNone = r.events.some((e) => e.kind === 'design-approved' && e.note.includes('설계 없음'));
+  const approvedNone = !!currentDesignApproval(r)?.note.includes('설계 없음');
   const extra = [r.source === 'user' ? '사용자 요청' : '에이전트 발견', fmt(r.origin.at), approvedNone ? '설계 없음으로 승인함' : r.design?.rejected ? `설계를 ${r.design.rejected}번 반려함` : '', r.agent.name ? `맡은 에이전트 ${r.agent.name}` : ''].filter(Boolean).join(' · ');
   const waiting = r.waitingFor.length > 0;
   const o = r.overlaps[0];

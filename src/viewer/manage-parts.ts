@@ -11,6 +11,14 @@ const STAGES: [RequestStage, string][] = [['design', '설계'], ['impl', '구현
 /** 단계마다의 구분 점(요청 목록의 거르기 칩·카드 점과 같은 점) */
 const STAGE_DOT: BulKind[] = ['des', 'imp', 'tst', 'cmp'];
 
+/** 지금 유효한 설계 승인 기록. 설계 단계에 있으면(되돌려졌거나 다시 올라온 설계) 옛 승인은 무효이고, 승인 뒤에 설계가 다시 제출됐어도 마찬가지다 */
+export function currentDesignApproval(r: RequestView): RequestView['events'][number] | undefined {
+  if (r.stage === 'design') return undefined;
+  const last = (kind: string): number => r.events.reduce((n, e, i) => (e.kind === kind ? i : n), -1);
+  const ap = last('design-approved');
+  return ap >= 0 && ap > last('design-submitted') ? r.events[ap] : undefined;
+}
+
 /** 요청이 어느 단계까지 왔는지 한눈에 보이게 한다: 단계마다 자기 점, 지난 단계는 보통·지금 단계는 굵게·앞 단계는 흐리게 */
 export function stepper(r: RequestView): HTMLDivElement {
   const cur = STAGES.findIndex(([k]) => k === r.stage);
