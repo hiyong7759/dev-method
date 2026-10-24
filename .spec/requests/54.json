@@ -8,7 +8,10 @@
     "at": "2026-10-24T07:12:49.412Z"
   },
   "scope": {
-    "screens": [],
+    "screens": [
+      "요청 목록",
+      "요청 상세"
+    ],
     "infos": [],
     "scenarios": [],
     "steps": [],
@@ -18,7 +21,7 @@
     "name": ""
   },
   "stage": "design",
-  "step": "drafting",
+  "step": "submitted",
   "events": [
     {
       "at": "2026-10-24T07:12:49.412Z",
@@ -31,6 +34,45 @@
       "by": "agent",
       "kind": "started",
       "note": "설계를 시작함(우선순위를 정해 시작)"
+    },
+    {
+      "at": "2026-10-24T07:23:27.669Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 제출 (정보 변경 0건 · 화면 변경 2건)"
     }
-  ]
+  ],
+  "design": {
+    "understanding": "요청 목록에서 시작 전을 접수로 부르고, 거르기 칩이 단계·출처·요청 없는 변경이 섞여 기준이 이상하고 제대로 걸러지지 않으며, 행의 설계-구현-테스트-완료 진행 표시가 필요 없다.",
+    "approach": "칩은 단계 하나만 기준(전체·접수·설계·구현·테스트·완료)으로 하고 누르면 그 단계만 한 줄 목록으로 보인다. 행의 진행 표시를 없애고, 요청 없는 변경은 칩에서 빼 할 일 확인(todo)의 경고 한 줄로만 둔다. 요청 상세 단계 막대에는 접수를 앞에 더한다.",
+    "changes": [],
+    "screens": [
+      {
+        "screen": "요청 목록",
+        "after": "r54-d1-after.png",
+        "before": "",
+        "link": "https://claude.ai/artifact/5MoFMTffYvnTHthTrWMn51",
+        "note": "시안 9번: 칩 단계 하나만, 행의 진행 표시 제거, 접수 묶음",
+        "counts": {
+          "add": 0,
+          "change": 0,
+          "remove": 0
+        }
+      },
+      {
+        "screen": "요청 상세",
+        "after": "r54-d2-after.png",
+        "before": "",
+        "link": "https://claude.ai/artifact/5MoFMTffYvnTHthTrWMn51",
+        "note": "시안 10번: 단계 막대 맨 앞에 접수",
+        "counts": {
+          "add": 0,
+          "change": 0,
+          "remove": 0
+        }
+      }
+    ],
+    "none": false,
+    "rejected": 0
+  }
 }

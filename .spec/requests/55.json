@@ -1,0 +1,30 @@
+{
+  "id": 55,
+  "title": "요청을 시작하면 그 요청의 담당 세션을 만들고, 그 세션이 설계를 써서 올리고 설계 승인을 요청하게 함",
+  "source": "user",
+  "origin": {
+    "text": "요청건별로 내가 시작하라고 하면 그때 요청건에 해당하는 세션만들고 해당 세션에서 설계서 작성해서 올리고 설계 승인요청하고",
+    "channel": "대화",
+    "at": "2026-10-24T07:23:27.763Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "queued",
+  "events": [
+    {
+      "at": "2026-10-24T07:23:27.763Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
