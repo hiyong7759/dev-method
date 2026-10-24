@@ -12,15 +12,17 @@ import { addRequest, setAgent } from '../src/request.js';
 import { tempProject } from './helpers.js';
 
 /** 가짜 claude와 가짜 홈을 만들어 환경에 건다. 돌려주는 함수가 원래대로 되돌린다 */
-function fakeEnv(): { calls: string; transcript: (root: string, sid: string) => string; restore: () => void } {
+function fakeEnv(): { calls: string; agents: string; transcript: (root: string, sid: string) => string; restore: () => void } {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-wake-'));
   const bin = path.join(base, 'bin'); fs.mkdirSync(bin);
   const calls = path.join(base, 'calls.txt');
-  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\necho "$*" | tr '\\n' ' ' >> "${calls}"; echo >> "${calls}"\necho '{"total_cost_usd":0.5,"usage":{"input_tokens":10,"cache_creation_input_tokens":5,"cache_read_input_tokens":100,"output_tokens":7}}'\n`, { mode: 0o755 });
+  // `claude agents --json`은 지금 살아 있는 세션 목록이다. 시험은 이 파일의 내용을 그대로 돌려준다(처음엔 아무것도 살아 있지 않다)
+  const agents = path.join(base, 'agents.json'); fs.writeFileSync(agents, '[]');
+  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\nif [ "$1" = "agents" ]; then cat "${agents}"; exit 0; fi\necho "$*" | tr '\\n' ' ' >> "${calls}"; echo >> "${calls}"\necho '{"total_cost_usd":0.5,"usage":{"input_tokens":10,"cache_creation_input_tokens":5,"cache_read_input_tokens":100,"output_tokens":7}}'\n`, { mode: 0o755 });
   const old = { PATH: process.env.PATH, HOME: process.env.HOME };
   process.env.PATH = `${bin}:${old.PATH}`; process.env.HOME = base;
   const transcript = (root: string, sid: string): string => path.join(base, '.claude', 'projects', fs.realpathSync(root).replace(/[^A-Za-z0-9]/g, '-'), `${sid}.jsonl`);
-  return { calls, transcript, restore: () => { process.env.PATH = old.PATH; process.env.HOME = old.HOME; } };
+  return { calls, agents, transcript, restore: () => { process.env.PATH = old.PATH; process.env.HOME = old.HOME; } };
 }
 const own = (root: string, sid: string, request: number): void => fs.writeFileSync(path.join(root, '.spec', 'sessions.json'), JSON.stringify({ [sid]: { request, seen: '' } }));
 const wait = async (f: () => boolean): Promise<void> => { for (let i = 0; i < 200 && !f(); i++) await new Promise((ok) => setTimeout(ok, 50)); };
@@ -93,14 +95,35 @@ test('claude 결과에서 토큰과 비용을 읽고, 읽을 수 없으면 null'
   assert.equal(parseUsage('{"usage":{}}'), null);
 });
 
-test('최근에 움직인(열린) 세션은 훅에 맡기고 깨우지 않는다', () => {
+test('사용자가 열어 둔(살아 있는) 세션은 서버가 끼어들지 않고 훅에 맡긴다', () => {
   const env = fakeEnv();
   try {
     const { root, src } = tempProject({ wake: true }); addRequest(src, { title: 'a' }); own(root, 'S1', 1);
-    const t = env.transcript(root, 'S1'); fs.mkdirSync(path.dirname(t), { recursive: true }); fs.writeFileSync(t, '{}\n');
+    fs.writeFileSync(env.agents, JSON.stringify([{ pid: 1, kind: 'interactive', sessionId: 'S1', status: 'idle' }]));
     assert.deepEqual(wakeOwner(src, 1), []);
-    assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /열려 있어 훅에 맡김/);
+    assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /살아 있는 세션이라 훅에 맡김/);
     assert.equal(fs.existsSync(env.calls), false);
+  } finally { env.restore(); }
+});
+
+test('방금 일을 마친 세션도 살아 있지 않으면 글을 보내 이어서 하게 한다(기록이 최근에 바뀌었어도)', async () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = tempProject({ wake: true }); addRequest(src, { title: '방금 끝난 세션' }); own(root, 'S1', 1);
+    const t = env.transcript(root, 'S1'); fs.mkdirSync(path.dirname(t), { recursive: true }); fs.writeFileSync(t, '{}\n'); // 방금 쓴 기록
+    assert.deepEqual(wakeOwner(src, 1), ['S1']);
+    await wait(() => fs.existsSync(env.calls));
+    assert.match(fs.readFileSync(env.calls, 'utf8'), /--resume S1/);
+  } finally { env.restore(); }
+});
+
+test('결정이 전달되지 않았을 때 다시 보내는 force는 살아 있는 세션에도 글을 보낸다', async () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = tempProject({ wake: true }); addRequest(src, { title: 'a' }); own(root, 'S1', 1);
+    fs.writeFileSync(env.agents, JSON.stringify([{ pid: 1, kind: 'interactive', sessionId: 'S1', status: 'idle' }]));
+    assert.deepEqual(wakeOwner(src, 1, true), ['S1']);
+    await wait(() => fs.existsSync(env.calls));
   } finally { env.restore(); }
 });
 

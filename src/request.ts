@@ -331,6 +331,10 @@ export async function main(argv: string[]): Promise<number | undefined> {
       if (!r) throw new Error(`요청 #${id}을 찾지 못했다`);
       const sid = (await import('./session.js')).startOwner(scanRoot, id, 'start');
       console.log(sid ? `요청 #${id}: 담당 세션을 새로 만들었다(${sid.slice(0, 8)}, 진행은 .spec/wake.log)` : `요청 #${id}: 담당 세션을 만들지 않았다(설정 wake가 꺼져 있거나 담당이 이미 있다. 이유는 .spec/wake.log)`);
+    } else if (pos[0] === 'wake') {
+      // 사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정을 다시 보낸다(열려 있는 것으로 보이는 세션도 깨운다)
+      const woken = (await import('./wake.js')).wakeOwner(scanRoot, id, true);
+      console.log(woken.length ? `요청 #${id}: 담당 세션에 마지막 결정을 다시 보냈다(${woken.map((w) => w.slice(0, 8)).join(', ')}, 진행은 .spec/wake.log)` : `요청 #${id}: 보내지 못했다(설정 wake가 꺼져 있다. 이유는 .spec/wake.log)`);
     } else if (pos[0] === 'shot') {
       const { captureLive } = await import('./shot.js');
       const r = await captureLive(scanRoot, id, opts.screen, { url: opts.url, selector: opts.selector });
@@ -353,6 +357,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
       console.log(['사용: node <스킬 폴더>/spec.mjs request <명령> --src <소스 폴더> …',
         '  add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--scenarios 시나리오1] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오] [--agent 세션이름]',
         '  start --id N                     (시작 전 요청의 설계를 시작. 할 일을 정할 때 우선순위를 정한 뒤에만)',
+        '  wake --id N                      (사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정을 다시 보낸다)',
         '  session --id N                   (시작은 했는데 담당 세션이 안 만들어진 요청에 담당 세션을 다시 만든다. 설정 wake가 켜져 있어야 한다)',
         '  shot --id N --screen 화면이름 --url 주소 [--selector css]   (바꾸기 전 운영 화면을 손대지 않고 그대로 찍어 현행 그림으로 저장. 설계를 올릴 때 이 그림이 현행으로 붙는다)',
         '  design --id N --file 설계.json   (또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',

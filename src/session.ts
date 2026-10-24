@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readConfig } from './config.js';
 import { loadRequests, noteSessionStarted, STAGE_LABEL, STEP } from './request.js';
@@ -64,6 +64,16 @@ export function costOf(scanRoot: string, id: number): { start: number; wake: num
     start: mine.filter((c) => c.kind === 'start').length, wake: mine.filter((c) => c.kind === 'wake').length,
     inputTokens: mine.reduce((n, c) => n + c.inputTokens, 0), outputTokens: mine.reduce((n, c) => n + c.outputTokens, 0), usd: mine.reduce((n, c) => n + c.usd, 0),
   };
+}
+
+/** 이 세션이 지금 어딘가(VS Code, 터미널)에 살아 있는가. `claude agents --json`이 살아 있는 세션 목록을 알려 준다. 알아낼 수 없으면 살아 있지 않은 것으로 본다(그래야 결정이 전달된다) */
+export function isAlive(sid: string): boolean {
+  try {
+    const run = spawnSync('claude', ['agents', '--json'], { encoding: 'utf8', timeout: 15000 });
+    if (run.status !== 0) return false;
+    const list = JSON.parse(run.stdout) as { sessionId?: string }[];
+    return list.some((a) => a.sessionId === sid);
+  } catch { return false; }
 }
 
 /** 요청 id의 담당 세션 번호들 */
