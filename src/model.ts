@@ -109,7 +109,7 @@ export function buildModel(scanRoot: string): Model {
   const infos: ModelInfo[] = kept.map((i) => ({
     name: i.name, fileSrc: path.relative(scanRoot, path.join(root, i.file)), line: i.line, unused: i.unused, kind: 'internal', doc: clean(i.doc),
     flow: { shown: [], input: [], modify: [], judge: [] }, flagged: 0, domains: [],
-    props: i.props.map((p) => ({ name: p.name, doc: clean(p.doc), line: p.line, status: p.status, dupTotal: p.evidence.dupTotal, strs: p.evidence.strs.slice(0, 4), roles: { shown: [], input: [], modify: [], judge: [] }, evidence: [] })),
+    props: i.props.map((p) => ({ name: p.name, doc: clean(p.doc), line: p.line, status: p.status, external: p.external, dupTotal: p.evidence.dupTotal, strs: p.evidence.strs.slice(0, 4), roles: { shown: [], input: [], modify: [], judge: [] }, evidence: [] })),
   }));
   const infoByName = new Map(infos.map((i) => [i.name, i]));
 
@@ -211,7 +211,7 @@ export function buildModel(scanRoot: string): Model {
       continue;
     }
     for (const p of i.props) {
-      if (p.status !== 'none') continue;
+      if (p.status !== 'none' || p.external) continue;
       const found = p.strs.length > 0 || p.dupTotal > 0;
       reviews.push({
         id: `review:${i.name}.${p.name}`, title: `필드 “${p.name}”를 어디에서도 쓰지 않습니다`,

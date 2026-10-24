@@ -54,7 +54,7 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
           const roles = ROLES.filter((r) => p.roles[r].length);
           return h('div', { class: `frow${focusField === p.name ? ' focus' : ''}${mine.has(p.name) ? ' mine' : ''}`, title: p.doc },
             h('span', { class: 'mono fname' }, p.name),
-            h('span', { class: 'froles' }, roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])), reportLink(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === name && r.review.prop === p.name), `정보 흐름 · ${name}`)));
+            h('span', { class: 'froles' }, p.external ? h('span', { class: 'role', title: `코드 밖에서 읽는다: ${p.external}` }, '바깥이 읽음') : null, roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])), reportLink(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === name && r.review.prop === p.name), `정보 흐름 · ${name}`)));
         }))),
       h('div', { class: 'card' }, h('h3', null, '쓰이는 화면'),
         used.length ? h('div', { class: 'tagrow' }, used.map((n) => h('button', { class: `tag c${n === currentScreen ? ' here' : ''}`, onclick: () => openScreen(n) }, n))) : h('div', { class: 'hint' }, '화면에서 쓰이지 않는다(내부용)')),

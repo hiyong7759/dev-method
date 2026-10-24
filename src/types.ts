@@ -491,6 +491,8 @@ export interface AnalyzedProp {
   maybe: boolean;
   /** 틀렸을 수 있는 근거 */
   evidence: PropEvidence;
+  /** 코드 밖에서 읽는다고 선언한 설명(@external). 선언이 없으면 빈 글. 있으면 "쓰지 않는 필드"로 판정하지 않는다 */
+  external: string;
 }
 
 /** 분석한 정보 하나(이름 붙은 데이터 정의) */
@@ -671,6 +673,8 @@ export interface ModelProp {
   line: number;
   /** 쓰이는 모습 */
   status: PropStatus;
+  /** 코드 밖에서 읽는다고 선언한 설명(없으면 빈 글). 있으면 쓰지 않는 필드 리포트에서 빠지고 정보 흐름에 "바깥이 읽음"으로 보인다 */
+  external: string;
   /** 같은 이름으로 다시 정의한 곳의 수(쓰이지 않는다는 판단이 틀렸을 수 있는 근거) */
   dupTotal: number;
   /** 필드 이름이 글자로 나오는 곳들(일부만. 값이 JSON 등으로 넘어가 코드에서 못 잡은 사용일 수 있다) */
@@ -855,11 +859,13 @@ export interface Model {
 
 /** 로그인이 있어야 열리는 앱을 도구가 열 때 쓰는 테스트 계정(비밀 값이라 커밋하지 않는 .spec/local.json에만 둔다) */
 export interface LoginSetting {
-  /** 테스트 계정 아이디 */
+  /** 테스트 계정 아이디
+   * @external .spec/local.json의 login을 login.ts가 통째로 읽어 ego-browser 로그인 지시문에 넘긴다 */
   id: string;
   /** 테스트 계정 비밀번호 */
   password: string;
-  /** 로그인 화면 주소(앱 서버 기준). 안 적으면 /login */
+  /** 로그인 화면 주소(앱 서버 기준). 안 적으면 /login
+   * @external .spec/local.json의 login을 login.ts가 통째로 읽어 ego-browser 로그인 지시문에 넘긴다 */
   url?: string;
   /** 아이디 입력칸 선택자. 안 적으면 화면의 첫 글자 입력칸 */
   idSelector?: string;

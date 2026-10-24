@@ -84,7 +84,7 @@ export function analyzeTs(rootIn: string, opts: { tsconfigs?: string[] } = {}): 
     const parts: string[] = [];
     for (const d of (n as tsTypes.Node & { jsDoc?: tsTypes.JSDoc[] }).jsDoc || []) {
       const text = typeof d.comment === 'string' ? d.comment : (d.comment || []).map((c) => c.text).join('');
-      parts.push(text + (d.tags || []).map((t) => `@${t.tagName.text} ${typeof t.comment === 'string' ? t.comment : ''}`).join('\n'));
+      parts.push([text, ...(d.tags || []).map((t) => `@${t.tagName.text} ${typeof t.comment === 'string' ? t.comment : ''}`)].join('\n'));
     }
     if (!parts.length) {
       const text = sf.text;
@@ -307,7 +307,8 @@ export function analyzeTs(rootIn: string, opts: { tsconfigs?: string[] } = {}): 
         ev.strs = (strings.get(p.name) || []).slice(0, 6);
       }
       const maybe = status !== 'rw' && (ev.dupTotal > 0 || (strings.get(p.name) || []).length > 0);
-      return { name: p.name, optional: p.optional, type: p.type, line: p.line, doc: p.doc, reads: p.reads, writes: p.writes, refs: p.refs.slice(0, 300), status, maybe, evidence: ev };
+      const external = externalOf(p.doc) || externalOf(info.doc);
+      return { name: p.name, optional: p.optional, type: p.type, line: p.line, doc: p.doc, reads: p.reads, writes: p.writes, refs: p.refs.slice(0, 300), status, maybe, evidence: ev, external };
     });
     out.push({
       id: info.id, name: info.name, kind: info.kind, file: info.file, line: info.line, doc: info.doc,
@@ -317,6 +318,12 @@ export function analyzeTs(rootIn: string, opts: { tsconfigs?: string[] } = {}): 
   out.sort((a, b) => b.external - a.external || a.name.localeCompare(b.name));
   const areas = [...new Set(out.flatMap((i) => [...Object.keys(i.typeAreas), ...i.props.flatMap((p) => [...Object.keys(p.reads), ...Object.keys(p.writes)])]))].sort();
   return { project: path.basename(root), root, tsVersion: ts.version, programs: tsconfigs.length, ms: Date.now() - startedAt, generatedAt: new Date().toISOString(), areas, infos: out };
+}
+
+/** 주석의 `@external 읽는 쪽 설명`에서 설명을 꺼낸다(선언이 없으면 빈 글, 선언만 있고 설명이 없으면 "(설명 없음)") */
+export function externalOf(doc: string | undefined): string {
+  const m = (doc || '').match(/(?:^|\n)[ \t]*@external\b[ \t]*([^\n]*)/);
+  return m ? m[1].trim() || '(설명 없음)' : '';
 }
 
 /** 명령: analyze-ts <프로젝트 루트> [--check] — --check이면 존재 이유가 빈 정보·필드를 경고로 낸다(rules/meta.md "필수 메타정보") */
@@ -331,7 +338,12 @@ export async function main(argv: string[]): Promise<number | undefined> {
   // @nonInfo가 달린 타입(이동 약속 등 정보가 아닌 것)은 존재 이유 검사에서 뺀다
   for (const i of r.infos.filter((x) => !/@nonInfo\b/.test(x.doc || ''))) {
     if (!i.doc) { console.log(`경고: 정보 ${i.name}에 존재 이유가 없다 (${i.file}:${i.line})`); n++; }
-    for (const p of i.props) if (!p.doc) { console.log(`경고: ${i.name}.${p.name}에 존재 이유가 없다 (${i.file}:${p.line})`); n++; }
+    for (const p of i.props) {
+      if (!p.doc) { console.log(`경고: ${i.name}.${p.name}에 존재 이유가 없다 (${i.file}:${p.line})`); n++; }
+      if (p.external === '(설명 없음)') { console.log(`경고: ${i.name}.${p.name}의 @external에 읽는 쪽 설명이 없다 — 누가 어떻게 읽는지 적는다 (${i.file}:${p.line})`); n++; }
+      // 필드에 직접 단 선언만 낡았는지 본다(타입 전체 선언은 일부 필드를 코드가 읽어도 맞다)
+      else if (externalOf(p.doc) && p.status !== 'none') { console.log(`경고: ${i.name}.${p.name}은 코드가 이미 쓰고 있어 @external이 필요 없다 — 선언을 지운다 (${i.file}:${p.line})`); n++; }
+    }
   }
   console.log(`정보 경고 ${n}건`);
   return n ? 1 : 0;
