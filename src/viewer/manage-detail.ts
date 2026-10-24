@@ -71,6 +71,37 @@ function lastRejection(r: RequestView): HTMLElement | null {
     h('div', { class: 'quote' }, (e.note ?? '').replace(/^설계 반려:\s*/, '') || '(사유 없음)'));
 }
 
+/** "검토 화면" 칸: 검토받는 안쪽 화면만 테스트 데이터로 띄운다. 칩으로 정상·경계·오류 데이터 묶음을 바꿔 가며 직접 써 본다. 위쪽 줄·승인 칸은 이 칸 밖이라 운영 그대로다 */
+function reviewFrameCard(model: Model, r: RequestView): HTMLElement | null {
+  const f = model.reviewFrame;
+  if (!f || (r.stage !== 'impl' && r.stage !== 'test')) return null;
+  const cases = f.cases[r.id] ?? [];
+  const KIND: Record<string, string> = { normal: '● 정상', edge: '▲ 경계', error: '■ 오류' };
+  const urlOf = (c?: { label: string; scenario: string }): string => (c ? `${f.url}${f.url.includes('?') ? '&' : '?'}dataset=${encodeURIComponent(c.label)}&scenario=${encodeURIComponent(c.scenario)}` : f.url);
+  const first = cases.find((c) => c.kind === 'normal') ?? cases[0];
+  const frame = h('iframe', { class: 'review-frame', src: urlOf(first), title: '검토 화면(테스트 데이터)' });
+  const chips = cases.map((c) => {
+    const b = h('button', { class: `rchip ${c.kind}${c === first ? ' on' : ''}`, title: c.how || c.scenario, onclick: () => { frame.setAttribute('src', urlOf(c)); b.parentElement?.querySelectorAll('.rchip').forEach((x) => x.classList.toggle('on', x === b)); } }, `${KIND[c.kind]} · ${c.label}`);
+    return b;
+  });
+  return h('div', { class: 'card review-card' }, h('div', { class: 'rf-head' }, h('b', null, '검토 화면'), h('span', { class: 'testenv' }, '테스트 데이터'), h('span', { class: 'hint' }, '저장소 밖 · 운영 데이터 아님')),
+    cases.length ? h('div', { class: 'rchips' }, chips) : h('div', { class: 'hint' }, '아직 이 요청의 테스트 데이터가 없습니다. 에이전트가 `testdata seed`로 정상·경계·오류 데이터를 채우면 칩으로 고를 수 있습니다.'),
+    frame);
+}
+
+/** 구현·테스트 중 설계가 틀렸을 때 설계 단계로 되돌리는 칸(허락 없이 누를 수 있고 이유만 적는다) */
+function redesignCard(r: RequestView, onChange: () => void): HTMLElement | null {
+  if (r.stage !== 'impl' && r.stage !== 'test') return null;
+  const why = h('textarea', { class: 'hidden', placeholder: '설계의 어디가 틀렸는지 한 줄로 적어 주세요', rows: '2' });
+  const go = (): void => {
+    if (why.classList.contains('hidden')) { why.classList.remove('hidden'); why.focus(); return; }
+    act('redesign', { id: r.id, reason: why.value }, '설계로 되돌렸습니다. 에이전트가 설계를 고쳐 다시 올립니다', onChange);
+  };
+  return h('div', { class: 'card' }, h('div', { class: 'hint' }, '구현·테스트 중 설계가 틀렸다면'), why,
+    h('button', { class: 'btn', style: 'margin-top:8px', onclick: go }, '설계가 잘못됨 → 설계로 되돌리기'),
+    r.redesigns ? h('div', { class: 'hint' }, `지금까지 설계 되돌림 ${r.redesigns}회`) : null);
+}
+
 /** 구현하다 막혀서 같이 고친 일 목록(없으면 null). 구현 칸과 테스트 확인에서 같은 모양으로 보인다 */
 function alsoFixedBox(r: RequestView, hint: boolean): HTMLElement | null {
   const a = r.alsoFixed ?? [];
@@ -233,7 +264,9 @@ function testCard(model: Model, r: RequestView, onChange: () => void): HTMLEleme
  * @does 올라온 설계(정보 변경 요약·화면 시안)를 읽고 승인하거나 반려한다 | 승인하면 구현으로, 반려하면 설계 다시 작성 중으로 넘어간다 | 요청을 시작하고 설계를 승인한다#2
  * @does 반려해서 설계 다시 작성 중인 요청의 오른쪽 패널을 본다 | 가장 최근 반려의 사유·시각·몇 번째인지가 보인다 | 반려한 사유를 다시 쓰는 동안 확인한다#1
  * @does 함께 고친 것이 남은 요청의 구현 칸과 테스트 요청 카드를 본다 | 구현 칸에 "함께 고친 것 N건"이 보이고 테스트 요청 카드에 같은 목록이 점선 상자로 보인다 | 구현하다 막혀 함께 고친 것을 확인한다#1
- * @does 테스트 칸에서 시나리오 옆 "첫 화면 열기"를 누른다 | 새 창에 첫 화면이 열리고 오른쪽 코멘트 창에 경로 단계 목록이 나온다 | 테스트를 경로 따라가며 승인한다#1 | → 2
+ * @does 구현·테스트 중인 요청에서 가운데 "검토 화면" 칸 위의 정상·경계·오류 칩을 누른다 | 칸 안쪽의 검토 대상 화면만 그 데이터 묶음(테스트 데이터)으로 바뀌고 위쪽 줄과 오른쪽 승인 칸은 그대로 운영이다 | 시나리오별 정상·경계·오류 데이터를 직접 써 본다#1
+ * @does 구현·테스트 중 설계가 틀렸다고 보고 오른쪽 패널의 "설계가 잘못됨 → 설계로 되돌리기"를 눌러 이유를 적는다 | 허락 없이 요청이 설계 다시 작성 중으로 돌아가고 이유가 진행 기록에 남으며 담당 세션에 전달된다 | 잘못된 설계를 안고 가지 않고 설계를 고쳐 다시 승인받는다#1
+ * @does 테스트 칸에서 시나리오 옆"첫 화면 열기"를 누른다 | 새 창에 첫 화면이 열리고 오른쪽 코멘트 창에 경로 단계 목록이 나온다 | 테스트를 경로 따라가며 승인한다#1 | → 2
  * @does 단계마다 대상을 고르고 코멘트를 담은 뒤 "다음 화면"으로 간다 | 다음 단계의 화면으로 넘어가고 담은 코멘트가 쌓인다 | 테스트를 경로 따라가며 승인한다#2 | → 3
  * @does 경로 끝에서 "승인"이나 "한번에 보내기(반려)"를 누른다 | 승인하면 요청이 끝나고, 반려하면 담은 코멘트가 한 묶음으로 가며 같은 요청에서 고친다 | 테스트를 경로 따라가며 승인한다#3
  */
@@ -298,6 +331,9 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   const tools = h('div', { class: 'tools' }, h('span', { class: 'hint' }, '칸 제목을 누르면 접고 폅니다'),
     h('button', { class: 'btn sm', onclick: () => { for (const c of cards) if (!c.classList.contains('later')) { FOLD.set(`${r.id}:${c.dataset.fold}`, true); c.classList.remove('shut'); c.querySelector('.tg')!.textContent = '접기'; } } }, '모두 펼치기'),
     h('button', { class: 'btn sm', onclick: () => { for (const k of [...FOLD.keys()]) if (k.startsWith(`${r.id}:`)) FOLD.delete(k); root.replaceChildren(); manageDetail(root, { model, id, sub, onChange }); } }, '단계 기본으로'));
-  root.append(withPanel(h('div', { class: 'wrap' }, head, h('div', { class: 'card' }, stepperBig(r)), tools, h('div', { class: 'dcol' }, cards)),
-    sidePanel({ title: testing && !unread(r) ? '사용 시나리오 테스트' : `요청 #${r.id}`, fold: 'request', body: unread(r) ? [dlv] : [dlv, testing ? testCard(model, r, onChange) : designSide] })));
+  // 검토 화면 칸 안(테스트 데이터로 뜬 서버)에서는 승인·반려 단추를 숨긴다: 거기서 누른 결정이 진짜 요청에 닿는 것처럼 보이면 안 된다
+  const embedded = !!model.testEnv && window.parent !== window;
+  const decide = embedded ? null : testing ? testCard(model, r, onChange) : designSide;
+  root.append(withPanel(h('div', { class: 'wrap' }, head, h('div', { class: 'card' }, stepperBig(r)), tools, reviewFrameCard(model, r), h('div', { class: 'dcol' }, cards)),
+    sidePanel({ title: testing && !unread(r) ? '사용 시나리오 테스트' : `요청 #${r.id}`, fold: 'request', body: unread(r) ? [dlv] : [dlv, decide, embedded ? null : redesignCard(r, onChange)] })));
 }

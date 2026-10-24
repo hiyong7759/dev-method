@@ -783,3 +783,11 @@ img.shot.zoomable{cursor:zoom-in}
 .dlv-done{padding:2px 4px}
 .dlv-why{color:var(--amber)}.dlv-why.bad{color:var(--red-text);font-weight:600}
 .mg-req.undelivered{border-color:var(--red-strong);background:var(--red-bg)}
+
+/* 요청 상세의 "검토 화면" 칸: 안쪽 화면만 테스트 데이터로 띄운다 */
+.review-card{border-color:var(--amber-deep)}
+.review-card .rf-head{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.review-card .rchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.rchip{border:1px solid var(--line);border-radius:14px;padding:3px 12px;background:transparent;color:var(--text);font:inherit;font-size:12px;cursor:pointer}
+.rchip.on{background:var(--amber-bg);border-color:var(--amber-deep);color:var(--amber);font-weight:700}
+.review-frame{width:100%;height:420px;border:2px dashed var(--amber-deep);border-radius:8px;background:var(--inset)}

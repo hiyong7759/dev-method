@@ -14,7 +14,7 @@ import { specDir } from './project.js';
 import { screenHistory } from './history.js';
 import { decide, addNote } from './report.js';
 import { addComment, replyComment, closeComment, commentToRequest, shotDir } from './comment.js';
-import { addRequest, startDesign, recordUntracked, approveDesign, rejectDesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
+import { addRequest, startDesign, recordUntracked, approveDesign, rejectDesign, redesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
 import { wakeOwner } from './wake.js';
 import { startOwner } from './session.js';
 import { errorText } from './cli.js';
@@ -163,6 +163,7 @@ export function specHandler(scanRoot: string): SpecHandler {
         if (url === '/__spec/request/start') { const r = startDesign(scanRoot, Number(b.id)); startOwner(scanRoot, Number(b.id), 'start'); return json(res, r); }
         if (url === '/__spec/request/design-approve') { const r = approveDesign(scanRoot, Number(b.id)); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
         if (url === '/__spec/request/design-reject') { const r = rejectDesign(scanRoot, Number(b.id), String(b.note || '')); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
+        if (url === '/__spec/request/redesign') { const r = redesign(scanRoot, Number(b.id), 'user', String(b.reason || '')); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
         if (url === '/__spec/request/test-check') return json(res, checkTest(scanRoot, Number(b.id), String(b.key || ''), !!b.done));
         if (url === '/__spec/request/test-approve') { const r = approveTest(scanRoot, Number(b.id), !!b.none); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
         if (url === '/__spec/request/test-problem') { const r = testProblem(scanRoot, Number(b.id), String(b.note || '')); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }

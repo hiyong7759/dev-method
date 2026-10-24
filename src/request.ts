@@ -157,7 +157,7 @@ export function describeRequests(list: Request[], componentsOf: (r: Request) => 
     // 에이전트 차례 글은 전달 기록으로 나눈다: 담당 세션이 읽기 전에는 일하는 것처럼 보이지 않게 한다
     const notRead = meta.turn === 'agent' && !!delivery && (delivery.state === 'sending' || delivery.state === 'hook-wait' || delivery.state === 'failed');
     const stepLabel = r.mergedInto ? `#${r.mergedInto}에 합침` : notRead ? (delivery!.state === 'failed' ? '전달 안 됨' : '결정 전달 중') : meta.label;
-    return { ...r, ...(delivery ? { delivery } : {}), stageLabel: STAGE_LABEL[r.stage], stepLabel, turn: meta.turn, overlaps, waitingFor, cost: { start: 0, wake: 0, inputTokens: 0, outputTokens: 0, usd: 0 } };
+    return { ...r, ...(delivery ? { delivery } : {}), stageLabel: STAGE_LABEL[r.stage], stepLabel, turn: meta.turn, overlaps, waitingFor, cost: { start: 0, wake: 0, inputTokens: 0, outputTokens: 0, usd: 0 }, redesigns: r.events.filter((e) => e.kind === 'redesigned').length };
   });
 }
 
@@ -355,6 +355,15 @@ export function rejectDesign(scanRoot: string, id: number, note: string, quote?:
   move(r, 'design', 'revise');
   return record(scanRoot, r, 'user', 'design-rejected', `설계 반려: ${note.trim()}${quote ? ' (대화에서 한 반려를 인용해 기록함)' : ''}`, quote);
 }
+/** 구현·테스트 중 설계가 틀렸다고 드러났을 때 설계 단계로 되돌린다. 사용자도 에이전트도 허락 없이 할 수 있고, 이유는 꼭 남긴다. 구현 커밋과 이전 설계는 지우지 않으며, 새 설계가 올라가 승인받으면 이어서 구현한다 */
+export function redesign(scanRoot: string, id: number, by: Actor, reason: string): Request {
+  const r = loadOne(scanRoot, id);
+  if (r.stage !== 'impl' && r.stage !== 'test') throw new Error(`요청 #${id}은 설계로 되돌릴 단계가 아니다(지금: ${STAGE_LABEL[r.stage]}). 설계 단계의 요청은 그대로 설계를 고쳐 올린다`);
+  if (!reason?.trim()) throw new Error('설계로 되돌리는 이유를 한 줄 적어야 한다');
+  const from = STAGE_LABEL[r.stage];
+  move(r, 'design', 'revise');
+  return record(scanRoot, r, by, 'redesigned', `설계로 되돌림(${from} 중): ${reason.trim()}`);
+}
 /** 테스트 확인표의 한 칸을 체크한다 */
 export function checkTest(scanRoot: string, id: number, key: string, done: boolean): Request {
   const r = loadOne(scanRoot, id);
@@ -497,6 +506,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const r = noteImpl(scanRoot, id, opts.commit || ''); console.log(`요청 #${r.id}: 구현 기록`);
     } else if (pos[0] === 'test') {
       const r = requestTest(scanRoot, id); console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
+    } else if (pos[0] === 'redesign') {
+      const r = redesign(scanRoot, id, 'agent', opts.reason ?? ''); console.log(`요청 #${r.id}: 설계로 되돌렸다. 설계를 고쳐 request design --id ${r.id}로 다시 올리고 사용자 승인을 받는다(이미 한 커밋은 기록으로 남는다)`);
     } else if (pos[0] === 'scope') {
       const r = setScope(scanRoot, id, { scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact) }); console.log(`요청 #${r.id}: 범위에 시나리오를 연결했다`);
     } else if (pos[0] === 'also') {
@@ -526,6 +537,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  shot --id N --screen 화면이름 --url 주소 [--selector css]   (바꾸기 전 운영 화면을 손대지 않고 그대로 찍어 현행 그림으로 저장. 설계를 올릴 때 이 그림이 현행으로 붙는다)',
         '  design --id N --file 설계.json   (또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
+        '  redesign --id N --reason "왜 설계가 틀렸나"   (구현·테스트 중 설계가 잘못된 것이 드러났을 때 설계 단계로 되돌린다. 허락은 필요 없고 이유만 남기며, 고친 설계는 다시 승인받는다)',
         '  test --id N                      (구현을 마치고 테스트를 올림. 고친 뒤 다시 올릴 때도 같다)',
         '  scope --id N [--scenarios 시나리오1,…] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오]   (범위에 시나리오를 연결. 화면이 있는 요청은 시나리오가 있어야 test를 올릴 수 있다)',
         '  also --id N --text "막혔던 일과 고친 일" [--where 화면이나 파일] [--commit 해시]   (구현하다 막혀서 같은 세션에서 함께 고친 일을 남긴다. 구현·테스트 단계에서만. 화면 모양·정보·사용 흐름이 바뀌는 일이면 남기지 말고 멈춰서 설계로 간다)',

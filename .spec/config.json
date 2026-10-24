@@ -12,6 +12,7 @@
   "wake": true,
   "testData": {
     "kind": "folder",
-    "dir": "~/.spec-testdata/dev-method"
+    "dir": "~/.spec-testdata/dev-method",
+    "reviewUrl": "http://localhost:5391/__spec/"
   }
 }

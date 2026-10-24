@@ -27,6 +27,7 @@ type Sessions = Record<string, { request: number; seen: string }>;
 const NEXT: Record<string, (id: number, note: string) => string> = {
   'design-approved': (id) => `구현을 시작하세요(구현이 끝나면 request impl --id ${id} → finish → request test --id ${id}).`,
   'design-rejected': (id) => `반려 이유를 읽고 설계를 고쳐 request design --id ${id}로 다시 올리세요.`,
+  redesigned: (id) => `사용자가 설계가 틀렸다고 설계로 되돌렸습니다. 이유를 읽고 설계를 고쳐 request design --id ${id}로 다시 올리세요(이미 한 커밋은 기록으로 남습니다).`,
   'test-approved': () => '요청이 완료됐습니다. 더 할 일이 없으면 마무리하세요.',
   'test-problem': (id) => `같은 요청에서 고친 뒤 request test --id ${id}로 테스트를 다시 올리세요.`,
   merged: (id) => `이 요청에 새 요구가 합쳐졌습니다. 요청 파일(.spec/requests/${id}.json)의 원문을 다시 읽고 설계에 반영하세요.`,

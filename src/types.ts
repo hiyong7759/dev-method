@@ -434,6 +434,8 @@ export interface RequestView extends Request {
   waitingFor: number[];
   /** 담당 세션을 만들거나 깨울 때 든 비용 합계(기록이 없으면 모두 0) */
   cost: { start: number; wake: number; inputTokens: number; outputTokens: number; usd: number };
+  /** 구현·테스트 중 설계가 틀려 설계로 되돌린 횟수 */
+  redesigns: number;
 }
 
 // ── 정보 분석 (analyze-ts) ───────────────────────────────
@@ -854,6 +856,8 @@ export interface Model {
   project: string;
   /** 테스트용 서버로 띄웠을 때만 있다. 화면 위쪽에 이 글을 표시해 운영 데이터와 헷갈리지 않게 한다 */
   testEnv?: string;
+  /** 요청 상세의 "검토 화면" 칸에 줄 것. 프로젝트에 검토 화면 주소(testData.reviewUrl)가 있고 운영 설계서 보기일 때만 있다 */
+  reviewFrame?: ReviewFrame;
   /** 모델을 만든 시각 */
   generatedAt: string;
   /** 화면들 */
@@ -1134,6 +1138,16 @@ export interface TestDataConfig {
   url?: string;
   /** 주소에 이런 글이 들어 있으면 운영으로 보고 테스트로 띄우지 않는다(예: 운영 서버 이름) */
   productionMarks?: string[];
+  /** 테스트 데이터로 뜬 검토 대상 앱의 주소. 요청 상세의 "검토 화면" 칸이 이 주소를 안쪽에 띄우고, 주소에 ?dataset=<경우 이름>을 붙여 정상·경계·오류 데이터를 고른다 */
+  reviewUrl?: string;
+}
+
+/** 요청 상세의 "검토 화면" 칸이 쓰는 것 */
+export interface ReviewFrame {
+  /** 테스트 데이터로 뜬 검토 대상 앱의 주소 */
+  url: string;
+  /** 요청 번호 → 그 요청에 만들어 둔 데이터 묶음들 */
+  cases: Record<number, SeedCase[]>;
 }
 
 /** 시나리오 하나에 만들어 둔 테스트 데이터 한 경우 */

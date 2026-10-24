@@ -12,7 +12,7 @@ import { parseArgs, errorText } from './cli.js';
 import { LAUNCHER } from './paths.js';
 import { readConfig } from './config.js';
 import { projectRoot } from './project.js';
-import type { Request, SeedCase, SeedFile, TestDataConfig } from './types.js';
+import type { Request, ReviewFrame, SeedCase, SeedFile, TestDataConfig } from './types.js';
 
 const KINDS = ['normal', 'edge', 'error'] as const;
 const KIND_LABEL: Record<string, string> = { normal: '정상', edge: '경계', error: '오류' };
@@ -66,6 +66,15 @@ export function seedProblem(scanRoot: string, r: Request): string {
   const lacks = scenarios.filter((s) => !seeds.some((x) => x.scenario === s && x.kind === 'normal' && x.shot && fs.existsSync(path.resolve(root, x.shot))));
   if (!lacks.length) return '';
   return `시나리오마다 정상 경우의 테스트 데이터와 그것이 화면에 나온 캡처가 있어야 한다. 빠진 시나리오: ${lacks.join(', ')}. \`testdata seed --id ${r.id} --scenario … --kind normal --label … --shot 캡처\`로 남긴다(경계·오류 경우도 함께 남긴다)`;
+}
+
+/** 요청 상세의 "검토 화면" 칸에 줄 것: 테스트 데이터로 뜬 앱 주소와 요청별 데이터 묶음(정상·경계·오류). 테스트용 서버 자신 안에서는 칸을 겹쳐 띄우지 않으므로 주지 않는다 */
+export function reviewFrame(root: string, ids: number[]): ReviewFrame | undefined {
+  const c = testDataConfig(root);
+  if (!c?.reviewUrl || process.env.SPEC_TEST_DIR || dataProblem(root, c)) return undefined;
+  const cases: Record<number, SeedCase[]> = {};
+  for (const id of ids) { const s = readSeeds(root, c, id).cases; if (s.length) cases[id] = s; }
+  return { url: c.reviewUrl, cases };
 }
 
 /** 테스트용 서버에 처음 채워 넣을 때 운영 .spec에서 복사하지 않는 것(담당 세션 기록·로그·계정·실행 흔적) */

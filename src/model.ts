@@ -15,6 +15,7 @@ import { deliveryOf } from './delivery.js';
 import { untrackedCommits } from './history.js';
 import { designViews } from './design.js';
 import { readConfig } from './config.js';
+import { reviewFrame } from './testdata.js';
 import { loadComments } from './comment.js';
 import { loadReports, reportRows, openCount, assignNumbers } from './report.js';
 import { loadGlossary } from './glossary.js';
@@ -233,7 +234,7 @@ export function buildModel(scanRoot: string): Model {
   return {
     project: path.basename(root), ...(process.env.SPEC_TEST_DIR ? { testEnv: '테스트 데이터' } : {}), generatedAt: new Date().toISOString(),
     screens, specs: out.specs, infos, relations, reports: rows, glossary: loadGlossary(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
-    requests, designs: designViews(root), designCanvas: readConfig(root).designCanvas ?? '', comments: loadComments(scanRoot), untracked: untrackedCommits(scanRoot, rawRequests),
+    requests, reviewFrame: reviewFrame(root, requests.map((r) => r.id)), designs: designViews(root), designCanvas: readConfig(root).designCanvas ?? '', comments: loadComments(scanRoot), untracked: untrackedCommits(scanRoot, rawRequests),
     summary: {
       screens: screens.length, infos: infos.length, relations: relations.length,
       requestsMine: requests.filter((r) => r.turn === 'user').length, needCheck: out.warnings.length, reportsOpen: openCount(rows),
