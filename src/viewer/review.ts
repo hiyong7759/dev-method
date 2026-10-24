@@ -21,9 +21,9 @@ export async function analyzeRow(id: string, opinion: string): Promise<void> {
 /** 갈래 이름과, 그 갈래를 누르면 일어나는 일 */
 export const CHOICE_LABEL: Record<Choice, string> = { registered: '요청으로 처리', kept: '그냥 둠', analyze: '더 분석' };
 export const CHOICE_EFFECT: Record<Choice, string> = {
-  registered: '고칠 일(요청)이 하나 만들어지고 맡을 에이전트가 정해집니다. 고치기 시작하는 것은 한 번 더 승인합니다.',
-  kept: '아무것도 고치지 않고, 같은 건이 다시 올라오지 않습니다.',
-  analyze: '에이전트가 의견을 전제로 더 조사해, 결과와 새 추천을 이 카드에 붙여 다시 올립니다. 그동안 카드는 확인 중입니다.',
+  registered: '고칠 일(요청)이 만들어지고 담당 에이전트가 정해집니다. 시작은 한 번 더 승인합니다.',
+  kept: '이유 한 줄을 남기고, 같은 건이 다시 올라오지 않습니다.',
+  analyze: '의견을 한 줄 달면 에이전트가 더 조사해 이 카드 밑에 결과를 붙입니다.',
 };
 
 /** 결정이 이미 있으면 그 결과를 한 줄로 */
@@ -36,34 +36,39 @@ export function decisionText(row: ReportRow): Kid {
 }
 
 /**
- * 세 갈래 단추: 요청으로 처리 / 그냥 둠 / 더 분석. 에이전트 추천이 있으면 그 단추를 강조한다.
- * 더 분석은 의견 입력칸을 열고, 그냥 둠은 이유를 선택으로 받는다.
+ * 세 갈래 상자: 요청으로 처리 / 그냥 둠 / 더 분석. 상자마다 단추와 '누르면 일어나는 일'이 들어 있고, 에이전트 추천 상자는 테두리와 '추천' 표시로 강조한다.
+ * 그냥 둠은 이유, 더 분석은 의견을 입력칸에 선택으로 받는다. 추천이 더 분석이면 의견칸이 처음부터 열려 있다.
  */
-export function actionButtons(row: ReportRow, onDone: () => void, size = ''): HTMLElement {
-  const wrap = h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center' });
+export function actionButtons(row: ReportRow, onDone: () => void): HTMLElement {
   const done = (msg: string): void => { toast(msg); onDone(); };
   const fail = (e: unknown): void => toast(errorText(e));
-  const input = h('input', { class: 'reason-in', placeholder: '', 'aria-label': '한 줄' });
-  let mode: 'kept' | 'analyze' = 'kept';
-  const sendBtn = h('button', { class: 'btn sm pri', onclick: () => {
+  const input = h('textarea', { class: 'opinion-in', rows: '2', 'aria-label': '내 의견' });
+  const sendBtn = h('button', { class: 'btn pri' }, '');
+  const hint = h('span', { class: 'hint' }, '');
+  const inputRow = h('div', { class: 'opinion hidden' }, input, h('div', { class: 'opinion-act' }, sendBtn, hint));
+  let mode: 'kept' | 'analyze' = 'analyze';
+  sendBtn.onclick = () => {
     if (mode === 'kept') decideRow(row.id, 'kept', input.value).then(() => done('그냥 두기로 했습니다')).catch(fail);
     else analyzeRow(row.id, input.value).then(() => done('에이전트에게 더 분석을 맡겼습니다')).catch(fail);
-  } }, '');
-  const inputRow = h('div', { class: 'hidden', style: 'display:flex;gap:8px;width:100%;align-items:center' }, input, sendBtn);
-  inputRow.classList.add('hidden');
+  };
   const open = (m: 'kept' | 'analyze'): void => {
     mode = m;
-    input.placeholder = m === 'kept' ? '이유 한 줄 (생략 가능)' : '내 의견 한 줄 (생략 가능 — 예: 이건 다음 달에 쓸 예정이야)';
+    input.placeholder = m === 'kept' ? '이유를 한 줄 적어 주세요 (생략 가능)' : '내 의견을 한 줄 적어 주세요 (생략 가능 — 예: 이건 다음 달에 쓸 예정이야)';
     sendBtn.textContent = m === 'kept' ? '그냥 두기' : '에이전트에게 맡기기';
-    inputRow.classList.remove('hidden'); input.focus();
+    hint.textContent = m === 'kept' ? '누르면 처리함으로 옮겨가고 다시 올라오지 않습니다.' : '맡기면 이 카드는 확인 중이 되고, 결과가 붙으면 결정 대기로 바뀝니다.';
+    inputRow.classList.remove('hidden');
   };
-  const cls = (c: Choice): string => `btn${row.recommend.pick === c ? ' pri' : ''}${size}`;
-  wrap.append(
-    h('button', { class: cls('registered'), title: CHOICE_EFFECT.registered, onclick: () => { decideRow(row.id, 'registered').then(() => done('요청으로 처리합니다')).catch(fail); } }, CHOICE_LABEL.registered),
-    h('button', { class: cls('kept'), title: CHOICE_EFFECT.kept, onclick: () => open('kept') }, CHOICE_LABEL.kept),
-    h('button', { class: cls('analyze'), title: CHOICE_EFFECT.analyze, onclick: () => open('analyze') }, CHOICE_LABEL.analyze),
+  const box = (c: Choice, onclick: () => void): HTMLElement => {
+    const rec = row.recommend.pick === c;
+    return h('div', { class: `choice${rec ? ' rec' : ''}` }, rec ? h('span', { class: 'choice-rec' }, '추천') : null, h('button', { class: `btn${rec ? ' pri' : ''}`, onclick }, CHOICE_LABEL[c]), h('div', { class: 'choice-fx' }, CHOICE_EFFECT[c]));
+  };
+  if (row.recommend.pick === 'analyze') open('analyze');
+  return h('div', { class: 'choices-wrap' },
+    h('div', { class: 'choices' },
+      box('registered', () => { decideRow(row.id, 'registered').then(() => done('요청으로 처리합니다')).catch(fail); }),
+      box('kept', () => open('kept')),
+      box('analyze', () => open('analyze'))),
     inputRow);
-  return wrap;
 }
 
 /** 이 항목들과 이어진 리포트 번호 표시(#31). 눌러서 리포트 화면의 그 줄로 간다. 그 자리에서 판단하지 않는다 */

@@ -33,7 +33,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props |
 }
 
 /** 이름표 chip의 색: me=내 차례(노랑), ag=에이전트 차례(파랑), ok=완료·통과(초록), bad=문제(빨강), dim=그 밖 */
-export type Tone = 'me' | 'ag' | 'ok' | 'bad' | 'dim';
+export type Tone = 'me' | 'ag' | 'ok' | 'bad' | 'dim' | 'wait';
 /** 상태를 한두 단어로 알리는 이름표 */
 export const chip = (tone: Tone, text: Kid, extra = ''): HTMLSpanElement => h('span', { class: `chip ${tone}${extra}` }, text);
 /** 범위·종류를 알리는 태그: c=화면·컴포넌트(파랑), i=정보(초록), 비우면 보통 */
