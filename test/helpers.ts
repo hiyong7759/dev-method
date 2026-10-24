@@ -13,6 +13,8 @@ export function tempProject(config: Record<string, unknown> = {}): { root: strin
   fs.mkdirSync(path.join(root, 'src'));
   fs.mkdirSync(path.join(root, '.spec'));
   fs.writeFileSync(path.join(root, '.spec', 'config.json'), JSON.stringify({ src: 'src', ...config }));
+  // 끝낼 때 확인(finish)을 통과한 상태로 시작한다(시각은 미래로 두어 시험 중 파일 수정과 겹치지 않게). finish를 막는 시험은 이 파일을 지우거나 바꾼다
+  fs.writeFileSync(path.join(root, '.spec', 'finish.json'), JSON.stringify({ at: new Date(Date.now() + 3600_000).toISOString(), ok: true }));
   return { root, src: path.join(root, 'src') };
 }
 

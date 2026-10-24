@@ -314,6 +314,17 @@ export interface Request {
     /** 들어온 시각 */
     at: string;
   };
+  /** 등록할 때 에이전트가 간단히 정리하고 사용자가 맞다고 확인한 상세 내용과 처리 방식(없으면 옛 요청) */
+  detail?: {
+    /** 확인받은 상세 내용 */
+    text: string;
+    /** 사용자가 확인한 시각 */
+    confirmedAt: string;
+    /** 바로 작업(설계 승인 없이 구현) 또는 정식 설계 */
+    mode: 'direct' | 'design';
+    /** 그렇게 구분한 이유 */
+    reason: string;
+  };
   /** 건드리는 범위(겹침을 찾는 근거) */
   scope: {
     /** 건드리는 화면 이름들 */

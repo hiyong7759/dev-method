@@ -162,3 +162,26 @@ test('화면이 없는 요청은 등록할 때 적은 테스트 없음 이유가
   startDesign(src, 1); submitDesign(src, 1, { none: true }); approveDesign(src, 1); requestTest(src, 1);
   approveTest(src, 1, true);
 });
+
+test('바로 작업: 접수 없이 설계 없음 승인으로 구현 단계가 되고, 화면·정보가 있으면 등록되지 않는다', () => {
+  const { src } = tempProject();
+  assert.throws(() => addRequest(src, { title: '수리', detail: '단추가 안 눌림', mode: 'direct', reason: '고장 수리', screens: ['요청 상세'] }), /화면·정보가 바뀌지 않는 고장 수리만/);
+  assert.throws(() => addRequest(src, { title: '수리', mode: 'direct', reason: '고장 수리' }), /상세 내용/);
+  const r = addRequest(src, { title: '수리', detail: '단추가 안 눌림', mode: 'direct', reason: '고장 수리' });
+  assert.deepEqual([r.stage, r.step, r.design?.none], ['impl', 'working', true]);
+  assert.equal(r.events.at(-1)?.kind, 'design-approved');
+  assert.equal(r.detail?.mode, 'direct');
+});
+
+test('테스트 올리기: finish가 실패했거나 기록이 없거나 그 뒤 소스가 바뀌면 거절한다', () => {
+  const { root, src } = tempProject();
+  addRequest(src, { title: '수리', detail: '단추가 안 눌림', mode: 'direct', reason: '고장 수리', noTest: '화면이 안 바뀜' });
+  const f = path.join(root, '.spec', 'finish.json');
+  fs.writeFileSync(f, JSON.stringify({ at: new Date().toISOString(), ok: false }));
+  assert.throws(() => requestTest(src, 1), /실패했다/);
+  fs.rmSync(f);
+  assert.throws(() => requestTest(src, 1), /기록이 없다/);
+  fs.writeFileSync(f, JSON.stringify({ at: new Date(Date.now() - 60_000).toISOString(), ok: true }));
+  fs.writeFileSync(path.join(src, 'a.ts'), 'x');
+  assert.throws(() => requestTest(src, 1), /소스가 바뀌었다/);
+});

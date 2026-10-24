@@ -71,6 +71,7 @@ function designApproval(r: RequestView, onChange: () => void): HTMLElement {
   const ok = h('button', { class: 'btn pri off', disabled: true, onclick: () => act('design-approve', { id: r.id }, none ? '설계 없음으로 승인했습니다' : '설계를 승인했습니다', onChange) }, none ? '설계 없음 승인' : '설계 승인');
   const sync = (): void => { const ready = none || ((!hasInfo || c1.checked) && (!hasScreen || c2.checked)); ok.disabled = !ready; ok.classList.toggle('off', !ready); };
   c1.addEventListener('change', sync); c2.addEventListener('change', sync);
+  sync(); // 처음 한 번도 계산한다: 설계 없음은 확인 상자가 없어 계산이 안 돌면 단추가 꺼진 채 남는다
   const check = (id: string, input: HTMLInputElement, text: string): HTMLElement => h('label', { class: 'ck', for: id }, input, h('span', null, text));
   return h('div', { class: 'card approve' }, h('h3', null, none ? '설계 없음 승인' : '설계 승인'),
     h('div', null, none ? '에이전트가 정보도 화면도 바뀌지 않는 요청이라고 올렸습니다. 맞다면 "설계 없음"으로 승인하고 구현으로 넘어갑니다.' : '정보와 화면을 함께 확인하고 한 번에 승인합니다. 승인하기 전에는 구현을 시작하지 않습니다.'),
@@ -221,7 +222,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   if (sub === 'info') { manageInfoOverlay(root, { model, r }); return; }
   if (sub === 'compare') { manageCompare(root, { r, screen: new URLSearchParams(location.hash.split('?')[1] ?? '').get('screen') || '' }); return; }
   const d = r.design;
-  const head = pageHead({ crumb: [h('a', { href: hash('manage') }, '요청'), ` › #${r.id}`], title: r.title, meta: [chipFor(r), scopeTags(r), h('span', null, `${r.source === 'user' ? '사용자 요청' : '에이전트 발견'} · ${r.origin.channel} · ${fmt(r.origin.at)}`)] });
+  const head = pageHead({ crumb: [h('a', { href: hash('manage') }, '요청'), ` › #${r.id}`], title: r.title, meta: [chipFor(r), r.detail?.mode === 'direct' ? chip('ok', '바로 작업') : null, scopeTags(r), h('span', null, `${r.source === 'user' ? '사용자 요청' : '에이전트 발견'} · ${r.origin.channel} · ${fmt(r.origin.at)}`)] });
   const stage = r.stage === 'cancelled' ? 'design' : r.stage;
   const idx = (['design', 'impl', 'test', 'done'] as const).indexOf(stage);
   const at = (kind: string): RequestView['events'][number] | undefined => [...r.events].reverse().find((e) => e.kind === kind);
@@ -237,7 +238,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
     return card;
   };
   const sumText = (t: string, n = 70): string => (t.length > n ? `${t.slice(0, n)}…` : t);
-  const dsum = !d ? '아직 올라오지 않았습니다' : d.none ? '정보도 화면도 바뀌지 않는 요청(설계 없음)' : `정보 변경 ${d.changes.length}건 · 화면 변경 ${d.screens.length}건${d.rejected ? ` · 반려 ${d.rejected}회` : ''}`;
+  const dsum = r.detail?.mode === 'direct' ? '바로 작업으로 등록되어 설계 없음 승인으로 처리됨' : !d ? '아직 올라오지 않았습니다' : d.none ? '정보도 화면도 바뀌지 않는 요청(설계 없음)' : `정보 변경 ${d.changes.length}건 · 화면 변경 ${d.screens.length}건${d.rejected ? ` · 반려 ${d.rejected}회` : ''}`;
   const designEvents = r.events.filter((e) => e.kind.startsWith('design-'));
   const designState = approved ? chip('ok', '승인됨') : r.stage === 'design' ? chip('me', r.step === 'submitted' ? '승인 대기' : '작성 중') : null;
   const implEvents = r.events.filter((e) => e.kind === 'impl' || e.kind === 'test-requested');
@@ -247,7 +248,9 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
       [r.agent.name ? h('div', { class: 'rm' }, h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, `claude attach ${r.agent.name}`), h('button', { class: 'btn sm', onclick: () => { void copyText(`claude attach ${r.agent.name}`).then(() => toast('복사했습니다')); } }, '복사'), h('span', { class: 'hint' }, `VS Code는 세션 목록에서 "${r.agent.name}"`))
         : h('div', { class: 'hint' }, '이 요청만 알고 일하는 에이전트입니다. 맡으면 이름이 여기에 나옵니다.'),
       r.cost && (r.cost.start || r.cost.wake) ? h('div', { class: 'rm cost' }, h('b', null, '이 요청에 쓴 세션 비용'), chip('me', `약 $${r.cost.usd.toFixed(2)}`), h('span', { class: 'hint' }, `세션 시작 ${r.cost.start}번 · 깨움 ${r.cost.wake}번 · 토큰 입력 ${r.cost.inputTokens.toLocaleString()} · 출력 ${r.cost.outputTokens.toLocaleString()}`)) : null]),
-    fold('origin', '요청 원문', idx === 0, r.origin.text ? `"${sumText(r.origin.text)}"` : '원문이 없습니다', r.origin.text ? h('div', { class: 'quote' }, r.origin.text) : h('div', { class: 'hint' }, '원문이 기록되지 않았습니다.')),
+    fold('origin', '요청 원문', idx === 0, r.origin.text ? `"${sumText(r.origin.text)}"` : '원문이 없습니다', [r.origin.text ? h('div', { class: 'quote' }, r.origin.text) : h('div', { class: 'hint' }, '원문이 기록되지 않았습니다.'),
+      r.detail ? h('div', { class: 'box' }, h('div', { class: 'hint' }, `상세 내용 · 등록할 때 정리하고 사용자가 확인함 · ${fmt(r.detail.confirmedAt)}`), h('div', { class: 'quote' }, r.detail.text),
+        h('div', { class: 'tagrow' }, chip(r.detail.mode === 'direct' ? 'ok' : 'dim', r.detail.mode === 'direct' ? '바로 작업' : '정식 설계'), r.detail.reason ? h('span', { class: 'hint' }, r.detail.reason) : null)) : null]),
     fold('design', '설계', idx === 0, approved ? `${fmt(approved.at)} 사용자 승인 · ${dsum}` : dsum,
       [d && (!d.none || d.understanding) ? designText(d) : null,
         designResult(model, r), designEvents.length ? h('div', { class: 'tl' }, designEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`, e.quote ? h('div', { class: 'hint', style: 'margin-top:2px' }, `사용자가 한 말: “${e.quote}”`) : null)))) : h('div', { class: 'hint' }, '설계 기록이 없습니다.')],

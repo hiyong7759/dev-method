@@ -6,7 +6,8 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { specDir } from './project.js';
+import { execFileSync } from 'node:child_process';
+import { specDir, projectRoot } from './project.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { addReport } from './report.js';
 import type { Actor, DesignChange, DesignPoint, DesignScreen, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
@@ -76,12 +77,22 @@ export interface NewRequest {
   source?: string;
   /** 화면도 시나리오도 없는 요청의 "테스트 없음" 이유 */
   noTest?: string;
+  /** 등록할 때 정리해 사용자가 확인한 상세 내용 */
+  detail?: string;
+  /** 처리 방식: direct(바로 작업) 또는 design(정식 설계) */
+  mode?: string;
+  /** 처리 방식을 그렇게 구분한 이유 */
+  reason?: string;
 }
 
-/** 에이전트가 요청을 만든다 */
-export function addRequest(scanRoot: string, { title, origin = '', channel = '대화', screens = [], infos = [], scenarios = [], steps = [], impactOnly = [], agent = '', source = 'user', relatedTo, noTest }: NewRequest): Request {
+/** 에이전트가 요청을 만든다. 바로 작업이면 접수를 거치지 않고 설계 없음 승인으로 기록해 곧바로 구현 단계로 둔다 */
+export function addRequest(scanRoot: string, { title, origin = '', channel = '대화', screens = [], infos = [], scenarios = [], steps = [], impactOnly = [], agent = '', source = 'user', relatedTo, noTest, detail = '', mode = '', reason = '' }: NewRequest): Request {
   if (!title?.trim()) throw new Error('요청 제목이 비었다');
   if (source !== 'user' && source !== 'report') throw new Error('출처는 user(사용자 요청)나 report(에이전트가 올린 리포트)만 가능하다');
+  if (mode && mode !== 'direct' && mode !== 'design') throw new Error('처리 방식(mode)은 direct(바로 작업)나 design(정식 설계)만 가능하다');
+  if (mode && !detail.trim()) throw new Error('처리 방식을 정하려면 사용자가 확인한 상세 내용(detail)이 있어야 한다');
+  if (mode === 'direct' && (screens.length || infos.length)) throw new Error('바로 작업은 화면·정보가 바뀌지 않는 고장 수리만 쓴다(rules/approval.md). 화면·정보를 건드리면 정식 설계로 등록한다');
+  if (mode === 'direct' && !reason.trim()) throw new Error('바로 작업으로 구분한 이유(reason)를 적어야 한다');
   const id = loadRequests(scanRoot).reduce((m, r) => Math.max(m, r.id), 0) + 1;
   const now = new Date().toISOString();
   const req: Request = {
@@ -89,9 +100,16 @@ export function addRequest(scanRoot: string, { title, origin = '', channel = '�
     scope: { screens, infos, scenarios, steps, impactOnly }, agent: { name: agent },
     ...(relatedTo ? { relatedTo } : {}),
     ...(noTest?.trim() ? { noTest: noTest.trim() } : {}),
+    ...(mode ? { detail: { text: detail.trim(), confirmedAt: now, mode: mode as 'direct' | 'design', reason: reason.trim() } } : {}),
     stage: 'design', step: 'queued',
     events: [{ at: now, by: 'agent', kind: 'created', note: relatedTo ? `요청 등록(#${relatedTo}과 이어짐)` : '요청 등록' }],
   };
+  if (mode === 'direct') {
+    // 사용자가 상세 내용과 함께 바로 작업을 확인했으므로 설계 없음 승인으로 본다
+    req.design = { understanding: '', approach: '', changes: [], screens: [], none: true, rejected: 0 };
+    move(req, 'impl', 'working');
+    req.events.push({ at: now, by: 'user', kind: 'design-approved', note: '바로 작업으로 등록(설계 없음 승인으로 봄)' });
+  }
   save(scanRoot, req);
   return req;
 }
@@ -213,10 +231,38 @@ export function submitDesign(scanRoot: string, id: number, d: DesignInput): Requ
   return record(scanRoot, r, 'agent', 'design-submitted', none ? '설계 없음으로 올림' : `설계 제출 (정보 변경 ${design.changes.length}건 · 화면 변경 ${screens.length}건)`);
 }
 
+/** 구현 기록으로 받을 커밋이 설계 승인보다 뒤인지 확인한다. 승인 전에 만든 커밋이 "승인받고 구현했다"처럼 섞이지 않게 한다. git에서 시각을 못 읽으면 막지 않는다 */
+function assertAfterApproval(scanRoot: string, r: Request, commit: string): void {
+  const approved = [...r.events].reverse().find((e) => e.kind === 'design-approved');
+  if (!approved) return;
+  let at = '';
+  try { at = execFileSync('git', ['log', '-1', '--format=%cI', commit], { cwd: projectRoot(scanRoot), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return; }
+  if (at && Date.parse(at) < Date.parse(approved.at)) throw new Error(`커밋 ${commit}은 설계 승인(${approved.at})보다 앞선 ${at}에 만들어져 구현 기록으로 받지 않는다. 승인 전에 소스를 먼저 고친 것이므로 이유와 함께 사용자에게 알린다`);
+}
+
+/** 가장 최근 "끝낼 때 확인(finish)"이 통과했고 그 뒤 소스가 바뀌지 않았는지 본다. 문제가 있으면 이유 글을, 없으면 빈 글을 돌려준다 */
+function finishProblem(scanRoot: string): string {
+  let rec: { at: string; ok: boolean } | null = null;
+  try { rec = JSON.parse(fs.readFileSync(path.join(specDir(scanRoot), 'finish.json'), 'utf8')) as { at: string; ok: boolean }; } catch { /* 기록 없음 */ }
+  if (!rec) return '끝낼 때 확인(finish)을 돌린 기록이 없다. finish를 돌려 통과한 뒤에 올린다';
+  if (!rec.ok) return `가장 최근 끝낼 때 확인(finish, ${rec.at})이 실패했다. 고친 뒤 다시 돌려 통과해야 한다`;
+  const since = Date.parse(rec.at);
+  const newer = (d: string): string => {
+    for (const n of fs.readdirSync(d, { withFileTypes: true })) {
+      const f = path.join(d, n.name);
+      if (n.isDirectory()) { if (n.name === 'node_modules' || n.name.startsWith('.')) continue; const hit = newer(f); if (hit) return hit; } else if (fs.statSync(f).mtimeMs > since) return f;
+    }
+    return '';
+  };
+  const hit = newer(scanRoot);
+  return hit ? `끝낼 때 확인(finish, ${rec.at}) 뒤에 소스가 바뀌었다(${path.relative(projectRoot(scanRoot), hit)}). finish를 다시 돌려 통과해야 한다` : '';
+}
+
 /** 에이전트가 구현을 시작했거나 커밋을 남겼음을 적는다 */
 export function noteImpl(scanRoot: string, id: number, commit: string): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'impl' && r.stage !== 'test') throw new Error(`요청 #${id}은 구현할 수 있는 단계가 아니다(지금: ${STAGE_LABEL[r.stage]}). 설계 승인이 먼저다`);
+  if (commit) assertAfterApproval(scanRoot, r, commit);
   if (commit) r.commits = [...new Set([...(r.commits ?? []), commit])];
   if (r.stage === 'impl') move(r, 'impl', 'working');
   return record(scanRoot, r, 'agent', 'impl', commit ? `구현 커밋 ${commit}` : '구현 시작');
@@ -227,6 +273,8 @@ export function requestTest(scanRoot: string, id: number): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'impl' && r.stage !== 'test') throw new Error(`요청 #${id}은 테스트를 올릴 수 있는 단계가 아니다(지금: ${STAGE_LABEL[r.stage]})`);
   if (r.scope.screens.length && !(r.scope.scenarios ?? []).length) throw new Error(`요청 #${id}은 범위에 화면(${r.scope.screens.join(', ')})이 있는데 사용 시나리오가 없어 테스트를 올릴 수 없다. 시나리오를 소스(@does)에 올리고 \`request scope --id ${id} --scenarios …\`로 범위에 연결한다`);
+  const bad = finishProblem(scanRoot);
+  if (bad) throw new Error(`요청 #${id}의 테스트를 올릴 수 없다: ${bad}`);
   const again = r.stage === 'test';
   move(r, 'test', 'requested');
   r.test = r.test ?? { checks: {}, found: [], none: false };
@@ -390,8 +438,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
   try {
     if (pos[0] === 'add') {
       if (!csv(opts.screens).length && !csv(opts.scenarios).length && !opts['no-test']?.trim()) throw new Error('화면(--screens)도 시나리오(--scenarios)도 없는 요청은 `--no-test "이유"`로 테스트가 왜 필요 없는지 적어야 등록된다');
-      const r = addRequest(scanRoot, { title: opts.title, origin: opts.origin, channel: opts.channel, screens: csv(opts.screens), infos: csv(opts.infos), scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact), agent: opts.agent, source: opts.source, relatedTo: opts.related ? Number(opts.related) : undefined, noTest: opts['no-test'] });
-      console.log(`요청 #${r.id}: 등록 (설계서 보기 "관리"에서 보인다)`);
+      const r = addRequest(scanRoot, { title: opts.title, origin: opts.origin, channel: opts.channel, screens: csv(opts.screens), infos: csv(opts.infos), scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact), agent: opts.agent, source: opts.source, relatedTo: opts.related ? Number(opts.related) : undefined, noTest: opts['no-test'], detail: opts.detail, mode: opts.mode, reason: opts.reason });
+      console.log(r.detail?.mode === 'direct' ? `요청 #${r.id}: 바로 작업으로 등록 (설계 없음 승인으로 기록, 구현 단계. 담당 세션은 만들지 않으니 이 세션이 이어서 고친다)` : `요청 #${r.id}: 등록 (설계서 보기 "관리"에서 보인다)`);
     } else if (pos[0] === 'similar') {
       // 새 요청을 등록하기 전에 합칠 후보를 본다(--all이면 이미 접수된 요청끼리 합칠 것도 함께)
       const found = similarRequests(scanRoot, { screens: csv(opts.screens), infos: csv(opts.infos), scenarios: csv(opts.scenarios) });
@@ -446,7 +494,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const r = setAgent(scanRoot, id, opts.name); console.log(`요청 #${r.id}: 맡은 에이전트 ${r.agent.name}`);
     } else {
       console.log(['사용: node <스킬 폴더>/spec.mjs request <명령> --src <소스 폴더> …',
-        '  add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--scenarios 시나리오1] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오] [--agent 세션이름] [--related 이어지는 요청 번호] [--no-test "테스트 없음 이유"]   (화면도 시나리오도 없으면 --no-test가 있어야 등록된다)',
+        '  add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--scenarios 시나리오1] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오] [--agent 세션이름] [--related 이어지는 요청 번호] [--no-test "테스트 없음 이유"] [--detail "사용자가 확인한 상세 내용" --mode direct|design --reason "구분 이유"]   (direct=바로 작업: 화면·정보가 안 바뀌는 고장 수리만, 설계 없음 승인으로 기록해 곧바로 구현. 화면도 시나리오도 없으면 --no-test가 있어야 등록된다)',
         '  similar [--screens …] [--infos …] [--scenarios …] [--all true]   (새 요청을 등록하기 전에 합칠 후보를 본다. 보이기만 한다)',
         '  merge --into 남는번호 (--text "새 요구" | --from 없어질번호) --quote "사용자가 한 말"   (접수·설계 작성 중인 요청끼리만. 인용이 없으면 못 한다)',
         '  start --id N                     (시작 전 요청의 설계를 시작. 할 일을 정할 때 우선순위를 정한 뒤에만)',

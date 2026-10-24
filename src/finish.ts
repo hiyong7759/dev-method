@@ -2,10 +2,12 @@
  * @spec finish 끝낼 때 확인
  * @why 에이전트가 "테스트 요청"을 내기 전에, 끝낼 때 확인을 말이 아니라 실행으로 거치게 한다. 기계가 확인할 수 있는 것(경고 0, 서버 응답, 화면 주소 연결)은 도구가 하고, 눈으로 봐야 하는 것(화면이 열리고 오류 없는지, 부품 위치, 눌러야 나오는 부품)은 하이쿠급 에이전트가 ego-browser로 직접 보게 한다. 기계가 브라우저를 흉내 내 보는 것은 가치가 작다는 사용자 결정이다.
  * @basis 설정은 .spec/config.json의 src와 port를 기본값으로 쓴다. --url은 설계서 보기 서버(serve) 주소이지 앱 개발 서버 주소가 아니다. 이 도구는 브라우저를 직접 띄우지 않는다(Playwright·Chrome 사용 없음).
- * @contract 기계 확인이 모두 통과해야 종료 코드 0이고, 하나라도 실패하면 상태는 "개발 중"이라 테스트 요청을 내지 않는다. 통과하면 화면 주소마다 확인 에이전트에게 줄 지시문(열 주소, 찾을 부품과 여는 순서, 로그인 설정 위치)을 출력한다. 그 에이전트가 낸 보고를 읽은 뒤에만 테스트 요청을 낸다.
+ * @contract 돌릴 때마다 결과(시각·통과 여부)를 .spec/finish.json에 남긴다. 기계 확인이 모두 통과해야 종료 코드 0이고, 하나라도 실패하면 상태는 "개발 중"이라 테스트 요청을 내지 않는다. 통과하면 화면 주소마다 확인 에이전트에게 줄 지시문(열 주소, 찾을 부품과 여는 순서, 로그인 설정 위치)을 출력한다. 그 에이전트가 낸 보고를 읽은 뒤에만 테스트 요청을 낸다.
  */
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
+import { specDir } from './project.js';
 import { LAUNCHER } from './paths.js';
 import { readConfig } from './config.js';
 import { localFile, readLocal } from './login.js';
@@ -68,6 +70,11 @@ export async function main(argv: string[]): Promise<number | undefined> {
     }
   }
 
+  // 결과를 남긴다: `request test`가 이 기록이 통과이고 그 뒤 소스가 안 바뀐 때만 테스트를 올리게 한다
+  const record = (ok: boolean): void => {
+    try { const f = path.join(specDir(path.resolve(root, src)), 'finish.json'); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify({ at: new Date().toISOString(), ok }, null, 2) + '\n'); } catch { /* 기록 실패는 확인 결과를 바꾸지 않는다 */ }
+  };
+  record(results.every(Boolean));
   if (!results.every(Boolean)) { console.log('\n결과: 실패 — 상태는 "개발 중". 테스트 요청을 내지 않는다'); return 1; }
 
   // 4. 눈으로 보는 확인: 하이쿠급 에이전트가 ego-browser로 한다
