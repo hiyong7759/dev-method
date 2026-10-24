@@ -5,7 +5,7 @@
  */
 import { h, post, pageHead, chip, tag, fmt, toast, errorText, copyText, sidePanel } from './util.js';
 import type { Kid } from './util.js';
-import { hash, nav } from './route.js';
+import { hash, nav, testAt } from './route.js';
 import { stepperBig, chipFor, scopeTags, withPanel, currentDesignApproval } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
 import { basket, sendBasket } from './comment-basket.js';
@@ -62,6 +62,15 @@ function scopeBody(model: Model, r: RequestView): Kid {
 }
 
 /** 설계 승인 칸(사용자만): 확인 두 개를 하면 승인 단추가 켜진다 */
+function lastRejection(r: RequestView): HTMLElement | null {
+  const e = [...r.events].reverse().find((x) => x.kind === 'design-rejected');
+  if (!e) return null;
+  const n = r.design?.rejected;
+  return h('div', { class: 'box', style: 'margin-top:10px' },
+    h('div', { class: 'hint' }, `가장 최근 반려 · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}${n ? ` (${n}번째)` : ''}`),
+    h('div', { class: 'quote' }, (e.note ?? '').replace(/^설계 반려:\s*/, '') || '(사유 없음)'));
+}
+
 function designApproval(r: RequestView, onChange: () => void): HTMLElement {
   const d = r.design;
   const none = !!d?.none;
@@ -160,7 +169,7 @@ function testScenario(model: Model, r: RequestView, sc: Scenario, impactOnly: bo
   // 첫 화면은 테스트 경로로 열린다: 그 창의 오른쪽 코멘트 창에 단계 목록·코멘트 담기·승인·반려가 붙는다
   const firstStep = (mains[0] ?? branches[0])?.id;
   return h('div', { class: 'tsc' },
-    h('div', { class: 'tsc-h' }, h('b', null, sc.name), impactOnly ? h('span', { class: 'chip dim' }, '영향 확인만') : null, h('span', { class: 'grow' }), first ? h('a', { class: 'open', target: '_blank', rel: 'noopener', href: `${location.pathname}${hash('screen', first, { tr: String(r.id), ts: sc.name, tn: firstStep })}` }, '첫 화면 열기 ↗') : null),
+    h('div', { class: 'tsc-h' }, h('b', null, sc.name), impactOnly ? h('span', { class: 'chip dim' }, '영향 확인만') : null, h('span', { class: 'grow' }), first ? h('a', { class: 'open', target: '_blank', rel: 'noopener', href: `${location.pathname}${hash('screen', first, { tr: String(r.id), ts: sc.name, tn: firstStep, at: testAt(model.screens, first, r.id) })}` }, '첫 화면 열기 ↗') : null),
     mains.length ? [h('div', { class: 'hint' }, impactOnly ? '영향 확인 (바꾸지 않음)' : '기본 흐름'), mains.map(stepRow)] : null,
     branches.length ? [h('div', { class: 'hint amberT' }, '갈래 — 이번 요청이 바꾼 것만'), branches.map(stepRow)] : null);
 }
@@ -266,7 +275,9 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   ];
   const designSide = r.stage === 'design' && r.step === 'submitted' ? designApproval(r, onChange)
     : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : r.step === 'queued' ? '접수' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : r.step === 'queued' ? '우선순위를 정했으면 시작합니다. 누르면 이 요청을 맡을 담당 세션이 새로 만들어지고, 설계를 작성해 승인을 기다립니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.'),
-      r.step === 'queued' ? h('button', { class: 'btn pri', style: 'margin-top:10px', onclick: () => act('start', { id: r.id }, `요청 #${r.id}을 시작했습니다. 담당 세션이 설계를 쓰는 중입니다`, onChange) }, '시작') : null)
+      r.step === 'queued' ? h('button', { class: 'btn pri', style: 'margin-top:10px', onclick: () => act('start', { id: r.id }, `요청 #${r.id}을 시작했습니다. 담당 세션이 설계를 쓰는 중입니다`, onChange) }, '시작') : null,
+      // 반려하면 사유가 패널에서 사라져 무엇을 고치는 중인지 알 수 없었다 → 다시 쓰는 동안 가장 최근 반려 사유만 보인다
+      r.step === 'revise' ? lastRejection(r) : null)
     : r.stage === 'impl' ? h('div', { class: 'card' }, h('h3', null, '구현 중'), h('div', { class: 'hint' }, '에이전트가 구현하고 있습니다. 끝내고 테스트를 올리면 여기서 확인합니다.'))
     : r.stage === 'done' ? h('div', { class: 'card' }, h('h3', null, '끝난 요청'), h('div', { class: 'hint' }, '모든 칸은 펼쳐서 볼 수 있습니다.')) : null;
   const testing = r.stage === 'test';
