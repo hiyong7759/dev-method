@@ -17,8 +17,8 @@
   "agent": {
     "name": ""
   },
-  "stage": "test",
-  "step": "requested",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-24T06:44:29.759Z",
@@ -62,6 +62,13 @@
       "by": "agent",
       "kind": "test-requested",
       "note": "고친 뒤 테스트 다시 요청"
+    },
+    {
+      "at": "2026-10-24T11:23:17.850Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "47, 49, 52, 53, 56번 테스트 승인으로 처리해"
     }
   ],
   "design": {
@@ -79,6 +86,6 @@
   "test": {
     "checks": {},
     "found": [],
-    "none": false
+    "none": true
   }
 }
