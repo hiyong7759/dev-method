@@ -1,11 +1,11 @@
 ---
 name: spec-view
-description: 화면·컴포넌트·정보(타입)·로직 모듈을 만들거나 고치거나, 설계서 보기(사용 흐름·정보 흐름·화면 설계서·관리)와 요청(설계·테스트 승인)·리포트·용어집을 다룰 때 따르는 순서와 규칙. 소스 주석 메타정보로 소스 자체가 설계서가 되게 하는 도구 포함
+description: 사용자가 "할 일 뭐있지"·"승인 대기"처럼 할 일을 물을 때(todo 명령), 화면·컴포넌트·정보(타입)·로직 모듈을 만들거나 고치거나, 설계서 보기(사용 흐름·정보 흐름·화면 설계서·관리)와 요청(설계·테스트 승인)·리포트·용어집을 다룰 때 따르는 순서와 규칙. 소스 주석 메타정보로 소스 자체가 설계서가 되게 하는 도구 포함
 ---
 
 # 설계서 보기 (소스가 설계서)
 
-목적: 설계서를 따로 쓰지 않는다. 소스의 메타정보(존재 이유)와 도구(`extract`, `analyze-ts`, `nav`, 설계서 보기 서버 `serve`)가 설계서를 만든다. 도구 소스는 저장소 맨 위 `src/`(TypeScript)에 있고, 이 폴더의 `spec.mjs`가 입구다: `node <이 폴더>/spec.mjs <명령> …` (명령: extract, analyze-ts, nav, finish, request, report, glossary, open, serve, precommit). 아래 순서를 건너뛰지 않는다.
+목적: 설계서를 따로 쓰지 않는다. 소스의 메타정보(존재 이유)와 도구(`extract`, `analyze-ts`, `nav`, 설계서 보기 서버 `serve`)가 설계서를 만든다. 도구 소스는 저장소 맨 위 `src/`(TypeScript)에 있고, 이 폴더의 `spec.mjs`가 입구다: `node <이 폴더>/spec.mjs <명령> …` (명령: extract, analyze-ts, nav, finish, request, report, comment, todo, glossary, open, serve, precommit). 아래 순서를 건너뛰지 않는다.
 
 ## 설계서 보기
 

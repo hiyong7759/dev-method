@@ -203,7 +203,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
     fold('done', '완료', idx === 3, idx === 3 ? `${fmt(r.events[r.events.length - 1].at)} 끝남` : '테스트를 승인하면 이 칸에 결과가 남습니다', h('div', { class: 'hint' }, idx === 3 ? r.events[r.events.length - 1].note : ''), { later: idx < 3 }),
   ];
   const designSide = r.stage === 'design' && r.step === 'submitted' ? designApproval(r, onChange)
-    : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.'))
+    : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : r.step === 'queued' ? '시작 전' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : r.step === 'queued' ? '아직 시작하지 않았습니다. 우선순위를 정해 시작하면 에이전트가 설계를 작성합니다. 에이전트에게 "할 일 뭐있지"라고 하면 순서를 같이 정합니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.'))
     : r.stage === 'impl' ? h('div', { class: 'card' }, h('h3', null, '구현 중'), h('div', { class: 'hint' }, '에이전트가 구현하고 있습니다. 끝내고 테스트를 올리면 여기서 확인합니다.'))
     : r.stage === 'done' ? h('div', { class: 'card' }, h('h3', null, '끝난 요청'), h('div', { class: 'hint' }, '모든 칸은 펼쳐서 볼 수 있습니다.')) : null;
   const testing = r.stage === 'test';

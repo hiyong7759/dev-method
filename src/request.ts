@@ -16,6 +16,7 @@ export const STAGE_LABEL: Record<RequestStage, string> = { design: '설계', imp
 
 /** 단계 안 상태의 화면용 이름과 누구 차례인지. 이 표가 목록의 "내 차례 / 에이전트 차례"를 나누는 근거다 */
 export const STEP: Record<string, { label: string; turn: Actor | null }> = {
+  'design:queued': { label: '시작 전', turn: null },
   'design:drafting': { label: '설계 작성 중', turn: 'agent' },
   'design:submitted': { label: '설계 승인 대기', turn: 'user' },
   'design:revise': { label: '설계 다시 작성 중', turn: 'agent' },
@@ -82,7 +83,7 @@ export function addRequest(scanRoot: string, { title, origin = '', channel = '�
   const req: Request = {
     id, title: title.trim(), source: source as RequestSource, origin: { text: origin.trim(), channel, at: now },
     scope: { screens, infos, scenarios, steps, impactOnly }, agent: { name: agent },
-    stage: 'design', step: 'drafting',
+    stage: 'design', step: 'queued',
     events: [{ at: now, by: 'agent', kind: 'created', note: '요청 등록' }],
   };
   save(scanRoot, req);
@@ -155,6 +156,14 @@ function copyShot(scanRoot: string, file: string | undefined, name: string): str
   const out = `${name}${path.extname(file) || '.png'}`;
   fs.copyFileSync(file, path.join(dest, out));
   return out;
+}
+
+/** 시작 전 요청의 설계를 시작한다. 우선순위를 정해(할 일을 정할 때) 이 요청을 하기로 한 뒤에 부른다 */
+export function startDesign(scanRoot: string, id: number): Request {
+  const r = loadOne(scanRoot, id);
+  if (r.stage !== 'design' || r.step !== 'queued') throw new Error(`요청 #${id}은 시작 전이 아니다(지금: ${STAGE_LABEL[r.stage]} · ${STEP[`${r.stage}:${r.step}`]?.label ?? r.step})`);
+  move(r, 'design', 'drafting');
+  return record(scanRoot, r, 'agent', 'started', '설계를 시작함(우선순위를 정해 시작)');
 }
 
 /** 에이전트가 설계 결과를 올린다 → 사용자 승인 대기 */
@@ -283,6 +292,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
       console.log(`요청 #${r.id}: 등록 (설계서 보기 "관리"에서 보인다)`);
     } else if (pos[0] === 'list') {
       for (const r of describeRequests(loadRequests(scanRoot))) console.log(`#${r.id} [${r.stageLabel} · ${r.stepLabel}] ${r.title}`);
+    } else if (pos[0] === 'start') {
+      const r = startDesign(scanRoot, id); console.log(`요청 #${r.id}: 설계를 시작한다`);
     } else if (pos[0] === 'design') {
       const input = opts.file ? JSON.parse(fs.readFileSync(opts.file, 'utf8')) as DesignInput : {};
       const r = submitDesign(scanRoot, id, { ...input, none: input.none || opts.none === 'true' });
@@ -304,6 +315,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
     } else {
       console.log(['사용: node <스킬 폴더>/spec.mjs request <명령> --src <소스 폴더> …',
         '  add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--scenarios 시나리오1] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오] [--agent 세션이름]',
+        '  start --id N                     (시작 전 요청의 설계를 시작. 할 일을 정할 때 우선순위를 정한 뒤에만)',
         '  design --id N --file 설계.json   (또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림)',
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
         '  test --id N                      (구현을 마치고 테스트를 올림. 고친 뒤 다시 올릴 때도 같다)',

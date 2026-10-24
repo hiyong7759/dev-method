@@ -1,6 +1,6 @@
 /**
  * @spec manage-list-view 요청 목록 화면
- * @why 현재를 바꾸는 일(요청)을 "내 차례 / 에이전트 차례 / 끝난 것"으로 나눠 한곳에서 본다. 리포트는 따로 있고, 요청 번호 없이 남은 변경은 거르기 줄에서 본다.
+ * @why 현재를 바꾸는 일(요청)을 "내 차례 / 에이전트 차례 / 시작 전 / 끝난 것"으로 나눠 한곳에서 본다. 리포트는 따로 있고, 요청 번호 없이 남은 변경은 거르기 줄에서 본다.
  * @contract model.requests와 model.untracked를 그대로 그린다. 요청을 열 때는 요청 상세 주소(#/manage/<번호>)로 이동한다.
  */
 import { h, post, pageHead, filterChips, chip, fmt, toast, errorText, buls, type BulKind } from './util.js';
@@ -58,7 +58,7 @@ export function manageList(root: HTMLElement, { model, kind, onChange }: { model
   const cur = KINDS.find((k) => k.key === kind) ?? KINDS[0];
   const counts = (k: (typeof KINDS)[number]): number => (k.key === 'untracked' ? model.untracked.length : k.list.length);
   const list = cur.list;
-  const mine = list.filter((r) => r.turn === 'user'), agent = list.filter((r) => r.turn === 'agent'), ended = list.filter((r) => !r.turn);
+  const mine = list.filter((r) => r.turn === 'user'), agent = list.filter((r) => r.turn === 'agent'), queued = list.filter((r) => r.stage === 'design' && r.step === 'queued'), ended = list.filter((r) => !r.turn && !(r.stage === 'design' && r.step === 'queued'));
   const body = cur.key === 'untracked'
     ? [model.untracked.length ? h('div', { class: 'mg-list' }, model.untracked.map((c) => h('div', { class: 'mg-req untracked' },
       h('div', { class: 'rid mono' }, c.hash), h('div', null, h('div', { class: 'rt' }, buls([{ kind: 'nrq', label: '요청 없는 변경' }]), c.title), h('div', { class: 'rm' }, h('span', null, `${fmt(c.at)} · ${c.author} · 커밋에 요청 번호가 없어 이렇게 남았습니다`))),
@@ -66,6 +66,7 @@ export function manageList(root: HTMLElement, { model, kind, onChange }: { model
     : [all.length ? null : h('div', { class: 'empty-note' }, '아직 요청이 없습니다. 에이전트에게 변경을 요청하면 여기에 올라옵니다.'),
       section('내 차례', `${mine.length}건 — 내가 승인하거나 반려해야 진행됩니다`, mine),
       section('에이전트 차례', `${agent.length}건`, agent),
+      section('시작 전', `${queued.length}건 — 우선순위를 정하면 설계를 시작합니다`, queued),
       ended.length ? h('details', { class: 'mg-sec' }, h('summary', null, buls([{ kind: 'cmp', label: '완료' }]), h('b', null, '완료'), h('span', null, `끝난 요청 ${ended.length}건`), h('span', { class: 'grow' }), h('span', { class: 'hint' }, '펼쳐서 보기 ›')), h('div', { class: 'mg-list', style: 'margin-top:10px' }, ended.map(row))) : null];
   root.append(h('div', { class: 'wrap' },
     pageHead({ title: '요청', lead: '현재를 바꾸는 일을 한곳에서 관리합니다. 요청 하나가 화면 몇 개를 건드려도 하나로 다룹니다.' }),

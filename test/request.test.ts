@@ -3,7 +3,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addRequest, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, loadRequests, describeRequests } from '../src/request.js';
+import { addRequest, startDesign, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, loadRequests, describeRequests } from '../src/request.js';
 import { tempProject } from './helpers.js';
 
 const design = { understanding: '이해', approach: '방법' };
@@ -12,7 +12,10 @@ test('요청은 설계 → 구현 → 테스트 → 완료로 흐른다', () => 
   const { src } = tempProject();
   const r = addRequest(src, { title: '첫 요청' });
   assert.equal(r.id, 1);
-  assert.deepEqual([r.stage, r.step], ['design', 'drafting']);
+  assert.deepEqual([r.stage, r.step], ['design', 'queued']);
+  assert.equal(describeRequests([r])[0].stepLabel, '시작 전');
+  assert.equal(startDesign(src, 1).step, 'drafting');
+  assert.throws(() => startDesign(src, 1), /시작 전이 아니다/);
   submitDesign(src, 1, design);
   assert.equal(loadRequests(src)[0].step, 'submitted');
   approveDesign(src, 1);
