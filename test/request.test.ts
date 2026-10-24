@@ -5,6 +5,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addRequest, startDesign, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, loadRequests, describeRequests } from '../src/request.js';
 import { tempProject } from './helpers.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { liveShotFile } from '../src/request.js';
 
 const design = { understanding: '이해', approach: '방법' };
 
@@ -13,7 +16,7 @@ test('요청은 설계 → 구현 → 테스트 → 완료로 흐른다', () => 
   const r = addRequest(src, { title: '첫 요청' });
   assert.equal(r.id, 1);
   assert.deepEqual([r.stage, r.step], ['design', 'queued']);
-  assert.equal(describeRequests([r])[0].stepLabel, '시작 전');
+  assert.equal(describeRequests([r])[0].stepLabel, '접수');
   assert.equal(startDesign(src, 1).step, 'drafting');
   assert.throws(() => startDesign(src, 1), /시작 전이 아니다/);
   submitDesign(src, 1, design);
@@ -86,4 +89,33 @@ test('요청 번호는 이어서 붙고, 제목이 비면 거절한다', () => {
   assert.throws(() => addRequest(src, { title: ' ' }), /제목/);
   assert.equal(addRequest(src, { title: 'a' }).id, 1);
   assert.equal(addRequest(src, { title: 'b' }).id, 2);
+});
+
+/** 그림 대신 쓰는 아주 작은 파일 */
+const png = (dir: string, name: string): string => { const f = path.join(dir, name); fs.writeFileSync(f, 'x'); return f; };
+
+test('설계 화면의 현행 그림: 신규 화면은 없어도 되고, 손으로 올리면 경고 출처, 도구가 찍은 것은 도구 출처', () => {
+  const { root, src } = tempProject();
+  addRequest(src, { title: 'a' });
+  const after = png(root, 'after.png');
+  // 이미 있는 화면인데 현행 그림이 없으면 올릴 수 없다
+  assert.throws(() => submitDesign(src, 1, { ...design, screens: [{ screen: '목록', after }] }), /현행 그림이 없다.*request shot/);
+  // 신규 화면은 현행 없이 올린다
+  let r = submitDesign(src, 1, { ...design, screens: [{ screen: '새 화면', after, isNew: true }] });
+  assert.deepEqual([r.design!.screens[0].before, r.design!.screens[0].isNew, r.design!.screens[0].beforeSource], ['', true, undefined]);
+  // 손으로 올린 현행 그림은 manual로 남는다
+  r = submitDesign(src, 1, { ...design, screens: [{ screen: '목록', after, before: png(root, 'before.png') }] });
+  assert.equal(r.design!.screens[0].beforeSource, 'manual');
+  // 도구가 찍어 둔 현행 그림이 있으면 tool 출처와 시각이 붙는다
+  const live = liveShotFile(src, 1, '목록');
+  fs.mkdirSync(path.dirname(live), { recursive: true }); fs.writeFileSync(live, 'x'); fs.writeFileSync(live.replace(/\.png$/, '.json'), JSON.stringify({ capturedAt: '2026-10-24T09:00:00.000Z' }));
+  r = submitDesign(src, 1, { ...design, screens: [{ screen: '목록', after, highlights: [{ l: 1, t: 2, w: 3, h: 4, label: '바뀐 곳' }] }] });
+  assert.deepEqual([r.design!.screens[0].beforeSource, r.design!.screens[0].capturedAt, r.design!.screens[0].highlights?.[0].label], ['tool', '2026-10-24T09:00:00.000Z', '바뀐 곳']);
+});
+
+test('설계 글은 영역별 항목(points)으로 올릴 수 있다', () => {
+  const { src } = tempProject();
+  addRequest(src, { title: 'a' });
+  const r = submitDesign(src, 1, { understanding: '요약', points: [{ area: '서버', title: '세션', text: '만든다' }] });
+  assert.deepEqual(r.design!.points, [{ area: '서버', title: '세션', text: '만든다' }]);
 });

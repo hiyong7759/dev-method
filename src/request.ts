@@ -9,14 +9,14 @@ import path from 'node:path';
 import { specDir } from './project.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { addReport } from './report.js';
-import type { Actor, DesignChange, DesignScreen, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
+import type { Actor, DesignChange, DesignPoint, DesignScreen, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
 
 /** 화면에 보이는 단계 이름. 사람이 읽는 말이라 여기서만 정한다 */
 export const STAGE_LABEL: Record<RequestStage, string> = { design: '설계', impl: '구현', test: '테스트', done: '완료', cancelled: '취소' };
 
 /** 단계 안 상태의 화면용 이름과 누구 차례인지. 이 표가 목록의 "내 차례 / 에이전트 차례"를 나누는 근거다 */
 export const STEP: Record<string, { label: string; turn: Actor | null }> = {
-  'design:queued': { label: '시작 전', turn: null },
+  'design:queued': { label: '접수', turn: null },
   'design:drafting': { label: '설계 작성 중', turn: 'agent' },
   'design:submitted': { label: '설계 승인 대기', turn: 'user' },
   'design:revise': { label: '설계 다시 작성 중', turn: 'agent' },
@@ -133,14 +133,16 @@ export function describeRequests(list: Request[], componentsOf: (r: Request) => 
 
 /** 설계 파일(--file)이 가진 모양. 그림 파일은 .spec/shots로 복사한다 */
 export interface DesignInput {
-  /** 이렇게 이해했다 */
+  /** 이렇게 이해했다(짧은 한 줄 요약) */
   understanding?: string;
-  /** 이렇게 처리하겠다 */
+  /** 이렇게 이해한 것을 영역별로 나눈 항목들 */
+  points?: DesignPoint[];
+  /** 이렇게 처리하겠다("설계 없음" 요청에서만 보인다) */
   approach?: string;
   /** 정보 변경들 */
   changes?: DesignChange[];
   /** 화면 디자인들. after·before는 그림 파일 경로(없으면 빈 글) */
-  screens?: { screen: string; after?: string; before?: string; link?: string; note?: string; counts?: { add?: number; change?: number; remove?: number } }[];
+  screens?: { screen: string; after?: string; before?: string; link?: string; note?: string; counts?: { add?: number; change?: number; remove?: number }; isNew?: boolean; highlights?: { l: number; t: number; w: number; h: number; label: string }[] }[];
   /** 이미 있는 데이터와 되돌리기 */
   data?: { existing: string; rollback: string; real: string };
   /** 정보도 화면도 안 바뀌어 "설계 없음"으로 올린다 */
@@ -158,7 +160,24 @@ function copyShot(scanRoot: string, file: string | undefined, name: string): str
   return out;
 }
 
-/** 시작 전 요청의 설계를 시작한다. 우선순위를 정해(할 일을 정할 때) 이 요청을 하기로 한 뒤에 부른다 */
+/** `request shot`이 운영 화면을 찍어 둔 그림과 기록 위치 */
+export const liveShotFile = (scanRoot: string, id: number, screen: string): string => path.join(specDir(scanRoot), 'live-shots', String(id), `${screen.replace(/[^\p{L}\p{N}]+/gu, '_')}.png`);
+
+/** 화면 하나의 현행 그림을 정한다: 신규 화면이면 없음, 손으로 올린 파일이 있으면 그것(경고 대상), 아니면 도구가 운영 화면에서 찍어 둔 것. 어느 쪽도 없으면 올릴 수 없다 */
+function resolveBefore(scanRoot: string, id: number, i: number, s: NonNullable<DesignInput['screens']>[number]): Pick<DesignScreen, 'before' | 'beforeSource' | 'capturedAt' | 'isNew'> {
+  if (s.isNew) return { before: '', isNew: true };
+  const name = `r${id}-d${i + 1}-before`;
+  if (s.before) return { before: copyShot(scanRoot, s.before, name), beforeSource: 'manual' };
+  const live = liveShotFile(scanRoot, id, s.screen);
+  if (fs.existsSync(live)) {
+    let capturedAt = '';
+    try { capturedAt = (JSON.parse(fs.readFileSync(live.replace(/\.png$/, '.json'), 'utf8')) as { capturedAt?: string }).capturedAt ?? ''; } catch { /* 기록이 없으면 시각만 비움 */ }
+    return { before: copyShot(scanRoot, live, name), beforeSource: 'tool', capturedAt };
+  }
+  throw new Error(`화면 "${s.screen}"의 현행 그림이 없다. 이미 있는 화면이면 \`request shot --id ${id} --screen "${s.screen}" --url 주소\`로 운영 화면을 먼저 찍고, 설계서 보기에 없는 새 화면이면 isNew: true로 올린다`);
+}
+
+/** 시작 전(접수) 요청의 설계를 시작한다. 우선순위를 정해(할 일을 정할 때) 이 요청을 하기로 한 뒤에 부른다 */
 export function startDesign(scanRoot: string, id: number): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'design' || r.step !== 'queued') throw new Error(`요청 #${id}은 시작 전이 아니다(지금: ${STAGE_LABEL[r.stage]} · ${STEP[`${r.stage}:${r.step}`]?.label ?? r.step})`);
@@ -174,9 +193,10 @@ export function submitDesign(scanRoot: string, id: number, d: DesignInput): Requ
   if (!none && !d.understanding?.trim()) throw new Error('이렇게 이해했다(understanding)를 적어야 한다');
   const prev = r.design?.rejected ?? 0;
   const screens: DesignScreen[] = (d.screens ?? []).map((s, i) => ({
-    screen: s.screen, after: copyShot(scanRoot, s.after, `r${id}-d${i + 1}-after`), before: copyShot(scanRoot, s.before, `r${id}-d${i + 1}-before`), link: s.link ?? '', note: s.note ?? '', counts: { add: s.counts?.add ?? 0, change: s.counts?.change ?? 0, remove: s.counts?.remove ?? 0 },
+    screen: s.screen, after: copyShot(scanRoot, s.after, `r${id}-d${i + 1}-after`), ...resolveBefore(scanRoot, id, i, s), link: s.link ?? '', note: s.note ?? '', counts: { add: s.counts?.add ?? 0, change: s.counts?.change ?? 0, remove: s.counts?.remove ?? 0 },
+    ...(s.highlights?.length ? { highlights: s.highlights } : {}),
   }));
-  const design: RequestDesign = { understanding: d.understanding?.trim() ?? '', approach: d.approach?.trim() ?? '', changes: d.changes ?? [], screens, data: d.data, none, rejected: prev };
+  const design: RequestDesign = { understanding: d.understanding?.trim() ?? '', ...(d.points?.length ? { points: d.points } : {}), approach: d.approach?.trim() ?? '', changes: d.changes ?? [], screens, data: d.data, none, rejected: prev };
   r.design = design;
   r.scope.screens = [...new Set([...r.scope.screens, ...screens.map((s) => s.screen)])];
   r.scope.infos = [...new Set([...r.scope.infos, ...design.changes.map((c) => c.info)])];
@@ -305,6 +325,10 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const input = opts.file ? JSON.parse(fs.readFileSync(opts.file, 'utf8')) as DesignInput : {};
       const r = submitDesign(scanRoot, id, { ...input, none: input.none || opts.none === 'true' });
       console.log(`요청 #${r.id}: 설계를 올렸다. 사용자가 승인하거나 반려할 때까지 구현하지 않는다`);
+    } else if (pos[0] === 'shot') {
+      const { captureLive } = await import('./shot.js');
+      const r = await captureLive(scanRoot, id, opts.screen, { url: opts.url, selector: opts.selector });
+      console.log(`요청 #${id}: 화면 "${opts.screen}"의 현행을 운영 화면에서 찍었다(${r.capturedAt}, ${r.url})`);
     } else if (pos[0] === 'impl') {
       const r = noteImpl(scanRoot, id, opts.commit || ''); console.log(`요청 #${r.id}: 구현 기록`);
     } else if (pos[0] === 'test') {
@@ -323,7 +347,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
       console.log(['사용: node <스킬 폴더>/spec.mjs request <명령> --src <소스 폴더> …',
         '  add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--scenarios 시나리오1] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오] [--agent 세션이름]',
         '  start --id N                     (시작 전 요청의 설계를 시작. 할 일을 정할 때 우선순위를 정한 뒤에만)',
-        '  design --id N --file 설계.json   (또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림)',
+        '  shot --id N --screen 화면이름 --url 주소 [--selector css]   (바꾸기 전 운영 화면을 손대지 않고 그대로 찍어 현행 그림으로 저장. 설계를 올릴 때 이 그림이 현행으로 붙는다)',
+        '  design --id N --file 설계.json   (또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
         '  test --id N                      (구현을 마치고 테스트를 올림. 고친 뒤 다시 올릴 때도 같다)',
         '  found --id N --text "범위 밖에서 발견한 것"',
