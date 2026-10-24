@@ -8,5 +8,6 @@
       "hash"
     ],
     "hashPrefix": "/__spec/"
-  }
+  },
+  "wake": true
 }
