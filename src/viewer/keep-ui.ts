@@ -26,11 +26,6 @@ export interface UiSnapshot {
   /** 창 전체를 얼마나 내려 보고 있었나 */
   page: number;
 }
-  /** 스크롤·펼침·입력·포커스가 있는 칸들(칸 이름은 keyed가 붙인다) */
-  entries: { key: string; top: number; left: number; open?: boolean; toggles: string[]; value?: string; checked?: boolean; focus: boolean; sel?: [number | null, number | null] }[];
-  /** 창 전체의 세로 스크롤 */
-  page: number;
-}
 
 /** 지금 보던 자리·펼침·입력을 적어 둔다 */
 export function snapshot(root: HTMLElement): UiSnapshot {
