@@ -1,0 +1,30 @@
+{
+  "id": 58,
+  "title": "담당 세션을 깨우는 비용(토큰)을 기록하고 보여준다",
+  "source": "user",
+  "origin": {
+    "text": "모니터링 비용이 얼마나 드는지 추적하고",
+    "channel": "대화",
+    "at": "2026-10-24T08:05:58.700Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "stage": "design",
+  "step": "queued",
+  "events": [
+    {
+      "at": "2026-10-24T08:05:58.700Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
