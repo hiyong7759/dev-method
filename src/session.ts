@@ -13,8 +13,8 @@ import { loadRequests, noteSessionStarted, STAGE_LABEL, STEP } from './request.j
 import { projectRoot, specDir } from './project.js';
 import type { Request, SessionCost } from './types.js';
 
-/** 사람 없이 쓸 수 있게 미리 허락하는 도구: 문서·소스 읽기와 고치기, 설계서 보기 명령, 검사, 그리고 그 일의 커밋. 위험한 git 명령은 저장소의 차단 훅이 막는다 */
-export const ALLOWED = ['Read', 'Edit', 'Write', 'Bash(node:*)', 'Bash(npm:*)', 'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git add:*)', 'Bash(git commit:*)'];
+/** 사람 없이 쓸 수 있게 미리 허락하는 도구: 문서·소스 읽기와 고치기, 설계서 보기 명령, 검사, 시안을 찍는 ego-browser(없으면 사람 없는 세션이 승인을 기다리다 막힌다), 그리고 그 일의 커밋. 위험한 git 명령은 저장소의 차단 훅이 막는다 */
+export const ALLOWED = ['Read', 'Edit', 'Write', 'Bash(node:*)', 'Bash(npm:*)', 'Bash(ego-browser:*)', 'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git add:*)', 'Bash(git commit:*)'];
 
 /** 담당 세션이 모두 쓰는 모델(소넷 보통). 비용과 품질을 한 가지로 맞추려고 한 곳에서 정한다 */
 const MODEL = 'sonnet';
