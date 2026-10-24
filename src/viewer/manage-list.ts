@@ -56,6 +56,7 @@ function section(title: string, hint: string, list: RequestView[], onChange: () 
  * @to 요청 상세 | 요청의 "열기"를 누른다 | 요청 번호
  * @does 요청의 진행 단계와 누구 차례인지를 본다 | 내 차례인 요청이 위에 모여 있다 | 요청의 진행을 확인한다#1 | → 2
  * @does 요청의 "열기"를 눌러 상세를 본다 | 요청 상세 화면이 열린다 | 요청의 진행을 확인한다#2 | → 3
+ * @does 승인·반려를 누른 요청의 이름표와 한 줄 이유를 본다 | 담당이 읽기 전이면 "결정 전달 중", 재전송까지 끝나고도 안 읽히면 빨간 "전달 안 됨"과 이유가 보이고 위 거르기 줄에 "전달 안 됨" 칩이 생긴다 | 결정이 담당 세션에 전달됐는지 확인한다#1 | → 2
  */
 export function manageList(root: HTMLElement, { model, kind, onChange }: { model: Model; kind: string; onChange: () => void }): void {
   const all = model.requests;

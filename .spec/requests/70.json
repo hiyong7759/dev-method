@@ -17,7 +17,9 @@
     "infos": [
       "RequestView"
     ],
-    "scenarios": [],
+    "scenarios": [
+      "결정이 담당 세션에 전달됐는지 확인한다"
+    ],
     "steps": [],
     "impactOnly": []
   },
@@ -25,8 +27,8 @@
     "name": "요청 #70 담당"
   },
   "relatedTo": 15,
-  "stage": "impl",
-  "step": "working",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-24T13:20:52.399Z",
@@ -111,6 +113,24 @@
       "by": "user",
       "kind": "design-approved",
       "note": "설계 승인"
+    },
+    {
+      "at": "2026-10-24T15:02:49.380Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 HEAD"
+    },
+    {
+      "at": "2026-10-24T15:04:48.687Z",
+      "by": "agent",
+      "kind": "scope",
+      "note": "범위에 시나리오 연결: 결정이 담당 세션에 전달됐는지 확인한다"
+    },
+    {
+      "at": "2026-10-24T15:09:54.727Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
     }
   ],
   "design": {
@@ -220,5 +240,13 @@
     ],
     "none": false,
     "rejected": 2
+  },
+  "commits": [
+    "HEAD"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false
   }
 }
