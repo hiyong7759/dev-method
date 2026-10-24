@@ -37,10 +37,10 @@ async function capture(target: CommentTarget): Promise<string> {
     if (!w.htmlToImage) await new Promise<void>((ok, bad) => { const s = document.createElement('script'); s.src = '/__spec/vendor/html-to-image.js'; s.onload = () => ok(); s.onerror = () => bad(new Error('캡처 도구를 못 불러옴')); document.head.append(s); });
     const frame = document.querySelector<HTMLIFrameElement>('iframe');
     const node = (frame?.contentDocument?.documentElement ?? document.getElementById('app')) as HTMLElement;
-    // 찍는 도구는 스크롤을 무시하고 맨 위부터 그리므로, 프레임은 스크롤 값을 좌표에 더하고 본문 안쪽 스크롤 칸은 찍는 동안만 내용을 밀어 맞춘다
+    // 찍는 도구는 스크롤을 무시하고 맨 위부터 그리므로, 프레임은 스크롤 값을 좌표에 더하고 안쪽 스크롤 칸은 찍는 동안만 내용을 밀어 맞춘다
     const win = frame?.contentWindow;
     const scroll = { x: win?.scrollX ?? 0, y: win?.scrollY ?? 0 };
-    const undo = frame ? [] : unscroll(node);
+    const undo = unscroll(node, !!frame);
     let url: string;
     try { url = await (window as unknown as { htmlToImage: { toPng: (n: HTMLElement, o?: object) => Promise<string> } }).htmlToImage.toPng(node, { pixelRatio: 1, filter: (n: Node) => !(n instanceof HTMLElement && n.classList.contains('cm-ui')) }); }
     finally { undo.forEach((f) => f()); }
@@ -49,9 +49,10 @@ async function capture(target: CommentTarget): Promise<string> {
 }
 
 /** 스크롤된 칸의 내용을 스크롤 값만큼 밀어, 스크롤을 무시하는 캡처에도 지금 보이는 모습 그대로 찍히게 한다. 되돌리는 함수들을 준다 */
-function unscroll(root: HTMLElement): (() => void)[] {
+function unscroll(root: HTMLElement, skipRoot: boolean): (() => void)[] {
   const undo: (() => void)[] = [];
   for (const el of [root, ...root.querySelectorAll<HTMLElement>('*')]) {
+    if (skipRoot && el === root) continue; // 프레임 문서 자체의 스크롤은 좌표에 더해 맞춘다
     const sl = el.scrollLeft, st = el.scrollTop;
     if (!sl && !st) continue;
     const kids = [...el.children].filter((k): k is HTMLElement => k instanceof HTMLElement), old = kids.map((k) => k.style.transform);
