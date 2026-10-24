@@ -799,3 +799,5 @@ img.shot.zoomable{cursor:zoom-in}
 .rf-bar .grow{flex:1}
 .rf-full .review-frame{flex:1;width:100%;height:auto;border:0;border-radius:0}
 .review-card .rf-head .grow{flex:1}
+.rf-how{padding:6px 14px;border-bottom:1px solid var(--line);background:var(--bg2);min-height:0}
+.rf-how:empty{display:none}

@@ -2,7 +2,7 @@
  * @spec testdata-command 테스트 데이터 자리·시나리오별 데이터 기록 명령
  * @why 테스트하려면 데이터를 넣어야 하는데 운영 데이터에 그대로 넣기 애매하고, 사용자가 정상 경우조차 못 보고 테스트를 승인하는 일이 많았다. 소스는 하나로 두고 데이터만 테스트용으로 나누되, 그 자리를 저장소 밖에 두어 커밋될 수 없게 하고, 시나리오마다 어떤 데이터로 어떤 경우를 보는지 남겨 테스트를 올릴 때 확인한다.
  * @basis 프로젝트마다 .spec/config.json의 testData에 테스트 환경을 적는다. kind는 folder(저장소 밖 폴더: dev-method), remote(회사 공용 테스트 서버: 접속 주소와 운영 주소 표시), local-db(내 컴퓨터 테스트 DB)다. 설정이 없는 프로젝트는 이 검사의 대상이 아니다. 운영 환경 칸과 배포 절차는 이번 범위 밖이다.
- * @contract `testdata path`는 테스트 데이터 자리를 확인해 보이고(folder면 없을 때 만든다) 저장소 안이거나 운영을 가리키면 오류로 거부한다. `testdata seed --id N --scenario 시나리오 --kind normal|edge|error --label 이름 [--shot 캡처] [--how 만든 방법]`은 시나리오 하나의 경우 하나를 자리 안 seeds/N.json에 적는다(같은 시나리오·이름은 덮어쓴다). `testdata seed --id N`만 주면 지금 기록을 보인다. `testdata serve [--port N] [--fresh true]`는 folder 프로젝트의 테스트용 설계서 서버를 운영과 다른 포트(기본: 설정 포트+100)에 띄운다: 처음에 운영 .spec의 요청·리포트를 자리 안 .spec으로 복사하고(담당 세션 기록·로그·계정은 빼고, --fresh true면 다시 복사), 서버는 환경변수 SPEC_TEST_DIR로 그 .spec만 읽고 쓰며 담당 세션을 깨우지 않고 화면 위쪽에 "테스트 데이터" 표시를 단다. `testdata reset [--id N]`은 기록을 지운다(remote는 [테스트-#번호] 표시 데이터를 프로젝트 시드 스크립트가 지우므로 기록만 지운다). 원격 서버의 남의 데이터는 읽기만 한다.
+ * @contract `testdata path`는 테스트 데이터 자리를 확인해 보이고(folder면 없을 때 만든다) 저장소 안이거나 운영을 가리키면 오류로 거부한다. `testdata seed --id N --scenario 시나리오 --kind normal|edge|error --label 이름 [--shot 캡처] [--how 만든 방법]`은 시나리오 하나의 경우 하나를 자리 안 seeds/N.json에 적는다(같은 시나리오·이름은 덮어쓴다). `testdata seed --id N`만 주면 지금 기록을 보인다. `testdata serve [--port N] [--fresh true]`는 folder 프로젝트의 테스트용 설계서 서버를 운영과 다른 포트(기본: 설정 포트+100)에 띄운다: 처음에 운영 .spec의 요청·리포트를 자리 안 .spec으로 복사하고(담당 세션 기록·로그·계정은 빼고, --fresh true면 다시 복사), 서버는 환경변수 SPEC_TEST_DIR로 그 .spec만 읽고 쓰며 담당 세션을 깨우지 않고 화면 위쪽에 "테스트 데이터" 표시를 단다. `testdata sync --id N`은 요청 하나를 테스트 자리 .spec으로 다시 복사하고(`request test`가 올릴 때 자동으로 한다), `testdata reset [--id N]`은 기록을 지운다(remote는 [테스트-#번호] 표시 데이터를 프로젝트 시드 스크립트가 지우므로 기록만 지운다). 원격 서버의 남의 데이터는 읽기만 한다.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -89,6 +89,23 @@ export function copyBase(root: string, dir: string, fresh: boolean): boolean {
   return true;
 }
 
+/** 테스트 자리의 .spec에 요청 하나(파일과 설계 그림)를 운영에서 다시 복사한다. 테스트용 서버는 처음 띄울 때 복사한 것만 알아서, 그 뒤 만든 요청은 검토 화면에서 "찾지 못했다"가 뜨기 때문이다. 자리가 아직 없으면(서버를 띄운 적 없음) 아무것도 안 한다. 복사했으면 true */
+export function syncRequest(root: string, id: number): boolean {
+  const c = testDataConfig(root);
+  if (!c || c.kind !== 'folder' || dataProblem(root, c)) return false;
+  const to = path.join(dataDir(root, c), '.spec');
+  if (!fs.existsSync(to)) return false;
+  const from = path.join(root, '.spec');
+  fs.mkdirSync(path.join(to, 'requests'), { recursive: true });
+  fs.copyFileSync(path.join(from, 'requests', `${id}.json`), path.join(to, 'requests', `${id}.json`));
+  const shots = path.join(from, 'shots');
+  if (fs.existsSync(shots)) {
+    fs.mkdirSync(path.join(to, 'shots'), { recursive: true });
+    for (const n of fs.readdirSync(shots)) if (n.startsWith(`r${id}-`)) fs.copyFileSync(path.join(shots, n), path.join(to, 'shots', n));
+  }
+  return true;
+}
+
 /** 명령 입구 */
 export async function main(argv: string[]): Promise<number | undefined> {
   const { pos, opts } = parseArgs(argv);
@@ -126,6 +143,9 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const child = spawn(process.execPath, [LAUNCHER, 'serve', '--project', root, '--src', path.relative(root, scanRoot) || '.', '--port', String(port)], { cwd: root, detached: true, stdio: ['ignore', log, log], env: { ...process.env, SPEC_TEST_DIR: dir } });
       child.unref();
       console.log(`${fresh ? '운영 요청·리포트를 복사해 테스트 자리를 채웠다. ' : '기존 테스트 자리를 그대로 쓴다. '}테스트용 서버: http://localhost:${port}/__spec/  (자리 ${dir}/.spec, 화면 위쪽에 "테스트 데이터" 표시, 담당 세션은 깨우지 않음)`);
+    } else if (pos[0] === 'sync') {
+      if (!id) throw new Error('--id(요청 번호)가 필요하다');
+      console.log(syncRequest(root, id) ? `요청 #${id}을 테스트 자리로 복사했다` : '복사하지 않았다(folder 종류가 아니거나 테스트 자리가 아직 없다. `testdata serve`로 한 번 띄운 뒤 쓴다)');
     } else if (pos[0] === 'reset') {
       const target = id ? [seedFile(root, c, id)] : fs.existsSync(path.join(dir, 'seeds')) ? fs.readdirSync(path.join(dir, 'seeds')).map((n) => path.join(dir, 'seeds', n)) : [];
       for (const t of target) fs.rmSync(t, { force: true });

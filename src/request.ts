@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { specDir, projectRoot } from './project.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { addReport } from './report.js';
-import { seedProblem } from './testdata.js';
+import { seedProblem, syncRequest } from './testdata.js';
 import type { Actor, DesignChange, DesignPoint, DesignScreen, Delivery, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
 
 /** 화면에 보이는 단계 이름. 사람이 읽는 말이라 여기서만 정한다 */
@@ -286,7 +286,10 @@ export function requestTest(scanRoot: string, id: number): Request {
   const again = r.stage === 'test';
   move(r, 'test', 'requested');
   r.test = r.test ?? { checks: {}, found: [], none: false };
-  return record(scanRoot, r, 'agent', 'test-requested', again ? '고친 뒤 테스트 다시 요청' : '구현을 마치고 테스트 요청');
+  const rec = record(scanRoot, r, 'agent', 'test-requested', again ? '고친 뒤 테스트 다시 요청' : '구현을 마치고 테스트 요청');
+  // 검토 화면이 테스트 데이터 서버에서 이 요청을 열 수 있도록 요청 파일을 테스트 자리로 복사한다(실패해도 테스트 요청은 막지 않는다)
+  try { syncRequest(projectRoot(scanRoot), id); } catch { /* 테스트 자리를 못 쓰면 검토 화면만 요청을 못 찾는다 */ }
+  return rec;
 }
 
 /** 구현하다 막혀서 같은 세션에서 함께 고친 일을 요청에 남긴다(구현·테스트 단계에서만, 크기는 사용자가 보고 판단한다) */

@@ -77,27 +77,43 @@ function reviewFrameCard(model: Model, r: RequestView): HTMLElement | null {
   if (!f || (r.stage !== 'impl' && r.stage !== 'test')) return null;
   const cases = f.cases[r.id] ?? [];
   const KIND: Record<string, string> = { normal: '● 정상', edge: '▲ 경계', error: '■ 오류' };
-  const urlOf = (c?: { label: string; scenario: string }): string => (c ? `${f.url}${f.url.includes('?') ? '&' : '?'}dataset=${encodeURIComponent(c.label)}&scenario=${encodeURIComponent(c.scenario)}` : f.url);
-  const first = cases.find((c) => c.kind === 'normal') ?? cases[0];
-  let cur = first;
+  // 같은 이름·종류의 데이터 묶음은 한 번만 보인다(시나리오마다 같은 묶음을 적어도 칩이 겹치지 않게)
+  const uniq = cases.filter((c, i) => cases.findIndex((x) => x.kind === c.kind && x.label === c.label) === i);
+  // 검토받을 화면: 요청의 시나리오가 시작하는 화면, 없으면 범위의 화면. "첫 화면 열기"와 같은 실제 화면 주소를 테스트 데이터 서버에서 연다
+  const screens = [...new Set([...(r.scope.scenarios ?? []).flatMap((n) => model.scenarios.find((s) => s.name === n)?.firstScreens ?? []), ...r.scope.screens])];
+  const urlOf = (screen: string, c?: { label: string; scenario: string }): string => {
+    const u = new URL(f.url);
+    const at = liveAt(model, screen, r.id);
+    if (at) { const t = new URL(at, f.url); u.pathname = t.pathname; u.hash = t.hash; }
+    if (c) { u.searchParams.set('dataset', c.label); u.searchParams.set('scenario', c.scenario); }
+    return u.toString();
+  };
+  let cur = uniq.find((c) => c.kind === 'normal') ?? uniq[0];
+  let scr = screens[0] ?? '';
   /** 전체 화면으로 확대: 뒤는 어둡고 흐리게 가리고 가장자리에 호박색 테두리와 "테스트 데이터" 띠를 둬, 운영이 아님이 한눈에 보이게 한다. 안쪽 화면은 확대할 때만 띄운다 */
   const open = (): void => {
-    const frame = h('iframe', { class: 'review-frame', src: urlOf(cur), title: '검토 화면(테스트 데이터)' });
+    const frame = h('iframe', { class: 'review-frame', src: urlOf(scr, cur), title: '검토 화면(테스트 데이터)' });
     const bar = h('div', { class: 'rf-bar' });
+    const how = h('div', { class: 'rf-how hint' }, cur?.how ? `이 데이터를 만든 방법: ${cur.how}` : '');
     const close = (): void => { document.removeEventListener('keydown', onKey); veil.remove(); };
     const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') close(); };
-    const chips = cases.map((c) => {
-      const b = h('button', { class: `rchip ${c.kind}${c === cur ? ' on' : ''}`, title: c.how || c.scenario, onclick: () => { cur = c; frame.setAttribute('src', urlOf(c)); bar.querySelectorAll('.rchip').forEach((x) => x.classList.toggle('on', x === b)); } }, `${KIND[c.kind]} · ${c.label}`);
+    const go = (): void => { frame.setAttribute('src', urlOf(scr, cur)); how.textContent = cur?.how ? `이 데이터를 만든 방법: ${cur.how}` : ''; };
+    const chips = uniq.map((c) => {
+      const b = h('button', { class: `rchip ${c.kind}${c === cur ? ' on' : ''}`, title: c.how || c.scenario, onclick: () => { cur = c; go(); bar.querySelectorAll('.rchip').forEach((x) => x.classList.toggle('on', x === b)); } }, `${KIND[c.kind]} · ${c.label}`);
       return b;
     });
-    bar.append(h('span', { class: 'testenv' }, '테스트 데이터'), h('b', null, '운영 데이터가 아닙니다'), ...chips, h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: close }, '닫기 ✕'));
-    const veil = h('div', { class: 'rf-veil', onclick: (e) => { if (e.target === veil) close(); } }, h('div', { class: 'rf-full' }, bar, frame));
+    const pick = screens.length > 1 ? screens.map((n) => {
+      const b = h('button', { class: `rchip scr${n === scr ? ' on' : ''}`, onclick: () => { scr = n; go(); bar.querySelectorAll('.rchip.scr').forEach((x) => x.classList.toggle('on', x === b)); } }, n);
+      return b;
+    }) : [];
+    bar.append(h('span', { class: 'testenv' }, '테스트 데이터'), h('b', null, '운영 데이터가 아닙니다'), ...pick, ...chips, h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: close }, '닫기 ✕'));
+    const veil = h('div', { class: 'rf-veil', onclick: (e) => { if (e.target === veil) close(); } }, h('div', { class: 'rf-full' }, bar, how, frame));
     document.addEventListener('keydown', onKey);
     document.body.append(veil);
   };
   return h('div', { class: 'card review-card' }, h('div', { class: 'rf-head' }, h('b', null, '검토 화면'), h('span', { class: 'testenv' }, '테스트 데이터'), h('span', { class: 'hint' }, '저장소 밖 · 운영 데이터 아님'), h('span', { class: 'grow' }),
     h('button', { class: 'btn pri', onclick: open }, '확대해서 보기 ⤢')),
-    cases.length ? h('div', { class: 'hint' }, `데이터 묶음 ${cases.length}개 (${cases.map((c) => KIND[c.kind]).join(' ')}) — 확대하면 위쪽 칩으로 바꿔 가며 써 볼 수 있습니다.`) : h('div', { class: 'hint' }, '아직 이 요청의 테스트 데이터가 없습니다. 에이전트가 `testdata seed`로 정상·경계·오류 데이터를 채우면 확대한 화면 위 칩으로 고를 수 있습니다.'));
+    uniq.length ? h('div', { class: 'hint' }, `검토할 화면 ${screens.join(", ") || "없음"} · 데이터 묶음 ${uniq.length}개 (${uniq.map((c) => KIND[c.kind]).join(" ")}) — 확대하면 위쪽 칩으로 바꿔 가며 써 볼 수 있습니다.`) : h('div', { class: 'hint' }, '아직 이 요청의 테스트 데이터가 없습니다. 에이전트가 `testdata seed`로 정상·경계·오류 데이터를 채우면 확대한 화면 위 칩으로 고를 수 있습니다.'));
 }
 
 /** 구현·테스트 중 설계가 틀렸을 때 설계 단계로 되돌리는 칸(허락 없이 누를 수 있고 이유만 적는다) */
