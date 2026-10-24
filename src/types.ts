@@ -273,24 +273,18 @@ export interface RequestTest {
 
 /** 시안 판 하나의 최신 여부(설계서 보기 "시안 현황"과 화면 패널에 보인다) */
 export interface DesignView {
-  /** 캔버스 안의 파일 이름 */
-  board: string;
   /** 캔버스에서 보이는 번호 */
   no: string;
   /** 판 이름 */
   title: string;
   /** 한눈에 보는 기호: ✓ 구현과 같음, △ 소스가 더 최신, ≠ 대조해 보니 다름, ◇ 아직 구현 전, ? 대조 안 됨, · 참고용 */
   mark: '✓' | '△' | '≠' | '◇' | '?' | '·';
-  /** 기호 뒤에 붙는 설명 */
-  text: string;
   /** 기호 이름 뒤에 붙는 짧은 덧말(맞춘 커밋·날짜, 몇 번 바뀜, 요청 번호). 없으면 빈 글 */
   detail: string;
   /** 시안이나 소스를 손봐야 하는 상태인가 */
   stale: boolean;
   /** 기록된 상태 */
   state: 'confirmed' | 'draft' | 'unchecked' | 'differs';
-  /** 아직 구현 전인 시안이면 구현할 요청 번호(없으면 0) */
-  request: number;
   /** 이 판이 보여 주는 화면 이름들 */
   screens: string[];
   /** 데이터가 생기면 시안과 다시 대조할 것들 */

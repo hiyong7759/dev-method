@@ -1,11 +1,70 @@
 {
   "items": [],
-  "decisions": {},
+  "decisions": {
+    "review:DesignView.board": {
+      "state": "registered",
+      "request": 67,
+      "at": "2026-10-24T12:40:03.003Z"
+    },
+    "review:DesignView.text": {
+      "state": "registered",
+      "request": 67,
+      "at": "2026-10-24T12:40:03.008Z"
+    },
+    "review:DesignView.request": {
+      "state": "registered",
+      "request": 67,
+      "at": "2026-10-24T12:40:03.008Z"
+    },
+    "review:JsxRoute.props": {
+      "state": "intended",
+      "reason": "라우트 읽기에서 펼쳐 복사(...literalProps)해 담고 propflow가 e.props로 읽는다. 점검 도구가 펼쳐 복사를 못 따라간 것(요청 #67)",
+      "at": "2026-10-24T12:50:00.000Z"
+    },
+    "review:JsxRoute.spread": {
+      "state": "intended",
+      "reason": "라우트 읽기에서 펼쳐 복사(...literalProps)해 담고 propflow가 e.spread로 읽는다. 점검 도구가 펼쳐 복사를 못 따라간 것(요청 #67)",
+      "at": "2026-10-24T12:50:00.000Z"
+    },
+    "review:LoginSetting.id": {
+      "state": "intended",
+      "reason": "도구는 읽지 않고, 화면을 보는 에이전트가 .spec/local.json에서 직접 읽는 파일 규격이다(요청 #67)",
+      "at": "2026-10-24T12:50:00.000Z"
+    },
+    "review:LoginSetting.url": {
+      "state": "intended",
+      "reason": "도구는 읽지 않고, 화면을 보는 에이전트가 .spec/local.json에서 직접 읽는 파일 규격이다(요청 #67)",
+      "at": "2026-10-24T12:50:00.000Z"
+    }
+  },
   "numbers": {
     "review:DesignView.board": 1,
     "review:DesignView.request": 2,
     "review:DesignView.text": 3,
     "review:JsxRoute.props": 4,
-    "review:JsxRoute.spread": 5
+    "review:JsxRoute.spread": 5,
+    "review:DesignPoint.area": 6,
+    "review:DesignPoint.text": 7,
+    "review:DesignPoint.title": 8,
+    "review:DesignScreen.beforeSource": 9,
+    "review:DesignScreen.capturedAt": 10,
+    "review:DesignScreen.highlights": 11,
+    "review:DesignScreen.isNew": 12,
+    "review:RequestDesign.points": 13,
+    "review:SessionCost": 14,
+    "review:SessionCost.at": 15,
+    "review:SessionCost.session": 16,
+    "review:RequestView.cost": 17,
+    "review:OwnerRecord.request": 18,
+    "review:OwnerRecord.seen": 19,
+    "review:LocalSettings.login": 20,
+    "review:LoginSetting.id": 21,
+    "review:LoginSetting.idSelector": 22,
+    "review:LoginSetting.password": 23,
+    "review:LoginSetting.passwordSelector": 24,
+    "review:LoginSetting.submitSelector": 25,
+    "review:LoginSetting.url": 26,
+    "review:Request.noTest": 27,
+    "review:Request.detail": 28
   }
 }

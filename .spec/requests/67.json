@@ -1,0 +1,146 @@
+{
+  "id": 67,
+  "title": "쓰는 곳은 못 찾았지만 같은 이름이 다른 곳에 나오는 필드 7건 정리",
+  "source": "report",
+  "origin": {
+    "text": "#1 필드 “board”를 어디에서도 쓰지 않습니다\n#3 필드 “text”를 어디에서도 쓰지 않습니다\n#2 필드 “request”를 어디에서도 쓰지 않습니다\n#4 필드 “props”를 어디에서도 쓰지 않습니다\n#5 필드 “spread”를 어디에서도 쓰지 않습니다\n#21 필드 “id”를 어디에서도 쓰지 않습니다\n#26 필드 “url”를 어디에서도 쓰지 않습니다",
+    "channel": "확인 필요",
+    "at": "2026-10-24T12:40:03.003Z"
+  },
+  "scope": {
+    "screens": [
+      "시안 현황",
+      "화면 설계서"
+    ],
+    "infos": [
+      "DesignView",
+      "JsxRoute",
+      "LoginSetting"
+    ],
+    "scenarios": [
+      "시안과 구현의 최신 여부를 확인한다"
+    ],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": "요청 #67 담당"
+  },
+  "stage": "test",
+  "step": "requested",
+  "events": [
+    {
+      "at": "2026-10-24T12:40:03.003Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-24T12:47:18.200Z",
+      "by": "agent",
+      "kind": "started",
+      "note": "설계를 시작함(우선순위를 정해 시작)"
+    },
+    {
+      "at": "2026-10-24T12:47:18.207Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(801960a8)"
+    },
+    {
+      "at": "2026-10-24T12:47:21.244Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: 요청 #67 담당"
+    },
+    {
+      "at": "2026-10-24T12:48:08.932Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 제출 (정보 변경 3건 · 화면 변경 0건)"
+    },
+    {
+      "at": "2026-10-24T12:49:41.535Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 승인"
+    },
+    {
+      "at": "2026-10-24T12:50:05.902Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 시작"
+    },
+    {
+      "at": "2026-10-24T13:32:31.586Z",
+      "by": "agent",
+      "kind": "scope",
+      "note": "범위에 시나리오 연결: 시안과 구현의 최신 여부를 확인한다"
+    },
+    {
+      "at": "2026-10-24T13:32:42.799Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    }
+  ],
+  "design": {
+    "understanding": "7건을 코드와 대조했다. 시안 판 정보(DesignView)의 3건은 정말 안 쓰여서 지우고, 나머지 4건은 실제로 쓰이는데 점검 도구가 못 알아본 것이라 '의도한 것'으로 닫는다.",
+    "points": [
+      {
+        "area": "지울 것",
+        "title": "DesignView.board (#1)",
+        "text": "시안 판의 파일 이름. 화면이 번호(no)와 판 이름(title)만 보여 주고 파일 이름은 어디에서도 읽지 않는다. 시안 찾기는 서버 안쪽(design.ts)의 원본 데이터로 하므로 화면용 정보에서는 뺀다."
+      },
+      {
+        "area": "지울 것",
+        "title": "DesignView.text (#3)",
+        "text": "기호 뒤 설명 문장. 화면은 기호 이름과 짧은 덧말(detail)만 보여 주고 이 문장은 안 쓴다. 같은 문장은 터미널 안내(design.ts)에서 계속 쓰이므로 계산 자체는 남기고 화면용 정보에서만 뺀다."
+      },
+      {
+        "area": "지울 것",
+        "title": "DesignView.request (#2)",
+        "text": "구현할 요청 번호. 같은 번호가 이미 덧말(detail)에 글자로 들어가 화면에 보이므로 숫자 필드는 중복이다. 뺀다."
+      },
+      {
+        "area": "그대로 두고 닫기",
+        "title": "JsxRoute.props·spread (#4·#5)",
+        "text": "실제로 쓰인다. 라우트를 읽을 때 입력값 읽기 결과를 펼쳐 복사(...literalProps)해 담고, 입력값 흐름 추적(propflow)이 e.props·e.spread로 읽는다. 점검 도구가 펼쳐 복사를 못 따라가 놓친 것이라 코드는 바꾸지 않고 '의도한 것(쓰고 있음)'으로 처리한다."
+      },
+      {
+        "area": "그대로 두고 닫기",
+        "title": "LoginSetting.id·url (#21·#26)",
+        "text": "도구는 이 값을 읽지 않는다. 설계상 로그인은 ego-browser로 화면을 보는 에이전트가 .spec/local.json을 직접 읽어 하고, 도구는 그 파일 위치만 알려 준다(비밀번호가 보고에 안 남게). 이 모양은 에이전트가 읽는 파일 규격이므로 '의도한 것'으로 처리한다."
+      }
+    ],
+    "approach": "",
+    "changes": [
+      {
+        "info": "DesignView",
+        "kind": "remove",
+        "field": "board",
+        "note": "화면이 안 읽음"
+      },
+      {
+        "info": "DesignView",
+        "kind": "remove",
+        "field": "text",
+        "note": "화면이 안 읽음(터미널 안내에서는 내부 값으로 계속 씀)"
+      },
+      {
+        "info": "DesignView",
+        "kind": "remove",
+        "field": "request",
+        "note": "덧말(detail)에 이미 들어 있음"
+      }
+    ],
+    "screens": [],
+    "none": false,
+    "rejected": 0
+  },
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false
+  }
+}

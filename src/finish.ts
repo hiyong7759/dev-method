@@ -57,7 +57,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
     for (const route of routes) {
       // 쿼리(?editTripId=…)는 @route 비교에서 뺀다. 설계서 보기처럼 #이 주소의 일부인 화면도 있어 #까지 넣은 것을 먼저 본다
       const sc = matchScreen(model, route.split('?')[0]) ?? matchScreen(model, route.split(/[?#]/)[0]);
-      step(`${route} 이 주소가 @screen의 @route와 맞는다`, !!sc, sc ? `화면 "${sc.name}"` : '맞는 @screen @route가 없다 — 설계서 보기가 이 화면을 찾지 못한다');
+      step(`${route} 이 주소가 @screen의 @route와 맞는다`, !!sc, sc ? `화면 "${sc.name}"` : opts.routes ? '맞는 @screen @route가 없다 — 설계서 보기가 이 화면을 찾지 못한다' : '확인할 화면 주소를 안 줬다 — --routes에 바뀐 화면의 주소를 적어 다시 돌린다(예: --routes "/__spec/#/manage/designs")');
       if (!sc) continue;
       const mine = model.specs.filter((x) => x.screens.includes(sc.name) && x.kind === 'dom' && x.anchor);
       briefs.push([

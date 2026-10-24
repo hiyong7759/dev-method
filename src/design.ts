@@ -73,7 +73,7 @@ export function freshness(root: string, b: Board): Freshness {
 
 /** 설계서 보기에 보일 판 목록(모델에 담긴다) */
 export function designViews(root: string): DesignView[] {
-  return readMap(root).boards.map((b) => { const f = freshness(root, b); return { board: b.board, no: b.no, title: b.title, mark: f.mark, text: f.text, detail: f.detail, stale: f.stale, state: b.state, request: b.request ?? 0, screens: b.screens ?? [], verifyLater: b.verifyLater ?? [] }; });
+  return readMap(root).boards.map((b) => { const f = freshness(root, b); return { no: b.no, title: b.title, mark: f.mark, detail: f.detail, stale: f.stale, state: b.state, screens: b.screens ?? [], verifyLater: b.verifyLater ?? [] }; });
 }
 
 /** 캔버스 판 제목: "10 요청 상세 · ✓ 구현과 같음 …" */
