@@ -191,7 +191,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
     fold('origin', '요청 원문', idx === 0, r.origin.text ? `"${sumText(r.origin.text)}"` : '원문이 없습니다', r.origin.text ? h('div', { class: 'quote' }, r.origin.text) : h('div', { class: 'hint' }, '원문이 기록되지 않았습니다.')),
     fold('design', '설계', idx === 0, approved ? `${fmt(approved.at)} 사용자 승인 · ${dsum}` : dsum,
       [d && !d.none ? h('div', { class: 'grid2' }, h('div', { class: 'box' }, h('b', null, '이렇게 이해했습니다'), h('div', null, d.understanding)), h('div', { class: 'box' }, h('b', null, '이렇게 처리하겠습니다'), h('div', null, d.approach))) : null,
-        designResult(model, r), designEvents.length ? h('div', { class: 'tl' }, designEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`)))) : h('div', { class: 'hint' }, '설계 기록이 없습니다.')],
+        designResult(model, r), designEvents.length ? h('div', { class: 'tl' }, designEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`, e.quote ? h('div', { class: 'hint', style: 'margin-top:2px' }, `사용자가 한 말: “${e.quote}”`) : null)))) : h('div', { class: 'hint' }, '설계 기록이 없습니다.')],
       { label: designState, cur: idx === 0 }),
     fold('impl', '구현', idx === 1, r.commits?.length ? `커밋 ${r.commits.length}개 (${r.commits.join(', ')})${at('test-requested') ? ` · ${fmt(at('test-requested')!.at)} 테스트 요청` : ''}` : idx < 1 ? '설계 승인 뒤에 시작합니다' : '남은 커밋 기록이 없습니다',
       implEvents.length ? h('div', { class: 'tl' }, implEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${fmt(e.at)}`)))) : h('div', { class: 'hint' }, '구현 기록이 없습니다.'),
@@ -199,7 +199,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
     fold('scope', '범위', idx === 1 || idx === 2, `${(r.scope.scenarios ?? []).length}개 시나리오 · 화면 ${r.scope.screens.join(', ') || '없음'} · 정보 ${r.scope.infos.join(', ') || '없음'}${comps.length ? ` · 컴포넌트 ${comps.join(', ')}` : ''}`, scopeBody(model, r), { cur: idx === 2 }),
     fold('overlap', '다른 요청과 겹침', idx === 1 || idx === 2, r.overlaps.length ? `${r.overlaps.length}건 — ${r.overlaps.slice(0, 3).map((o) => `#${o.id}`).join(', ')}${r.overlaps.length > 3 ? ' …' : ''}` : '없음', overlapBody(r, onChange, model), { cur: idx === 2 }),
     fold('log', '진행 기록', idx === 3, `${r.events.map((e) => e.note || e.kind).slice(-4).join(' → ')} (${r.events.length}건)`,
-      h('div', { class: 'tl' }, r.events.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`))))),
+      h('div', { class: 'tl' }, r.events.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`, e.quote ? h('div', { class: 'hint', style: 'margin-top:2px' }, `사용자가 한 말: “${e.quote}”`) : null))))),
     fold('done', '완료', idx === 3, idx === 3 ? `${fmt(r.events[r.events.length - 1].at)} 끝남` : '테스트를 승인하면 이 칸에 결과가 남습니다', h('div', { class: 'hint' }, idx === 3 ? r.events[r.events.length - 1].note : ''), { later: idx < 3 }),
   ];
   const designSide = r.stage === 'design' && r.step === 'submitted' ? designApproval(r, onChange)
