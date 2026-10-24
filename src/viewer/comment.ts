@@ -1,15 +1,17 @@
 /**
  * @spec comment-tool 공통 코멘트 도구
  * @shell
- * @anchor dom:.cm-fab
- * @why 어느 화면에서든 같은 단추 하나로 화면의 어느 부분인지 정해 에이전트에게 바로 묻거나 요청할 수 있어야 한다. 설명이 애매할 때는 부품을 고르거나 화면 캡처를 같이 보내는 것이 가장 정확하다. 화면마다 코멘트 기능을 따로 만들지 않고, 모든 화면 위에 얹히는 도구 하나로 둔다.
- * @basis 대상은 세 방식으로 정한다: 부품 고르기(화면 위 번호표나 data-ctarget이 붙은 곳), 영역 그리기(끌어서 네모), 화면 전체. 글쓰기와 대화는 오른쪽 코멘트 창에서만 한다. 코멘트는 서버(.spec/comments.json)에 쌓이고 에이전트가 명령으로 읽고 답한다.
- * @contract 화면 코드는 이 도구를 모르고, 눌러서 코멘트 대상이 될 곳에 data-ctarget(JSON)만 붙인다. 모델이 바뀌어도 이 도구는 다시 그려지지 않고 update(model)만 받는다.
+ * @anchor dom:.cm-foot-bar
+ * @why 어느 화면에서든 오른쪽 코멘트 창 하나로, 화면의 어느 부분인지 정해 에이전트에게 묻거나 요청할 수 있어야 한다. 설명이 애매할 때는 부품을 고르거나 화면 캡처를 같이 담는 것이 가장 정확하다. 화면마다 코멘트 기능을 따로 만들지 않고, 모든 화면 옆에 얹히는 도구 하나로 둔다. 코멘트는 하나씩 보내지 않고 담아 두었다가 한번에 보낸다.
+ * @basis 대상은 세 방식으로 정하고 그 단추는 코멘트 창 안에 있다: 부품 고르기(화면 위 번호표나 data-ctarget이 붙은 곳), 영역 그리기(끌어서 네모), 화면 전체. 담은 코멘트는 comment-basket.ts에 쌓이고, 아래 고정 줄의 "한번에 보내기"로 서버(.spec/comments.json)에 한꺼번에 쌓여 에이전트가 명령으로 읽고 답한다. 테스트 승인 경로(요청 상세의 "첫 화면 열기")로 들어오면 같은 창에 경로 단계와 승인·반려가 붙는다.
+ * @contract 화면 코드는 이 도구를 모르고, 눌러서 코멘트 대상이 될 곳에 data-ctarget(JSON)만 붙인다. 모델이 바뀌어도 이 도구는 다시 그려지지 않고 update(model)만 받는다. 아래 고정 줄(.cm-foot-bar)은 코멘트 창이 열려도 닫혀도 같은 자리다.
  */
 import { h, post, chip, tag, toast, errorText } from './util.js';
 import type { Kid } from './util.js';
-import { nav } from './route.js';
-import type { Comment, CommentTarget, Model } from '../types.js';
+import { nav, hash } from './route.js';
+import { basket, onBasket, addToBasket, editBasket, removeFromBasket, sendBasket } from './comment-basket.js';
+import type { BasketItem } from './comment-basket.js';
+import type { Comment, CommentTarget, Model, Scenario, ScenarioStep } from '../types.js';
 
 type Mode = 'part' | 'region' | 'screen';
 const MODES: [Mode, string][] = [['part', '부품 고르기'], ['region', '영역 그리기'], ['screen', '화면 전체']];
@@ -86,40 +88,61 @@ export interface CommentTool {
   update(model: Model): void;
 }
 
-/** 단추·코멘트 창·고르기 막대를 문서에 얹는다 */
+/** 테스트 승인 경로(요청 상세에서 "첫 화면 열기"로 들어온 길): 어느 요청의 어느 시나리오를 어느 단계까지 따라왔나 */
+interface Path { req: number; sc: string; step: string }
+const PATH_KEY = 'spec-view:comment-path';
+
+/** 코멘트 창·고정 줄을 문서에 얹는다 */
 export function commentTool(init: Model): CommentTool {
-  let model = init, open = false, picking = false, mode: Mode = 'part', filter: 'here' | 'all' | 'waiting' = 'all';
+  let model = init, open = false, picking = false, mode: Mode = 'part', tab: 'here' | 'all' = 'here', onlyWaiting = false;
   type Draft = { target: CommentTarget; shot: string; text: string };
   let draft: Draft | null = null;
   const replyText = new Map<number, string>();
   const replying = new Set<number>();
+  const editing = new Map<string, string>();
+  let reason = '';
   let lastSig = '';
 
-  const fab = h('button', { class: 'cm-ui cm-fab', onclick: () => { open = !open; if (!open) stopPick(); draw(); } });
-  const bar = h('div', { class: 'cm-ui cm-bar hidden' });
-  const dim = h('div', { class: 'cm-ui cm-dim hidden' });
+  const bar = h('div', { class: 'cm-ui cm-foot-bar' });
   const drawer = h('aside', { class: 'cm-ui cm-drawer hidden' });
-  document.body.append(fab, dim, bar, drawer);
+  document.body.append(drawer, bar);
+
+  // 테스트 경로: 주소의 tr·ts·tn(요청·시나리오·단계)로 들어오면 이 창(탭)이 기억한다. 화면 안에서 주소가 바뀌어도 이어지고, "경로 끝내기"로 지운다
+  const readPath = (): Path | null => { try { const p = JSON.parse(sessionStorage.getItem(PATH_KEY) ?? 'null') as Path | null; return p && p.req && p.sc ? p : null; } catch { return null; } };
+  const savePath = (p: Path | null): void => { try { if (p) sessionStorage.setItem(PATH_KEY, JSON.stringify(p)); else sessionStorage.removeItem(PATH_KEY); } catch { /* 저장소를 못 쓰면 이 주소에서만 경로가 보인다 */ } };
+  let path: Path | null = readPath();
+  const pathFromUrl = (): void => {
+    const q = new URLSearchParams(location.hash.split('?')[1] ?? ''), req = Number(q.get('tr')), sc = q.get('ts');
+    if (req && sc) { path = { req, sc, step: q.get('tn') ?? '' }; savePath(path); open = true; }
+  };
+  pathFromUrl();
+  /** 경로 안의 요청·시나리오·확인할 단계들(요청 상세의 확인표와 같은 기준) */
+  function pathInfo(): { r: NonNullable<Model['requests'][number]>; sc: Scenario; steps: ScenarioStep[] } | null {
+    if (!path) return null;
+    const r = model.requests.find((x) => x.id === path?.req), sc = model.scenarios.find((s) => s.name === path?.sc);
+    if (!r || !sc) return null;
+    const picked = new Set(r.scope.steps ?? []), impact = (r.scope.impactOnly ?? []).includes(sc.name);
+    return { r, sc, steps: sc.steps.filter((st) => (impact ? picked.has(`${sc.name}#${st.id}`) : st.main || picked.has(`${sc.name}#${st.id}`))) };
+  }
 
   const here = (): string => viewLabel(location.hash).label;
   /** 코멘트를 남긴 곳이 지금 보는 곳과 같은가(쿼리·선택 상태는 빼고 주소의 앞 두 칸만 본다) */
-  const sameView = (c: Comment): boolean => { const k = (u = ''): string => u.slice(1).split('?')[0].split('/').slice(0, 3).join('/'); return k(c.target.view) === k(location.hash); };
+  const sameView = (c: { target: CommentTarget }): boolean => { const k = (u = ''): string => u.slice(1).split('?')[0].split('/').slice(0, 3).join('/'); return k(c.target.view) === k(location.hash); };
   const live = (): Comment[] => model.comments.filter((c) => c.status !== 'closed');
 
-  function stopPick(): void { picking = false; document.body.classList.remove('cm-picking'); bar.classList.add('hidden'); dim.classList.add('hidden'); hover?.remove(); hover = null; }
+  function stopPick(): void { picking = false; document.body.classList.remove('cm-picking'); hover?.remove(); hover = null; }
   let hover: HTMLElement | null = null;
   const showHover = (r: { left: number; top: number; width: number; height: number } | null, text = ''): void => {
-    if (!r) { hover?.remove(); hover = null; dim.classList.toggle('hidden', !picking); return; }
+    if (!r) { hover?.remove(); hover = null; return; }
     if (!hover) { hover = h('div', { class: 'cm-ui cm-hover' }); document.body.append(hover); }
     hover.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`; hover.dataset.t = text;
-    dim.classList.add('hidden');
   };
-  function drawBar(): void {
-    bar.replaceChildren(h('b', null, '코멘트 모드 · 화면에서 대상을 고르고, 글은 오른쪽에 쓰세요'),
-      h('span', { class: 'cm-modes' }, MODES.map(([k, l]) => h('button', { class: k === mode ? 'on' : '', onclick: () => { mode = k; showHover(null); drawBar(); if (k === 'screen') pickScreen(); } }, l))),
-      h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => { stopPick(); draw(); } }, '끝내기'));
+  /** 대상 고르기를 시작한다(코멘트 창의 대상 단추에서). 화면 전체는 바로 정해진다 */
+  function startPick(k: Mode = mode): void {
+    open = true; mode = k; showHover(null);
+    if (k === 'screen') { stopPick(); pickScreen(); return; }
+    picking = true; document.body.classList.add('cm-picking'); draw();
   }
-  function startPick(): void { open = true; picking = true; document.body.classList.add('cm-picking'); bar.classList.remove('hidden'); dim.classList.remove('hidden'); drawBar(); draw(); }
 
   /** 화면 설계서에서 점 위의 부품(가장 작은 번호표 틀)을 찾는다 */
   function partAt(x: number, y: number): { el: HTMLElement; target: CommentTarget } | null {
@@ -165,8 +188,10 @@ export function commentTool(init: Model): CommentTool {
     }
     return null;
   }
-  async function pickTarget(target: CommentTarget): Promise<void> {
+  async function pickTarget(picked: CommentTarget): Promise<void> {
     stopPick(); open = true;
+    const stepId = path ? path.step || pathInfo()?.steps[0]?.id || '' : '';
+    const target: CommentTarget = path && stepId ? { ...picked, step: `${path.sc}#${stepId}`, testOf: path.req } : picked;
     draft = { target, shot: '', text: draft?.text ?? '' }; draw();
     if (target.kind === 'part' || target.kind === 'item') return; // 부품·항목은 이름과 소스 위치로 충분하다. 캡처는 영역 그리기·화면 전체에만 붙인다
     const shot = await capture(target);
@@ -202,14 +227,22 @@ export function commentTool(init: Model): CommentTool {
     else if (mode === 'region') { ev.preventDefault(); ev.stopPropagation(); }
   }, true);
 
-  async function send(): Promise<void> {
+  /** 쓰던 코멘트를 담는다(보내지 않는다) */
+  function stash(): void {
     if (!draft) return;
     if (!draft.text.trim()) { toast('코멘트 글을 먼저 쓰세요'); return; }
-    try { await post('/__spec/comment/add', { target: draft.target, text: draft.text, shot: draft.shot || undefined }); draft = null; toast('에이전트에게 보냈습니다'); } catch (e) { toast(errorText(e)); }
+    addToBasket({ target: draft.target, text: draft.text.trim(), shot: draft.shot });
+    draft = null; toast('코멘트를 담았습니다. 아직 보내지 않았습니다'); draw();
+  }
+  /** 담은 코멘트를 한번에 보낸다. 경로 안이면 그 테스트 요청의 반려가 된다 */
+  async function sendAll(asReject: boolean): Promise<void> {
+    const n = basket().length;
+    if (asReject && !n && !reason.trim()) { toast('담은 코멘트가 없습니다. 반려 이유를 한 줄 적어 주세요'); open = true; draw(); return; }
+    try { await sendBasket(asReject && path ? { request: path.req, note: n ? '' : reason.trim() } : {}); reason = ''; toast(asReject ? '한번에 보내고 반려했습니다. 같은 요청에서 고칩니다' : `코멘트 ${n}건을 한번에 보냈습니다`); } catch (e) { toast(errorText(e)); }
     refresh();
   }
   const refresh = (): void => { void fetch('/__spec/model.json', { cache: 'no-store' }).then((r) => r.json()).then((m: Model) => { model = m; draw(); }); };
-  const act = async (url: string, body: object, ok: string): Promise<void> => { try { await post(url, body); toast(ok); } catch (e) { toast(errorText(e)); } refresh(); };
+  const act = async (url: string, body: object, ok: string): Promise<void> => { try { await post(url, body); if (ok) toast(ok); } catch (e) { toast(errorText(e)); } refresh(); };
 
   function draftCard(): HTMLElement | null {
     if (!draft) return null;
@@ -220,8 +253,46 @@ export function commentTool(init: Model): CommentTool {
       h('div', { class: 'cm-tg' }, chip('ag', '작성 중'), tag('c', t.label), t.kind === 'region' ? tag('', '영역 지정') : null),
       h('span', { class: 'hint' }, '자동으로 붙는 것: ', t.src ? h('span', { class: 'mono' }, `${t.src} · `) : null, '지금 화면 주소', d.shot ? ' · 화면 캡처' : t.kind === 'part' || t.kind === 'item' ? '' : ' · (캡처는 못 찍었습니다)'),
       ta, d.shot ? h('img', { class: 'cm-shot', src: d.shot, alt: '같이 보낼 캡처' }) : null,
-      h('div', { class: 'cm-foot' }, h('button', { class: 'btn pri sm', onclick: () => { void send(); } }, '에이전트에게 보내기'), h('button', { class: 'btn sm', onclick: () => { draft = null; draw(); } }, '취소'),
-        h('button', { class: 'btn sm', onclick: startPick }, '대상 다시 고르기')));
+      h('div', { class: 'cm-foot' }, h('button', { class: 'btn pri sm', onclick: stash }, '코멘트 담기'), h('button', { class: 'btn sm', onclick: () => { draft = null; draw(); } }, '취소'), h('span', { class: 'hint' }, '(아직 안 보내짐)')));
+  }
+  /** 담아 둔 코멘트 한 건: 보내기 전에 고치거나 지울 수 있다 */
+  function basketCard(it: BasketItem): HTMLElement {
+    const t = it.target, edit = editing.get(it.key);
+    const ta = h('textarea', { class: 'cm-ta', oninput: (e: Event) => { editing.set(it.key, (e.target as HTMLTextAreaElement).value); } }) as HTMLTextAreaElement;
+    ta.value = edit ?? it.text;
+    return h('div', { class: 'cm-th' },
+      h('div', { class: 'cm-tg' }, chip('dim', '담음'), t.step ? tag('', t.step.replace('#', ' · ')) : null, t.view ? h('a', { class: 'tag c', href: t.view, onclick: () => { nav(t.view as string); } }, t.label) : tag('c', t.label)),
+      edit !== undefined ? ta : h('div', { class: 'cm-msg' }, it.text),
+      it.shot ? h('img', { class: 'cm-shot', src: it.shot, alt: '같이 보낼 캡처' }) : null,
+      h('div', { class: 'cm-foot' },
+        edit !== undefined ? [h('button', { class: 'btn pri sm', onclick: () => { editBasket(it.key, ta.value.trim() || it.text); editing.delete(it.key); } }, '저장'), h('button', { class: 'btn sm', onclick: () => { editing.delete(it.key); draw(); } }, '취소')]
+          : [h('button', { class: 'btn sm', onclick: () => { editing.set(it.key, it.text); draw(); } }, '고치기'), h('button', { class: 'btn sm', onclick: () => { removeFromBasket(it.key); } }, '지우기')]));
+  }
+  /** 테스트 경로 칸: 단계 목록(체크)과 다음 화면. 단계를 따라가며 코멘트를 담는다 */
+  function pathCard(): HTMLElement | null {
+    const info = pathInfo();
+    if (!info || !path) return null;
+    const { r, sc, steps } = info, cur = Math.max(0, steps.findIndex((s) => s.id === path?.step)), checks = r.test?.checks ?? {};
+    const go = (i: number): void => {
+      const st = steps[i]; if (!st || !path) return;
+      path = { ...path, step: st.id }; savePath(path); stopPick(); draft = null;
+      const scr = st.screens[0];
+      if (scr && viewLabel(location.hash).screen !== scr) nav(hash('screen', scr, { tr: String(path.req), ts: sc.name, tn: st.id })); else draw();
+    };
+    const row = (st: ScenarioStep, i: number): HTMLElement => {
+      const key = `${sc.name}#${st.id}`;
+      const box = h('input', { type: 'checkbox', checked: checks[key] ? true : null, 'aria-label': st.title, onchange: () => { void act('/__spec/request/test-check', { id: r.id, key, done: box.checked }, ''); } });
+      return h('div', { class: `cm-step${i === cur ? ' cur' : ''}` }, box, h('div', { class: 'grow' }, h('small', { class: 'hint' }, `${st.cond ? st.cond : `${st.id}단계`}${i === cur ? ' · 지금 여기' : ''}`), h('div', null, st.title), st.check ? h('small', { class: 'hint' }, `확인 기준: ${st.check}`) : null),
+        i !== cur ? h('button', { class: 'btn sm', onclick: () => go(i) }, '가기') : null);
+    };
+    return h('div', { class: 'cm-path' },
+      h('div', { class: 'cm-tg' }, h('b', null, sc.name), chip('ag', `요청 #${r.id} 테스트`), h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => { path = null; savePath(null); draw(); } }, '경로 끝내기')),
+      steps.map(row),
+      h('div', { class: 'cm-foot' }, h('button', { class: 'btn sm', disabled: cur <= 0, onclick: () => go(cur - 1) }, '‹ 이전 화면'), h('button', { class: 'btn sm', disabled: cur >= steps.length - 1, onclick: () => go(cur + 1) }, '다음 화면 ›')));
+  }
+  /** 대상 고르기 단추들(코멘트 창 안): 눌러서 화면에서 고른다 */
+  function modeRow(): HTMLElement {
+    return h('div', { class: 'cm-modes' }, MODES.map(([k, l]) => h('button', { class: (picking || draft) && k === mode ? 'on' : '', onclick: () => startPick(k) }, l)));
   }
   function threadCard(c: Comment): HTMLElement {
     const st = STATUS[c.status];
@@ -236,24 +307,42 @@ export function commentTool(init: Model): CommentTool {
         c.status === 'answered' && !c.request ? h('button', { class: 'btn pri sm', onclick: () => { void act('/__spec/comment/to-request', { id: c.id, title: c.thread[0].text.slice(0, 60) }, '요청으로 만들었습니다'); } }, '이 일을 요청으로 만들기') : null,
         h('button', { class: 'btn sm', onclick: () => { void act('/__spec/comment/close', { id: c.id }, '닫았습니다'); } }, '닫기')) : null);
   }
+  /** 아래 고정 줄: 코멘트 창이 열려도 닫혀도 같은 자리. 개수를 눌러 창을 열고, 담은 것을 한번에 보낸다(테스트 경로에서는 반려·승인도 여기서) */
+  function drawBar(): void {
+    const mine = basket(), nHere = mine.filter(sameView).length + model.comments.filter(sameView).length, nAll = mine.length + model.comments.length;
+    const info = path ? pathInfo() : null, canAct = !!info && info.r.step === 'requested' && info.r.stage === 'test';
+    const allDone = !!info && info.steps.every((st) => info.r.test?.checks[`${info.sc.name}#${st.id}`]);
+    const count = (k: 'here' | 'all', label: string, n: number): HTMLElement => h('button', { class: `cnt${open && tab === k ? ' on' : ''}`, onclick: () => { open = !(open && tab === k); tab = k; if (!open) stopPick(); draw(); } }, `${label} ${n}`);
+    bar.replaceChildren(count('here', '이 화면', nHere), count('all', '전체', nAll), h('span', { class: 'grow' }),
+      ...canAct ? [h('button', { class: 'btn bad', onclick: () => { void sendAll(true); } }, `한번에 보내기(반려)${mine.length ? ` ${mine.length}` : ''}`),
+        h('button', { class: `btn ok${allDone ? '' : ' off'}`, disabled: !allDone, title: allDone ? '' : '모든 단계를 확인(체크)해야 승인할 수 있습니다', onclick: () => { void act('/__spec/request/test-approve', { id: info!.r.id, none: false }, '테스트를 승인했습니다'); } }, '승인')]
+        : [h('button', { class: `btn pri${mine.length ? '' : ' off'}`, disabled: !mine.length, onclick: () => { void sendAll(false); } }, `한번에 보내기${mine.length ? ` ${mine.length}` : ''}`)]);
+  }
   function draw(): void {
-    const n = live().length, waiting = model.comments.filter((c) => c.status === 'waiting').length;
-    fab.replaceChildren('코멘트 ', h('b', null, String(n)));
-    fab.classList.toggle('moved', open);
+    drawBar();
     drawer.classList.toggle('hidden', !open);
     if (!open) return;
-    const cur = here();
-    const list = model.comments.filter((c) => (filter === 'waiting' ? c.status === 'waiting' : filter === 'here' ? sameView(c) : true)).sort((a, b) => b.id - a.id);
-    const chips = ([['here', '이 화면'], ['all', '전체'], ['waiting', '답 기다림']] as const).map(([k, l]) => h('button', { class: `fc${filter === k ? ' on' : ''}`, onclick: () => { filter = k; draw(); } }, l, h('small', null, String(k === 'waiting' ? waiting : k === 'all' ? model.comments.length : model.comments.filter(sameView).length))));
+    const cur = here(), mine = basket();
+    const waiting = model.comments.filter((c) => c.status === 'waiting').length;
+    const sent = model.comments.filter((c) => (tab === 'here' ? sameView(c) : onlyWaiting ? c.status === 'waiting' : true)).sort((a, b) => b.id - a.id);
+    const stashed = mine.filter((i) => tab === 'all' || sameView(i));
+    const tabs = h('div', { class: 'cm-tabs' }, ...([['here', '이 화면'], ['all', '전체']] as const).map(([k, l]) => h('button', { class: tab === k ? 'on' : '', onclick: () => { tab = k; draw(); } }, l)),
+      tab === 'all' ? h('button', { class: `fc${onlyWaiting ? ' on' : ''}`, onclick: () => { onlyWaiting = !onlyWaiting; draw(); } }, '답 기다림', h('small', null, String(waiting))) : null);
+    const info = path ? pathInfo() : null;
     const kids: Kid[] = [
-      h('div', { class: 'cm-head' }, h('h3', null, '코멘트 · 모든 화면'), h('button', { class: 'sp-x', 'aria-label': '닫기', onclick: () => { open = false; stopPick(); draw(); } }, '✕')),
-      h('div', { class: 'fchips' }, chips),
-      draft ? draftCard() : h('div', { class: 'cm-new' }, h('button', { class: 'btn pri', onclick: startPick }, '＋ 새 코멘트 — 화면에서 대상 고르기'), h('span', { class: 'hint' }, `지금 보는 곳: ${cur}`)),
-      list.length ? list.map(threadCard) : h('div', { class: 'empty-note' }, '코멘트가 없습니다'),
+      h('div', { class: 'cm-head' }, h('h3', null, '코멘트'), h('button', { class: 'sp-x', 'aria-label': '닫기', onclick: () => { open = false; stopPick(); draw(); } }, '✕')),
+      tabs,
+      pathCard(),
+      draft ? [modeRow(), draftCard()] : h('div', { class: 'cm-new' }, modeRow(),
+        h('span', { class: 'hint' }, picking ? (mode === 'part' ? '화면에서 부품을 누르세요(글이 있는 덩어리도 됩니다)' : '화면에서 끌어서 영역을 그리세요') : '대상을 먼저 고르세요', ` · 지금 보는 곳: ${cur}`)),
+      info && info.r.step === 'requested' && !mine.length ? h('div', { class: 'cm-th' }, h('span', { class: 'hint' }, '담은 코멘트가 없으면 반려 이유를 한 줄 적습니다'),
+        h('textarea', { class: 'cm-ta', placeholder: '반려 이유 한 줄', oninput: (e: Event) => { reason = (e.target as HTMLTextAreaElement).value; } }, reason)) : null,
+      stashed.length ? [h('div', { class: 'hint' }, '담은 코멘트 — 아직 안 보내짐. 아래 [한번에 보내기]로 모두 함께 보냅니다'), stashed.map(basketCard)] : null,
+      sent.length ? sent.map(threadCard) : stashed.length ? null : h('div', { class: 'empty-note' }, '코멘트가 없습니다'),
     ];
     // 쓰는 중인 글이 지워지지 않게, 입력칸에 초점이 있으면 다시 그리지 않는다
     if (document.activeElement && drawer.contains(document.activeElement) && document.activeElement.tagName === 'TEXTAREA') return;
-    drawer.replaceChildren(...kids.flat() as Node[]);
+    drawer.replaceChildren(...kids.flat().filter((k) => k !== null && k !== undefined) as Node[]);
   }
   /** 코멘트가 달린 부품·줄 위에 개수 점을 단다(없어진 것은 걷는다). 화면이 다시 그려져도 따라붙게 주기적으로 맞춘다 */
   function paintDots(): void {
@@ -279,9 +368,11 @@ export function commentTool(init: Model): CommentTool {
   const viewKey = (u = location.hash): string => u.slice(1).split('?')[0].split('/').slice(0, 3).join('/');
   const drafts = new Map<string, Draft>();
   let curKey = viewKey();
+  onBasket(() => draw());
   window.addEventListener('hashchange', () => {
+    pathFromUrl();
     const k = viewKey();
-    if (k === curKey) return;
+    if (k === curKey) { draw(); return; }
     if (draft) drafts.set(curKey, draft); else drafts.delete(curKey);
     curKey = k; draft = drafts.get(k) ?? null; drafts.delete(k);
     stopPick(); draw();
@@ -289,7 +380,7 @@ export function commentTool(init: Model): CommentTool {
   draw();
   return { update(m: Model): void {
     model = m;
-    const sig = JSON.stringify(m.comments);
+    const sig = JSON.stringify([m.comments, m.requests.map((r) => [r.id, r.stage, r.step, r.test?.checks])]);
     if (sig !== lastSig) { lastSig = sig; draw(); paintDots(); }
   } };
 }

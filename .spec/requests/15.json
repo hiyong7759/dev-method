@@ -27,7 +27,10 @@
       "RequestDesign",
       "DesignPoint"
     ],
-    "scenarios": [],
+    "scenarios": [
+      "요청의 진행을 확인한다",
+      "요청을 시작하고 설계를 승인한다"
+    ],
     "steps": [],
     "impactOnly": []
   },
@@ -323,6 +326,12 @@
       "by": "agent",
       "kind": "impl",
       "note": "구현 커밋 ad3d396"
+    },
+    {
+      "at": "2026-10-24T12:31:28.814Z",
+      "by": "agent",
+      "kind": "scope",
+      "note": "범위에 시나리오 연결: 요청의 진행을 확인한다, 요청을 시작하고 설계를 승인한다"
     }
   ],
   "design": {

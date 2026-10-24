@@ -678,15 +678,26 @@ table.t tr.hit>td{background:var(--amber-bg)}
 .more{cursor:pointer;color:var(--accent);font-weight:700}
 .arrive{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:10px;border:1px solid var(--accent-deep);background:var(--accent-bg);color:var(--accent);font-size:13px;font-weight:700}
 /* 공통 코멘트 도구: 모든 화면 위에 얹힌다 */
-.cm-fab{position:fixed;right:20px;bottom:20px;z-index:60;display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;border:0;background:var(--accent);color:#14161f;font-weight:700;font-size:13px;box-shadow:0 8px 20px rgba(0,0,0,.4);cursor:pointer}
-.cm-fab b{background:#14161f;color:var(--accent);border-radius:999px;padding:1px 8px;font-size:12px}
-.cm-fab.moved{right:400px}
-.cm-bar{position:fixed;left:0;top:56px;width:calc(100% - 380px);height:46px;z-index:59;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--accent-bg);border-bottom:1px solid var(--accent-deep);color:var(--accent);font-size:13px}
-.cm-bar.hidden,.cm-drawer.hidden{display:none}
-.cm-modes{display:inline-flex;border:1px solid var(--accent-deep);border-radius:999px;overflow:hidden}
+.cm-foot-bar{position:fixed;right:0;bottom:0;width:380px;height:56px;z-index:59;display:flex;align-items:center;gap:8px;padding:0 16px;background:var(--bg);border-top:1px solid var(--line2);border-left:1px solid var(--line2);font-size:12px}
+.cm-foot-bar .grow{flex:1}
+.cm-foot-bar .cnt{padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg2);color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.cm-foot-bar .cnt.on{border-color:var(--accent-deep);color:var(--accent);background:var(--accent-bg)}
+.cm-foot-bar .btn.off{opacity:.45}
+.cm-drawer.hidden{display:none}
+.sidepanel:not(.rail){padding-bottom:72px}
+.cm-tabs{display:flex;gap:6px;align-items:center}
+.cm-tabs>button:not(.fc){padding:5px 14px;border-radius:999px;border:1px solid var(--line);background:var(--bg2);color:var(--dim);font-size:12px;font-weight:600;cursor:pointer}
+.cm-tabs>button.on:not(.fc){border-color:var(--accent-deep);color:var(--accent);background:var(--accent-bg)}
+.cm-tabs .fc{margin-left:auto}
+.cm-path{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+.cm-path .grow{flex:1;min-width:0}
+.cm-step{display:flex;flex-direction:row;gap:8px;align-items:flex-start;width:auto;border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.cm-step.cur{border-color:var(--accent-deep);background:var(--accent-bg)}
+.cm-step input{margin-top:3px;flex:none}
+.cm-modes{display:inline-flex;border:1px solid var(--accent-deep);border-radius:999px;overflow:hidden;align-self:flex-start}
 .cm-modes button{padding:4px 12px;font-size:12px;font-weight:700;color:var(--dim);background:none;border:0;cursor:pointer}
 .cm-modes button.on{background:var(--accent);color:#14161f}
-.cm-drawer{position:fixed;right:0;top:0;bottom:0;width:380px;z-index:58;background:var(--bg);border-left:1px solid var(--line2);padding:16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;box-shadow:-10px 0 28px rgba(0,0,0,.35)}
+.cm-drawer{position:fixed;right:0;top:0;bottom:56px;width:380px;z-index:58;background:var(--bg);border-left:1px solid var(--line2);padding:16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;box-shadow:-10px 0 28px rgba(0,0,0,.35)}
 .cm-head{display:flex;align-items:center;gap:8px}.cm-head h3{margin:0;font-size:16px;flex:1}
 .cm-th{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;line-height:1.55}
 .cm-th.new{border-color:var(--accent);background:var(--accent-bg)}
@@ -701,8 +712,6 @@ table.t tr.hit>td{background:var(--amber-bg)}
 .cm-hover{position:fixed;z-index:57;pointer-events:none;outline:3px solid var(--accent);background:rgba(91,111,184,.18);border-radius:6px}
 body.cm-picking{cursor:crosshair}
 body.cm-picking .stage iframe{pointer-events:none}
-.cm-dim{position:fixed;left:0;top:102px;bottom:0;width:calc(100% - 380px);background:rgba(10,8,6,.5);z-index:55;pointer-events:none}
-.cm-dim.hidden{display:none}
 .cm-hover{background:transparent;box-shadow:0 0 0 9999px rgba(10,8,6,.5);outline:3px solid var(--accent)}
 /* 코멘트가 달린 곳의 점 */
 .cm-dot{position:absolute;right:-8px;top:-10px;min-width:20px;height:20px;border-radius:999px;background:var(--amber);color:#14161f;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);z-index:3;cursor:pointer}

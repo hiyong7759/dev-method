@@ -8,6 +8,7 @@ import type { Kid } from './util.js';
 import { hash, nav } from './route.js';
 import { stepperBig, chipFor, scopeTags, withPanel, currentDesignApproval } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
+import { basket, sendBasket } from './comment-basket.js';
 import type { Model, RequestView, Scenario, ScenarioStep } from '../types.js';
 
 /** 서버에 결정을 보내고 성공하면 화면을 다시 그린다 */
@@ -155,8 +156,10 @@ function testScenario(model: Model, r: RequestView, sc: Scenario, impactOnly: bo
     return h('label', { class: `tstep${st.main ? '' : ' alt'}` }, box, h('span', null, h('small', null, st.cond ? st.cond : `${st.id}단계`), h('div', null, st.title), st.check ? h('small', null, `확인 기준: ${st.check}`) : null));
   };
   const first = sc.firstScreens[0];
+  // 첫 화면은 테스트 경로로 열린다: 그 창의 오른쪽 코멘트 창에 단계 목록·코멘트 담기·승인·반려가 붙는다
+  const firstStep = (mains[0] ?? branches[0])?.id;
   return h('div', { class: 'tsc' },
-    h('div', { class: 'tsc-h' }, h('b', null, sc.name), impactOnly ? h('span', { class: 'chip dim' }, '영향 확인만') : null, h('span', { class: 'grow' }), first ? h('a', { class: 'open', target: '_blank', rel: 'noopener', href: `${location.pathname}${hash('screen', first)}` }, '첫 화면 열기 ↗') : null),
+    h('div', { class: 'tsc-h' }, h('b', null, sc.name), impactOnly ? h('span', { class: 'chip dim' }, '영향 확인만') : null, h('span', { class: 'grow' }), first ? h('a', { class: 'open', target: '_blank', rel: 'noopener', href: `${location.pathname}${hash('screen', first, { tr: String(r.id), ts: sc.name, tn: firstStep })}` }, '첫 화면 열기 ↗') : null),
     mains.length ? [h('div', { class: 'hint' }, impactOnly ? '영향 확인 (바꾸지 않음)' : '기본 흐름'), mains.map(stepRow)] : null,
     branches.length ? [h('div', { class: 'hint amberT' }, '갈래 — 이번 요청이 바꾼 것만'), branches.map(stepRow)] : null);
 }
@@ -171,16 +174,26 @@ function testCard(model: Model, r: RequestView, onChange: () => void): HTMLEleme
   const done = all.filter((k) => checks[k]).length;
   const ready = r.step === 'requested';
   const ready2 = ready && done === all.length;
-  const note = h('textarea', { class: 'hidden', placeholder: '무엇이 문제인지 한 줄로 적어 주세요(같은 요청에서 고칩니다)', rows: '2' });
+  const note = h('textarea', { class: 'hidden', placeholder: '담은 코멘트가 없으면 무엇이 문제인지 한 줄로 적어 주세요(같은 요청에서 고칩니다)', rows: '2' });
+  const stashed = basket().length;
+  /** 화면은 없고 등록할 때 "테스트 없음" 이유를 적은 요청: 확인표 대신 그 이유를 보이고 승인 하나로 끝낸다 */
+  const noTestOnly = !scs.length && !r.scope.screens.length;
+  const reject = (): void => {
+    if (!stashed && note.classList.contains('hidden')) { note.classList.remove('hidden'); note.focus(); return; }
+    sendBasket({ request: r.id, note: stashed ? '' : note.value }).then(() => { toast('한번에 보내고 반려했습니다. 같은 요청에서 고칩니다'); onChange(); }).catch((e: unknown) => toast(errorText(e)));
+  };
   return h('div', { class: 'card' }, h('h3', null, '테스트 요청 ', h('small', null, '범위 안의 단계만 보면 됩니다')),
-    h('div', { class: 'hint' }, '시나리오 이름 옆 "첫 화면 열기"를 누르면 그 시나리오의 첫 단계가 있는 화면이 새 창으로 열립니다. 아래 순서대로 눌러 보고 확인 기준에 맞으면 체크하세요.'),
-    scs.length ? scs.map((sc) => testScenario(model, r, sc, impact.has(sc.name), onChange)) : h('div', { class: 'hint' }, '이 요청에 사용 시나리오가 정해지지 않아 확인표가 없습니다. 에이전트에게 범위를 정해 달라고 하거나, 아래에서 "테스트 없음"으로 승인할 수 있습니다.'),
+    scs.length ? h('div', { class: 'hint' }, '시나리오 이름 옆 "첫 화면 열기"를 누르면 그 시나리오의 첫 화면이 새 창으로 열리고, 그 창의 오른쪽 코멘트 창에서 단계를 따라가며 코멘트를 담습니다. 다 본 뒤 거기서 "한번에 보내기(반려)"나 "승인"으로 끝내도 됩니다. 아래 순서대로 눌러 보고 확인 기준에 맞으면 체크하세요.') : null,
+    scs.length ? scs.map((sc) => testScenario(model, r, sc, impact.has(sc.name), onChange))
+      : noTestOnly ? h('div', { class: 'box' }, h('b', null, '테스트 없음'), h('div', null, r.noTest || '등록할 때 적은 이유가 없습니다(화면이 없는 요청).'))
+      : h('div', { class: 'hint' }, '범위에 화면이 있는데 사용 시나리오가 없습니다. 시나리오가 있어야 테스트를 확인할 수 있어, 에이전트가 시나리오를 올려 범위에 연결하기 전에는 승인할 수 없습니다.'),
     scs.length ? h('div', { class: 'hint' }, `확인 ${done} / ${all.length}`) : null,
+    stashed ? h('div', { class: 'hint' }, `담아 둔 코멘트 ${stashed}건이 있습니다. "한번에 보내기(반려)"로 모두 함께 보냅니다.`) : null,
     note,
     ready ? h('div', { class: 'sp-foot' },
-      h('button', { class: `btn ok${ready2 ? '' : ' off'}`, disabled: !ready2, onclick: () => act('test-approve', { id: r.id, none: false }, '테스트를 승인했습니다', onChange) }, '테스트 승인'),
-      h('button', { class: 'btn bad', onclick: () => { if (note.classList.contains('hidden')) { note.classList.remove('hidden'); note.focus(); return; } act('test-problem', { id: r.id, note: note.value }, '반려했습니다. 같은 요청에서 고칩니다', onChange); } }, '반려'),
-      scs.length ? null : h('button', { class: 'btn', onclick: () => act('test-approve', { id: r.id, none: true }, '테스트 없음으로 승인했습니다', onChange) }, '테스트 없음 승인')) : h('div', { class: 'hint' }, r.stage === 'test' ? '에이전트가 고치는 중입니다. 다시 테스트를 올리면 여기서 확인합니다.' : ''),
+      scs.length ? h('button', { class: `btn ok${ready2 ? '' : ' off'}`, disabled: !ready2, onclick: () => act('test-approve', { id: r.id, none: false }, '테스트를 승인했습니다', onChange) }, '테스트 승인') : null,
+      noTestOnly ? h('button', { class: 'btn ok', onclick: () => act('test-approve', { id: r.id, none: true }, '테스트 없음으로 승인했습니다', onChange) }, '테스트 없음 승인') : null,
+      h('button', { class: 'btn bad', onclick: reject }, stashed ? `한번에 보내기(반려) ${stashed}` : '반려')) : h('div', { class: 'hint' }, r.stage === 'test' ? '에이전트가 고치는 중입니다. 다시 테스트를 올리면 여기서 확인합니다.' : ''),
     r.test?.found.length ? h('div', { class: 'box dash2' }, h('b', null, `범위 밖에서 발견된 것 ${r.test.found.length}건`), h('span', { class: 'hint' }, ' 이번 테스트를 막지 않음. 리포트로 올렸으니 필요할 때 요청으로 등록하세요.'), r.test.found.map((f) => h('div', null, f.text))) : null);
 }
 
@@ -196,6 +209,11 @@ function testCard(model: Model, r: RequestView, onChange: () => void): HTMLEleme
  * @does 요청의 원문, 범위, 겹침, 진행 기록을 읽는다 | 한 화면에 모여 보인다 | 요청의 진행을 확인한다#3 | → 3b, 3c
  * @does 위쪽 "요청"을 눌러 목록으로 돌아간다 | 요청 목록이 열린다 | 요청의 진행을 확인한다#3b | → 1 | 목록으로 돌아가려면
  * @does 겹치는 다른 요청을 열어 본다 | 그 요청의 상세가 열린다 | 요청의 진행을 확인한다#3c | → 3 | 겹치는 요청이 있으면
+ * @does 접수된 요청의 "시작"을 누른다 | 설계 작성 중으로 바뀌고 요청을 맡을 담당 세션이 새로 만들어진다 | 요청을 시작하고 설계를 승인한다#1 | → 2
+ * @does 올라온 설계(정보 변경 요약·화면 시안)를 읽고 승인하거나 반려한다 | 승인하면 구현으로, 반려하면 설계 다시 작성 중으로 넘어간다 | 요청을 시작하고 설계를 승인한다#2
+ * @does 테스트 칸에서 시나리오 옆 "첫 화면 열기"를 누른다 | 새 창에 첫 화면이 열리고 오른쪽 코멘트 창에 경로 단계 목록이 나온다 | 테스트를 경로 따라가며 승인한다#1 | → 2
+ * @does 단계마다 대상을 고르고 코멘트를 담은 뒤 "다음 화면"으로 간다 | 다음 단계의 화면으로 넘어가고 담은 코멘트가 쌓인다 | 테스트를 경로 따라가며 승인한다#2 | → 3
+ * @does 경로 끝에서 "승인"이나 "한번에 보내기(반려)"를 누른다 | 승인하면 요청이 끝나고, 반려하면 담은 코멘트가 한 묶음으로 가며 같은 요청에서 고친다 | 테스트를 경로 따라가며 승인한다#3
  */
 export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { model: Model; id: string; sub: string; onChange: () => void }): void {
   const r = model.requests.find((x) => String(x.id) === String(id));

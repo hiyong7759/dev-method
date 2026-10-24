@@ -122,6 +122,17 @@ export function specHandler(scanRoot: string): SpecHandler {
         }
         // 코멘트: 사용자의 글만 여기서 받는다(에이전트의 답은 명령으로)
         if (url === '/__spec/comment/add') return json(res, addComment(scanRoot, { target: b.target as never, text: String(b.text || ''), shot: b.shot ? String(b.shot) : undefined }));
+        // 담아 둔 코멘트를 한번에 보낸다. 테스트 요청 번호가 오면 같은 묶음이 그 요청의 반려가 된다(담은 게 없으면 이유 한 줄)
+        if (url === '/__spec/comment/send') {
+          const items = (Array.isArray(b.items) ? b.items : []) as { target: never; text?: string; shot?: string }[];
+          const request = b.request ? Number(b.request) : 0;
+          if (!items.length && !request) throw new Error('보낼 코멘트가 없다');
+          if (items.some((i) => !String(i.text ?? '').trim())) throw new Error('글이 빈 코멘트가 있다 — 고치거나 지운 뒤 다시 보낸다');
+          if (request) testProblem(scanRoot, request, items.length ? `담은 코멘트 ${items.length}건을 한번에 보냄 — \`comment list\`로 읽는다${b.note ? `: ${String(b.note)}` : ''}` : String(b.note || ''));
+          const sent = items.map((i) => addComment(scanRoot, { target: i.target, text: String(i.text), shot: i.shot || undefined }));
+          if (request) wakeOwner(scanRoot, request);
+          return json(res, sent);
+        }
         if (url === '/__spec/comment/reply') return json(res, replyComment(scanRoot, Number(b.id), 'user', String(b.text || '')));
         if (url === '/__spec/comment/close') return json(res, closeComment(scanRoot, Number(b.id)));
         if (url === '/__spec/comment/to-request') return json(res, commentToRequest(scanRoot, Number(b.id), String(b.title || '')));

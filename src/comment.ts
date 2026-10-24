@@ -76,6 +76,7 @@ export function describeComment(c: Comment): string {
   const out = [`코멘트 #${c.id} · ${{ waiting: '답 기다림', answered: '답함', closed: '닫힘' }[c.status]}${c.request ? ` · 요청 #${c.request}로 만듦` : ''}`, `대상: ${t.label}${t.kind === 'region' ? ' (화면에서 그려 지정한 영역)' : ''}`];
   if (t.screen) out.push(`화면: ${t.screen}`);
   if (t.part) out.push(`부품: ${t.part}${t.src ? ` · 소스 ${t.src}` : ''}`);
+  if (t.step) out.push(`테스트 경로: 요청 #${t.testOf ?? ''} ${t.step}`);
   if (t.info) out.push(`정보: ${t.info}`);
   if (t.no) out.push(`리포트: #${t.no}  (자세히: report show ${t.no})`);
   if (t.view) out.push(`설계서 보기 주소: ${t.view}`);

@@ -3,7 +3,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addRequest, startDesign, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, loadRequests, describeRequests } from '../src/request.js';
+import { addRequest, startDesign, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, setScope, loadRequests, describeRequests } from '../src/request.js';
 import { tempProject } from './helpers.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -143,4 +143,22 @@ test('합칠 후보를 찾고, 인용이 있을 때만 접수·설계 작성 중
   startDesign(src, 1); submitDesign(src, 1, design);
   assert.throws(() => mergeRequests(src, 1, { text: 'x', quote: '이거 합쳐서 처리하자' }), /합칠 수 없다/);
   assert.equal(addRequest(src, { title: '이어짐', relatedTo: 1 }).relatedTo, 1);
+});
+
+test('화면이 있는 요청은 시나리오가 있어야 테스트를 올리고, 없음 승인도 못 한다', () => {
+  const { src } = tempProject();
+  addRequest(src, { title: '화면 요청', screens: ['요청 상세'] });
+  startDesign(src, 1); submitDesign(src, 1, design); approveDesign(src, 1);
+  assert.throws(() => requestTest(src, 1), /시나리오가 없어 테스트를 올릴 수 없다/);
+  setScope(src, 1, { scenarios: ['시나리오 하나'] });
+  requestTest(src, 1);
+  assert.throws(() => approveTest(src, 1, true), /테스트 없음/);
+  approveTest(src, 1, false);
+});
+
+test('화면이 없는 요청은 등록할 때 적은 테스트 없음 이유가 요청에 남는다', () => {
+  const { src } = tempProject();
+  assert.equal(addRequest(src, { title: '글자 고침', noTest: '화면이 안 바뀌는 문구 수정' }).noTest, '화면이 안 바뀌는 문구 수정');
+  startDesign(src, 1); submitDesign(src, 1, { none: true }); approveDesign(src, 1); requestTest(src, 1);
+  approveTest(src, 1, true);
 });

@@ -335,6 +335,8 @@ export interface Request {
   commits?: string[];
   /** 이 요청이 끝나길 기다려야 하는 요청 번호들(겹치는 요청의 순서) */
   waitFor?: number[];
+  /** 화면도 시나리오도 없는 요청이 등록할 때 적은 "테스트 없음" 이유(설계에 화면이 생기면 효력이 없어진다) */
+  noTest?: string;
   /** 이 요청에 합쳐진 요구들(합친 때, 원문, 사용자가 한 말, 없어진 요청 번호) */
   mergedFrom?: { at: string; text: string; quote: string; from?: number }[];
   /** 다른 요청에 합쳐져 닫혔으면 남은 요청 번호 */
@@ -990,6 +992,10 @@ export interface CommentTarget {
   part?: string;
   /** 소스 위치(파일:줄) */
   src?: string;
+  /** 테스트 경로를 따라가며 남겼다면 그 단계("시나리오#단계") */
+  step?: string;
+  /** 테스트 경로를 따라가며 남겼다면 그 테스트의 요청 번호 */
+  testOf?: number;
   /** 코멘트가 가리키는 정보 이름 */
   info?: string;
   /** 리포트 번호 */

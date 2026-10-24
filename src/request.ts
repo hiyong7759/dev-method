@@ -74,10 +74,12 @@ export interface NewRequest {
   agent?: string;
   /** user(사용자 요청) 또는 report(에이전트가 올린 리포트에서 등록) */
   source?: string;
+  /** 화면도 시나리오도 없는 요청의 "테스트 없음" 이유 */
+  noTest?: string;
 }
 
 /** 에이전트가 요청을 만든다 */
-export function addRequest(scanRoot: string, { title, origin = '', channel = '대화', screens = [], infos = [], scenarios = [], steps = [], impactOnly = [], agent = '', source = 'user', relatedTo }: NewRequest): Request {
+export function addRequest(scanRoot: string, { title, origin = '', channel = '대화', screens = [], infos = [], scenarios = [], steps = [], impactOnly = [], agent = '', source = 'user', relatedTo, noTest }: NewRequest): Request {
   if (!title?.trim()) throw new Error('요청 제목이 비었다');
   if (source !== 'user' && source !== 'report') throw new Error('출처는 user(사용자 요청)나 report(에이전트가 올린 리포트)만 가능하다');
   const id = loadRequests(scanRoot).reduce((m, r) => Math.max(m, r.id), 0) + 1;
@@ -86,6 +88,7 @@ export function addRequest(scanRoot: string, { title, origin = '', channel = '�
     id, title: title.trim(), source: source as RequestSource, origin: { text: origin.trim(), channel, at: now },
     scope: { screens, infos, scenarios, steps, impactOnly }, agent: { name: agent },
     ...(relatedTo ? { relatedTo } : {}),
+    ...(noTest?.trim() ? { noTest: noTest.trim() } : {}),
     stage: 'design', step: 'queued',
     events: [{ at: now, by: 'agent', kind: 'created', note: relatedTo ? `요청 등록(#${relatedTo}과 이어짐)` : '요청 등록' }],
   };
@@ -223,10 +226,19 @@ export function noteImpl(scanRoot: string, id: number, commit: string): Request 
 export function requestTest(scanRoot: string, id: number): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'impl' && r.stage !== 'test') throw new Error(`요청 #${id}은 테스트를 올릴 수 있는 단계가 아니다(지금: ${STAGE_LABEL[r.stage]})`);
+  if (r.scope.screens.length && !(r.scope.scenarios ?? []).length) throw new Error(`요청 #${id}은 범위에 화면(${r.scope.screens.join(', ')})이 있는데 사용 시나리오가 없어 테스트를 올릴 수 없다. 시나리오를 소스(@does)에 올리고 \`request scope --id ${id} --scenarios …\`로 범위에 연결한다`);
   const again = r.stage === 'test';
   move(r, 'test', 'requested');
   r.test = r.test ?? { checks: {}, found: [], none: false };
   return record(scanRoot, r, 'agent', 'test-requested', again ? '고친 뒤 테스트 다시 요청' : '구현을 마치고 테스트 요청');
+}
+
+/** 요청의 범위에 사용 시나리오(와 바뀌는 단계)를 연결한다. 이미 있는 것에 더한다 */
+export function setScope(scanRoot: string, id: number, o: { scenarios?: string[]; steps?: string[]; impactOnly?: string[] }): Request {
+  const r = loadOne(scanRoot, id);
+  const add = (a: string[] | undefined, b: string[] | undefined): string[] => [...new Set([...(a ?? []), ...(b ?? [])])];
+  r.scope.scenarios = add(r.scope.scenarios, o.scenarios); r.scope.steps = add(r.scope.steps, o.steps); r.scope.impactOnly = add(r.scope.impactOnly, o.impactOnly);
+  return record(scanRoot, r, 'agent', 'scope', `범위에 시나리오 연결: ${[...(o.scenarios ?? []), ...(o.impactOnly ?? []).map((n) => `${n}(영향만)`)].join(', ')}`);
 }
 
 /** 테스트하다 범위 밖에서 발견한 것을 요청에 적고 리포트로도 올린다 */
@@ -291,6 +303,7 @@ export function checkTest(scanRoot: string, id: number, key: string, done: boole
 export function approveTest(scanRoot: string, id: number, none: boolean, quote?: string): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'test' || r.step !== 'requested') throw new Error('승인 대기 중인 테스트가 아니다');
+  if (none && r.scope.screens.length) throw new Error('범위에 화면이 있는 요청은 "테스트 없음"으로 승인할 수 없다. 시나리오가 있어야 한다');
   r.test = r.test ?? { checks: {}, found: [], none: false };
   r.test.none = none;
   move(r, 'done', 'done');
@@ -376,7 +389,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
   const id = Number(opts.id);
   try {
     if (pos[0] === 'add') {
-      const r = addRequest(scanRoot, { title: opts.title, origin: opts.origin, channel: opts.channel, screens: csv(opts.screens), infos: csv(opts.infos), scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact), agent: opts.agent, source: opts.source, relatedTo: opts.related ? Number(opts.related) : undefined });
+      if (!csv(opts.screens).length && !csv(opts.scenarios).length && !opts['no-test']?.trim()) throw new Error('화면(--screens)도 시나리오(--scenarios)도 없는 요청은 `--no-test "이유"`로 테스트가 왜 필요 없는지 적어야 등록된다');
+      const r = addRequest(scanRoot, { title: opts.title, origin: opts.origin, channel: opts.channel, screens: csv(opts.screens), infos: csv(opts.infos), scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact), agent: opts.agent, source: opts.source, relatedTo: opts.related ? Number(opts.related) : undefined, noTest: opts['no-test'] });
       console.log(`요청 #${r.id}: 등록 (설계서 보기 "관리"에서 보인다)`);
     } else if (pos[0] === 'similar') {
       // 새 요청을 등록하기 전에 합칠 후보를 본다(--all이면 이미 접수된 요청끼리 합칠 것도 함께)
@@ -418,6 +432,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const r = noteImpl(scanRoot, id, opts.commit || ''); console.log(`요청 #${r.id}: 구현 기록`);
     } else if (pos[0] === 'test') {
       const r = requestTest(scanRoot, id); console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
+    } else if (pos[0] === 'scope') {
+      const r = setScope(scanRoot, id, { scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact) }); console.log(`요청 #${r.id}: 범위에 시나리오를 연결했다`);
     } else if (pos[0] === 'found') {
       const r = foundOutside(scanRoot, id, opts.text); console.log(`요청 #${r.id}: 범위 밖 발견을 리포트로도 올렸다`);
     } else if (pos[0] === 'approve-design' || pos[0] === 'approve-test') {
@@ -430,7 +446,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const r = setAgent(scanRoot, id, opts.name); console.log(`요청 #${r.id}: 맡은 에이전트 ${r.agent.name}`);
     } else {
       console.log(['사용: node <스킬 폴더>/spec.mjs request <명령> --src <소스 폴더> …',
-        '  add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--scenarios 시나리오1] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오] [--agent 세션이름] [--related 이어지는 요청 번호]',
+        '  add --title "…" [--origin "사용자가 한 말"] [--channel 대화] [--screens 화면1,화면2] [--infos 정보1] [--scenarios 시나리오1] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오] [--agent 세션이름] [--related 이어지는 요청 번호] [--no-test "테스트 없음 이유"]   (화면도 시나리오도 없으면 --no-test가 있어야 등록된다)',
         '  similar [--screens …] [--infos …] [--scenarios …] [--all true]   (새 요청을 등록하기 전에 합칠 후보를 본다. 보이기만 한다)',
         '  merge --into 남는번호 (--text "새 요구" | --from 없어질번호) --quote "사용자가 한 말"   (접수·설계 작성 중인 요청끼리만. 인용이 없으면 못 한다)',
         '  start --id N                     (시작 전 요청의 설계를 시작. 할 일을 정할 때 우선순위를 정한 뒤에만)',
@@ -440,6 +456,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  design --id N --file 설계.json   (또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
         '  test --id N                      (구현을 마치고 테스트를 올림. 고친 뒤 다시 올릴 때도 같다)',
+        '  scope --id N [--scenarios 시나리오1,…] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오]   (범위에 시나리오를 연결. 화면이 있는 요청은 시나리오가 있어야 test를 올릴 수 있다)',
         '  found --id N --text "범위 밖에서 발견한 것"',
         '  approve-design --id N --quote "사용자가 한 말"   (사용자가 대화에서 설계를 승인했을 때만. 인용이 없으면 못 한다)',
         '  approve-test --id N --quote "사용자가 한 말" [--none true]   (사용자가 대화에서 테스트를 승인했을 때만)',
