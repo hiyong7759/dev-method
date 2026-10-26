@@ -2,7 +2,7 @@
  * @spec commit-msg-check 커밋 메시지에 요청 번호 확인
  * @why 요청 번호가 모든 일의 열쇠라서, 번호 없이 들어간 변경은 이력과 요청에 이어지지 않는다. 말이 아니라 커밋 때 기계가 막는다.
  * @basis 프로젝트의 .spec/config.json이 있고 요청이 하나라도 등록돼 있을 때만 검사한다(아직 요청을 쓰지 않는 프로젝트는 통과). 병합·되돌리기 커밋은 뺀다. 우회가 필요하면 git commit --no-verify를 쓰고, 쓰면 이유를 커밋 메시지에 남긴다.
- * @contract git의 commit-msg 훅이 메시지 파일 경로를 넘긴다. 메시지에 "요청 #번호" 줄이 없거나, 그 번호의 요청 파일(.spec/requests/<번호>.json)이 없으면 커밋을 막는다(종료 코드 1). 그 요청이 아직 설계 승인 전이면 .spec/·문서 밖의 소스가 든 커밋도 막는다. 줄 모양은 history.ts가 읽는 것과 같다.
+ * @contract git의 commit-msg 훅이 메시지 파일 경로를 넘긴다. 메시지에 "요청 #번호" 줄이 없거나, 그 번호의 요청 파일(.spec/requests/<번호>.json)이 없으면 커밋을 막는다(종료 코드 1). 그 요청이 아직 설계 승인 전이면 .spec/·문서 밖의 소스가 든 커밋도 막고, 승인된 뒤에는 설계가 적은 files(건드릴 파일)와 also로 남긴 파일 밖의 소스가 든 커밋을 막는다(files가 없는 옛 요청은 검사하지 않는다). 줄 모양은 history.ts가 읽는 것과 같다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -42,6 +42,19 @@ export async function main(argv: string[]): Promise<number | undefined> {
     if (source.length) {
       console.error(`[spec-view] 요청 #${req.id}은 아직 설계 승인 전이라 소스를 커밋할 수 없습니다(${source.slice(0, 3).join(', ')}${source.length > 3 ? ' …' : ''}). 사용자가 설계를 승인한 뒤에 커밋하세요.`);
       console.error('            작은 고장 수리라면 등록할 때 사용자가 확인한 "바로 작업"으로 등록합니다(rules/approval.md). 우회는 git commit --no-verify이고, 쓰면 이유를 메시지에 남깁니다.');
+      return 1;
+    }
+  }
+  // 구현·테스트 단계에서는 승인된 설계의 files(건드릴 파일) 밖 소스를 커밋하지 못한다. 범위가 슬며시 넓어지는 것을 막는다.
+  // 예외: .spec/ 아래, 문서(.md), 같은 요청의 also(함께 고친 일)로 남긴 파일. files가 없는 옛 요청은 검사하지 않는다
+  if ((req.stage === 'impl' || req.stage === 'test') && req.files?.length) {
+    const staged = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().split('\n').filter(Boolean);
+    const approved = [...req.files.map((f) => f.path), ...(req.alsoFixed ?? []).map((a) => a.where ?? '')].map((p) => p.trim().replace(/^\.\//, '')).filter(Boolean);
+    const inside = (f: string): boolean => approved.some((p) => f === p || f.startsWith(p.endsWith('/') ? p : `${p}/`));
+    const out = staged.filter((f) => !f.startsWith('.spec/') && !/\.md$/i.test(f) && !inside(f));
+    if (out.length) {
+      console.error(`[spec-view] 요청 #${req.id}의 승인된 설계가 적은 파일 밖을 커밋하려 합니다(${out.slice(0, 3).join(', ')}${out.length > 3 ? ' …' : ''}). 범위에 더하려면 설계를 고쳐 다시 승인받거나(request redesign), 구현하다 막혀 함께 고친 일이면 \`request also --id ${req.id} --where 파일\`로 남긴 뒤 커밋하세요.`);
+      console.error('            우회는 git commit --no-verify이고, 쓰면 이유를 메시지에 남깁니다.');
       return 1;
     }
   }

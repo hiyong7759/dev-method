@@ -7,7 +7,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { ROOT_DIR, SRC_DIR, LAUNCHER } from './paths.js';
+import { ROOT_DIR, LAUNCHER } from './paths.js';
+import { srcMtime } from './stale.js';
 import { configFile, readConfig } from './config.js';
 import { parseArgs } from './cli.js';
 
@@ -44,13 +45,8 @@ const waitUp = async (url: string, ms: number, check: (u: string) => Promise<boo
   return false;
 };
 
-/** 도구 소스에서 가장 나중에 고친 시각 — 서버가 옛 코드로 돌고 있는지 알아보는 표 */
-function srcStamp(): string {
-  let m = 0;
-  const walk = (d: string): void => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else m = Math.max(m, fs.statSync(f).mtimeMs); } };
-  try { walk(SRC_DIR); } catch { /* 소스를 못 읽으면 표 없음 */ }
-  return String(Math.floor(m));
-}
+/** 도구 소스에서 가장 나중에 고친 시각 — 서버가 옛 코드로 돌고 있는지 알아보는 표(계산은 stale.ts) */
+const srcStamp = (): string => String(Math.floor(srcMtime()));
 /** 포트를 듣고 있는 프로세스들을 끈다(pids.json에 없는 떠돌이 서버용). 끈 번호들을 돌려준다 */
 function killPort(port: number, signal: NodeJS.Signals = 'SIGTERM'): number[] {
   const r = spawnSync('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });

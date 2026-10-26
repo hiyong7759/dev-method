@@ -150,7 +150,7 @@ test('닫힌 세션은 압축한 뒤 이어서 하라고 지시한다', async ()
     await wait(() => fs.existsSync(env.calls) && fs.readFileSync(env.calls, 'utf8').trim().split('\n').length >= 2);
     const lines = fs.readFileSync(env.calls, 'utf8').trim().split('\n');
     assert.match(lines[0], /^-p \/compact --resume S1/);
-    assert.match(lines[1], /^-p \[spec-view\] \S+ 요청 #1 "깨울 요청".*--resume S1 --model sonnet --allowedTools Read Edit Write Bash\(node:\*\) Bash\(npm:\*\).*Bash\(git add:\*\) Bash\(git commit:\*\)/);
+    assert.match(lines[1], /^-p \[spec-view\] \S+ 요청 #1 "깨울 요청".*--resume S1 --model sonnet --allowedTools Read Edit Write Bash\(node \S+spec\.mjs:\*\) Bash\(npm:\*\).*Bash\(git add:\*\) Bash\(git commit:\*\)/);
     assert.match(lines[0], /--model sonnet/, '압축 호출도 소넷으로');
     assert.match(lines[1], /--model sonnet/, '지시 호출도 소넷으로');
     assert.doesNotMatch(lines[1], /git push|git reset|git checkout/, '그 일의 커밋만 허락하고 위험한 git은 허락하지 않는다');
@@ -162,7 +162,14 @@ test('닫힌 세션은 압축한 뒤 이어서 하라고 지시한다', async ()
     assert.match(lines[1], /\[요청 내용/, '요청 내용을 글에 직접 넣어 읽는 턴을 줄인다');
     assert.match(lines[1], /requests\/1\.json/);
     assert.match(lines[1], /todo --src src/);
-    assert.match(lines[1], /그 일만 하고, 끝나면 멈추세요/);
+    assert.match(lines[1], /그 일만 하고\(.*request test.*테스트 요청을 올리는 데까지.*\), 끝나면 멈추세요/, '그 일에 테스트 요청까지 들어 있다');
+    assert.match(lines[1], /npm run typecheck/, '타입 검사는 npm run typecheck로 쓰라고 적는다');
+    assert.match(lines[1], /request blocked --id 1/, '막히면 막힘을 남기라고 적는다');
+    assert.match(lines[1], /request ask --id 1/, '사용자에게 물을 때 질문을 남기라고 적는다');
+    assert.match(lines[1], /--disallowedTools Read\(\.spec\/local\.json\)/, '읽기 금지 경로를 준다');
+    assert.match(lines[1], /--disallowedTools .*Read\(\.env\*\)/);
+    assert.match(lines[1], /--settings .*claude-block-secret-read\.sh/, '명령으로 읽는 길을 막는 훅을 건다');
+    assert.doesNotMatch(lines[1], /Bash\(node:\*\)/, 'node는 입구 파일만 허용한다');
     await wait(() => /끝남 종료코드=0/.test(fs.existsSync(path.join(root, '.spec', 'wake.log')) ? fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8') : ''));
     assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /끝남 종료코드=0/);
   } finally { env.restore(); }

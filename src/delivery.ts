@@ -1,17 +1,20 @@
 /**
  * @spec decision-delivery 사용자 결정의 전달 기록
  * @why 승인·반려를 눌러도 담당 세션이 읽었는지 알 길이 없어, 여러 요청을 번갈아 보다 보면 전달이 안 된 요청을 놓친다. 결정 한 건마다 눌림·보냄·읽음·반영 시각을 한 기록에 적고, 화면의 이름표·상태 글·오른쪽 패널이 모두 이 기록 하나만 읽게 해서 서로 어긋나지 않게 한다.
- * @contract 기록은 이 컴퓨터에만 두는 .spec/deliveries.json(요청 번호 → 가장 최근 결정의 기록)이고 커밋하지 않는다. 눌림은 요청 파일의 사용자 결정 기록 시각이다. 보냄·읽음·재전송은 wake.ts·inbox.ts가 적는다. 반영은 그 결정 뒤에 에이전트가 요청 파일에 남긴 첫 기록의 시각으로 계산한다. 뒤 칸이 찼으면 앞 칸도 찬 것으로 본다(반영 ⇒ 읽음 ⇒ 보냄). 기록이 없는 옛 결정은 전달 상태를 만들지 않는다. 기록·계산이 실패해도 사용자 결정은 그대로 성공한다.
+ * @contract 기록은 이 컴퓨터에만 두는 .spec/deliveries.json(요청 번호 → 가장 최근 결정의 기록)이고 커밋하지 않는다. 눌림은 요청 파일의 사용자 결정 기록 시각이다. 보냄·읽음·재전송은 wake.ts·inbox.ts가 적는다. 반영은 그 결정 뒤에 에이전트가 요청 파일에 남긴 첫 기록의 시각으로 계산한다. 뒤 칸이 찼으면 앞 칸도 찬 것으로 본다(반영 ⇒ 읽음 ⇒ 보냄). 결정을 반영한 뒤에도 마지막 기록이 STALL_AFTER_MIN분 넘게 멈춰 있으면(담당이 아직 차례이고 막힘·질문 중이 아닐 때) 서버가 한 번만 더 보내고(dueForStall), 그래도 그대로이면 '멈춘 듯함'(stalled)이 된다. 기록이 없는 옛 결정은 전달 상태를 만들지 않는다. 기록·계산이 실패해도 사용자 결정은 그대로 성공한다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { specDir } from './project.js';
+import { openNotes, STEP } from './request.js';
 import type { Delivery, DeliveryState, Request } from './types.js';
 
 /** 읽음이 없을 때 다시 보내기까지 기다리는 시간(분) */
 export const RESEND_AFTER_MIN = 5;
 /** 자동 재전송 최대 횟수. 그 뒤에도 안 읽히면 사용자에게 넘긴다 */
 export const RESEND_MAX = 2;
+/** 담당이 결정을 반영(기록)한 뒤 이만큼(분) 다음 단계 기록이 없으면 멈춘 것으로 본다 */
+export const STALL_AFTER_MIN = 20;
 
 /** 결정으로 보는 사용자 기록 종류 */
 /** (테스트 승인은 요청을 완료로 닫아 이어서 할 일이 없으니 담당 세션에 전달할 결정이 아니다) */
@@ -20,7 +23,7 @@ const DECISIONS = new Set(['design-approved', 'design-rejected', 'test-problem',
 const NOT_APPLIED = new Set(['session-started', 'session-failed', 'agent', 'created', 'started']);
 
 /** 저장되는 모양 */
-interface Stored { decidedAt: string; sentAt?: string; readAt?: string; lastSentAt?: string; resent: number; via?: 'wake' | 'hook' }
+interface Stored { decidedAt: string; sentAt?: string; readAt?: string; lastSentAt?: string; resent: number; via?: 'wake' | 'hook'; stallSentAt?: string }
 type Store = Record<string, Stored>;
 
 const file = (scanRoot: string): string => path.join(specDir(scanRoot), 'deliveries.json');
@@ -43,6 +46,25 @@ export function openDelivery(scanRoot: string, r: Request | undefined): Stored |
     if (s[r.id]?.decidedAt !== d.at) { s[r.id] = { decidedAt: d.at, resent: 0 }; save(scanRoot, s); }
     return s[r.id];
   } catch { return null; }
+}
+
+/** 반영한 뒤 멈춘 담당 세션을 한 번 더 깨웠음을 적는다 */
+export function markStallSent(scanRoot: string, id: number): void {
+  try {
+    const s = load(scanRoot), cur = s[id];
+    if (!cur) return;
+    cur.stallSentAt = new Date().toISOString();
+    save(scanRoot, s);
+  } catch { /* 기록 실패가 점검을 막지 않는다 */ }
+}
+
+/** 결정을 반영했는데 다음 단계(설계 제출·테스트 요청)를 안 올리고 멈춘 상태인지: 반영 뒤 아직 에이전트 차례이고, 막힘·질문 중이 아니며, 마지막 기록이 STALL_AFTER_MIN분보다 오래됐다. 멈춘 지 몇 분인지(아니면 null)를 돌려준다 */
+function stalledMin(r: Request, applied: string | null, now: number): number | null {
+  if (!applied || STEP[`${r.stage}:${r.step}`]?.turn !== 'agent') return null;
+  const notes = openNotes(r);
+  if (notes.blocked || notes.asking) return null;
+  const min = Math.floor((now - Date.parse(r.events[r.events.length - 1].at)) / 60000);
+  return min >= STALL_AFTER_MIN ? min : null;
 }
 
 /** 보냄을 적는다. again이면 다시 보낸 것이라 재전송 횟수를 센다 */
@@ -78,7 +100,9 @@ export function deliveryOf(scanRoot: string, r: Request, now = Date.now()): Deli
   const sent = rec.sentAt ?? read;
   const since = Date.parse(rec.lastSentAt ?? rec.sentAt ?? d.at);
   const waitMin = Math.max(0, Math.floor((now - since) / 60000));
-  const state: DeliveryState = applied ? 'applied' : read ? 'read' : !sent ? 'hook-wait' : rec.resent >= RESEND_MAX && waitMin >= RESEND_AFTER_MIN ? 'failed' : 'sending';
+  // 한 번 더 깨웠는데도 그 뒤 STALL_AFTER_MIN분이 지나도록 기록이 없으면 '멈춘 듯함'
+  const stalled = !!rec.stallSentAt && Date.parse(rec.stallSentAt) >= Date.parse(r.events[r.events.length - 1].at) && now - Date.parse(rec.stallSentAt) >= STALL_AFTER_MIN * 60000 && stalledMin(r, applied, now) !== null;
+  const state: DeliveryState = stalled ? 'stalled' : applied ? 'applied' : read ? 'read' : !sent ? 'hook-wait' : rec.resent >= RESEND_MAX && waitMin >= RESEND_AFTER_MIN ? 'failed' : 'sending';
   const nextResendAt = state === 'sending' && rec.resent < RESEND_MAX ? new Date(since + RESEND_AFTER_MIN * 60000).toISOString() : null;
   return { decision: d.note, kind: d.kind, pressed: d.at, sent, read, applied, resent: rec.resent, maxResend: RESEND_MAX, state, waitMin, nextResendAt };
 }
@@ -88,5 +112,16 @@ export function dueForResend(scanRoot: string, list: Request[], now = Date.now()
   return list.filter((r) => {
     const v = deliveryOf(scanRoot, r, now);
     return !!v && v.state === 'sending' && v.resent < v.maxResend && !!v.nextResendAt && Date.parse(v.nextResendAt) <= now;
+  }).map((r) => r.id);
+}
+
+/** 지금 한 번 더 깨워야 하는 멈춘 요청 번호들: 반영 뒤 STALL_AFTER_MIN분 넘게 다음 단계가 없고 아직 한 번도 안 깨운 것(결정마다 최대 1번) */
+export function dueForStall(scanRoot: string, list: Request[], now = Date.now()): number[] {
+  const store = load(scanRoot);
+  return list.filter((r) => {
+    const rec = store[r.id], d = lastDecision(r);
+    if (!rec || !d || rec.decidedAt !== d.at || rec.stallSentAt) return false;
+    const applied = r.events.find((e) => e.by === 'agent' && e.at > d.at && !NOT_APPLIED.has(e.kind))?.at ?? null;
+    return stalledMin(r, applied, now) !== null;
   }).map((r) => r.id);
 }

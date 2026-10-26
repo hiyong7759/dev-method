@@ -5,7 +5,7 @@
  */
 import { h, post, pageHead, filterChips, chip, fmt, toast, errorText, buls, type BulKind } from './util.js';
 import { hash, nav } from './route.js';
-import { chipFor, scopeTags, currentDesignApproval, deliveryReason, notDelivered, unread } from './manage-parts.js';
+import { chipFor, scopeTags, currentDesignApproval, deliveryReason, noteBoxes, notDelivered, unread } from './manage-parts.js';
 import type { Model, RequestView } from '../types.js';
 
 /** 요청 카드의 구분 점: 지금 단계(설계·구현·테스트)와 에이전트 발견 여부. 거르기 칩의 점과 짝이다 */
@@ -28,7 +28,7 @@ function row(r: RequestView, onChange: () => void): HTMLDivElement {
     h('div', null, h('div', { class: 'rt' }, buls(bulsOf(r)), r.title),
       h('div', { class: 'rm' }, scopeTags(r), o ? chip('me', `겹침 ${r.overlaps.map((x) => `#${x.id}`).join(' ')}${where}`) : null,
         unread(r) ? h('span', { class: notDelivered(r) ? 'dlv-why bad' : 'dlv-why' }, deliveryReason(r)) : null,
-        h('span', null, waiting ? `#${r.waitingFor.join(', #')}가 끝난 뒤 시작하도록 대기 중` : extra))),
+        h('span', null, waiting ? `#${r.waitingFor.join(', #')}가 끝난 뒤 시작하도록 대기 중` : extra)), noteBoxes(r)),
     h('div', { class: 'ract' }, chipFor(r),
       waiting ? h('button', { class: 'btn', onclick: own(() => nav(hash('manage', String(r.id)))) }, '순서 바꾸기')
         : isQueued(r) ? h('button', { class: 'btn pri', onclick: own(start) }, '시작') : null));
@@ -56,6 +56,9 @@ function section(title: string, hint: string, list: RequestView[], onChange: () 
  * @to 요청 상세 | 요청의 "열기"를 누른다 | 요청 번호
  * @does 요청의 진행 단계와 누구 차례인지를 본다 | 내 차례인 요청이 위에 모여 있다 | 요청의 진행을 확인한다#1 | → 2
  * @does 요청의 "열기"를 눌러 상세를 본다 | 요청 상세 화면이 열린다 | 요청의 진행을 확인한다#2 | → 3
+ * @does 요청이 많은 목록을 아래로 스크롤한다 | 위 거르기 칩 줄이 화면 위에 붙어 계속 보인다 | 긴 화면을 스크롤해도 제목·거르기·닫기가 보인다#1 | → 2
+ * @does 담당 세션이 질문 중이거나 막힌 요청의 줄을 본다 | 요청 줄의 글 칸 가로를 꽉 채우는 노란 "질문 중"(질문 글)과 붉은 "막힘"(막힌 명령·이유) 상자가 붙는다 | 담당 세션의 질문과 막힘을 확인한다#1 | → 2
+ * @does 결정을 반영하고도 멈춘 듯한 요청의 이름표를 본다 | 상태 글 뒤에 "멈춘 듯함"이 붙고 이름표가 붉어진다 | 멈춘 담당 세션을 알아챈다#1 | → 2
  * @does 승인·반려를 누른 요청의 이름표와 한 줄 이유를 본다 | 담당이 읽기 전이면 "결정 전달 중", 재전송까지 끝나고도 안 읽히면 빨간 "전달 안 됨"과 이유가 보이고 위 거르기 줄에 "전달 안 됨" 칩이 생긴다 | 결정이 담당 세션에 전달됐는지 확인한다#1 | → 2
  */
 export function manageList(root: HTMLElement, { model, kind, onChange }: { model: Model; kind: string; onChange: () => void }): void {

@@ -48,7 +48,7 @@ test('견본 함께 고친 것: 0건·1건·여러 건, 여러 건은 테스트 
 test('구현 커밋에 HEAD를 주면 실제 짧은 해시로 적고, 없는 이름은 거절한다', () => {
   const { src, root } = tempProject();
   addRequest(src, { title: 'a' });
-  submitDesign(src, 1, { understanding: 'u', screens: [] });
+  submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], understanding: 'u', screens: [] });
   approveDesign(src, 1);
   // 커밋 시각은 초 단위라, 승인보다 앞서 보이지 않게 1초 넘게 기다린 뒤 커밋한다
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
@@ -66,7 +66,7 @@ test('구현 커밋에 HEAD를 주면 실제 짧은 해시로 적고, 없는 이
 test('훅 입력이 없어 읽음이 안 적혀도, 결정 뒤 에이전트가 요청 파일에 기록을 남기면 읽은 것으로 보고 전달 안 됨이 되지 않는다', () => {
   const { src } = tempProject();
   addRequest(src, { title: 'a' });
-  submitDesign(src, 1, { understanding: 'u', screens: [] });
+  submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], understanding: 'u', screens: [] });
   approveDesign(src, 1);
   openDelivery(src, loadRequests(src)[0]); markSent(src, 1, 'wake'); markSent(src, 1, 'wake', true); markSent(src, 1, 'wake', true);
   const later = Date.now() + 30 * 60_000;
@@ -82,7 +82,7 @@ test('also 명령: 한 번에 한 건씩 남기고, 빈 글·없는 요청·구�
   const { src } = tempProject();
   addRequest(src, { title: 'a' });
   assert.throws(() => addAlsoFixed(src, 1, { text: '막혀서 고침' }), /단계가 아니다/, '구현 전에는 거절');
-  submitDesign(src, 1, { understanding: 'u', screens: [] });
+  submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], understanding: 'u', screens: [] });
   approveDesign(src, 1);
   assert.throws(() => addAlsoFixed(src, 1, { text: '   ' }), /비었다/);
   assert.throws(() => addAlsoFixed(src, 99, { text: 'x' }), /찾지 못했다/);

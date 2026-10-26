@@ -2,7 +2,7 @@
  * @spec requests 변경 요청 저장
  * @why 현재를 바꾸는 모든 일을 "요청" 하나의 흐름(설계 → 구현 → 테스트 → 완료)으로 모아, 언제 왜 어떻게 바뀌었는지 한곳에서 따라가게 한다. 요청 하나가 파일 하나(.spec/requests/<번호>.json)라서 여러 PC에서 git으로 나눠 써도 서로 다른 요청은 부딪치지 않는다.
  * @basis 모든 변경이 같은 요청 흐름을 거친다 (사용자 결정)
- * @contract 새 요청은 접수 절차(rules/intake.md)를 거쳐 합칠 요청을 먼저 찾는다: `similar`는 후보를 보이기만 하고, `merge`는 사용자 말 인용이 있어야 접수·설계 작성 중인 요청끼리 합친다. 요청 파일의 모양(types.ts의 Request)을 바꾸면 model.ts의 요청 목록과 viewer/manage-*.ts의 관리 화면도 함께 고친다. 에이전트는 이 모듈의 명령(add, design, impl, test, fixed, found, also, agent, list)으로만 요청을 움직이고, 승인·반려·순서 정하기는 사용자 화면(middleware.ts)이 하고, 대화로 결정했을 때는 사용자 말 인용을 붙인 approve-*·reject-design·test-problem이 같은 기록과 담당 세션 전달을 한다.
+ * @contract 새 요청은 접수 절차(rules/intake.md)를 거쳐 합칠 요청을 먼저 찾는다: `similar`는 후보를 보이기만 하고, `merge`는 사용자 말 인용이 있어야 접수·설계 작성 중인 요청끼리 합친다. 요청 파일의 모양(types.ts의 Request)을 바꾸면 model.ts의 요청 목록과 viewer/manage-*.ts의 관리 화면도 함께 고친다. 설계는 건드릴 파일(files)이 있어야 올라가고, 승인되면 그 목록이 요청에 남아 commit-msg가 범위 밖 커밋을 막는다. 담당 세션은 막히면 blocked, 사용자에게 물을 때 ask로 그 사실을 요청 상태에 남기고(막힘은 다음 에이전트 기록이, 질문은 사용자의 다음 기록이 풀어 준다) 화면이 요청 목록·상세·내 차례에 띄운다. 에이전트는 이 모듈의 명령(add, design, impl, test, fixed, found, also, blocked, ask, agent, list)으로만 요청을 움직이고, 승인·반려·순서 정하기는 사용자 화면(middleware.ts)이 하고, 대화로 결정했을 때는 사용자 말 인용을 붙인 approve-*·reject-design·test-problem이 같은 기록과 담당 세션 전달을 한다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -160,8 +160,9 @@ export function describeRequests(list: Request[], componentsOf: (r: Request) => 
     }).filter((o) => o.screens.length || o.infos.length || o.components.length);
     // 에이전트 차례 글은 전달 기록으로 나눈다: 담당 세션이 읽기 전에는 일하는 것처럼 보이지 않게 한다
     const notRead = meta.turn === 'agent' && !!delivery && (delivery.state === 'sending' || delivery.state === 'hook-wait' || delivery.state === 'failed');
-    const stepLabel = r.mergedInto ? `#${r.mergedInto}에 합침` : notRead ? (delivery!.state === 'failed' ? '전달 안 됨' : '결정 전달 중') : meta.label;
-    return { ...r, ...(delivery ? { delivery } : {}), stageLabel: STAGE_LABEL[r.stage], stepLabel, turn: meta.turn, overlaps, waitingFor, cost: { start: 0, wake: 0, inputTokens: 0, outputTokens: 0, usd: 0 }, redesigns: r.events.filter((e) => e.kind === 'redesigned').length };
+    const stalled = meta.turn === 'agent' && delivery?.state === 'stalled';
+    const stepLabel = r.mergedInto ? `#${r.mergedInto}에 합침` : stalled ? `${meta.label} · 멈춘 듯함` : notRead ? (delivery!.state === 'failed' ? '전달 안 됨' : '결정 전달 중') : meta.label;
+    return { ...r, ...(delivery ? { delivery } : {}), ...(ended(r) ? {} : openNotes(r)), stageLabel: STAGE_LABEL[r.stage], stepLabel, turn: meta.turn, overlaps, waitingFor, cost: { start: 0, wake: 0, inputTokens: 0, outputTokens: 0, usd: 0 }, redesigns: r.events.filter((e) => e.kind === 'redesigned').length };
   });
 }
 
@@ -183,6 +184,8 @@ export interface DesignInput {
   data?: { existing: string; rollback: string; real: string };
   /** 정보도 화면도 안 바뀌어 "설계 없음"으로 올린다 */
   none?: boolean;
+  /** 이 설계가 건드릴 파일과 이유(필수. "설계 없음"에도 필요하다). 승인되면 구현 커밋은 이 안에서만 가능하다 */
+  files?: { path: string; why?: string }[];
 }
 
 /** 그림 파일을 .spec/shots로 복사하고 파일 이름을 돌려준다(없으면 빈 글) */
@@ -227,6 +230,9 @@ export function submitDesign(scanRoot: string, id: number, d: DesignInput): Requ
   if (r.stage !== 'design') throw new Error(`요청 #${id}은 설계 단계가 아니다(지금: ${STAGE_LABEL[r.stage]})`);
   const none = !!d.none;
   if (!none && !d.understanding?.trim()) throw new Error('이렇게 이해했다(understanding)를 적어야 한다');
+  // 건드릴 파일이 없는 설계는 올리지 않는다: 승인한 범위 밖 파일을 커밋하는 일을 commit-msg가 이 목록으로 막는다
+  const files = (d.files ?? []).map((f) => ({ path: (f.path ?? '').trim(), why: (f.why ?? '').trim() })).filter((f) => f.path);
+  if (!files.length) throw new Error('이 설계가 건드릴 파일(files: [{path, why}] 또는 --files 경로1,경로2)을 적어야 한다. 정보·화면이 안 바뀌는 "설계 없음"에도 필요하다');
   const prev = r.design?.rejected ?? 0;
   // 설계 변경으로 새 판이 되면 그림 이름에 판 번호를 붙여, 이전 판의 그림을 덮어쓰지 않는다
   const version = (r.designVersions?.length ?? 0) + 1;
@@ -235,7 +241,7 @@ export function submitDesign(scanRoot: string, id: number, d: DesignInput): Requ
     screen: s.screen, after: copyShot(scanRoot, s.after, `${prefix}${i + 1}-after`), ...resolveBefore(scanRoot, id, i, s, prefix), link: s.link ?? '', note: s.note ?? '', counts: { add: s.counts?.add ?? 0, change: s.counts?.change ?? 0, remove: s.counts?.remove ?? 0 },
     ...(s.highlights?.length ? { highlights: s.highlights } : {}),
   }));
-  const design: RequestDesign = { understanding: d.understanding?.trim() ?? '', ...(d.points?.length ? { points: d.points } : {}), approach: d.approach?.trim() ?? '', changes: d.changes ?? [], screens, data: d.data, none, rejected: prev };
+  const design: RequestDesign = { understanding: d.understanding?.trim() ?? '', ...(d.points?.length ? { points: d.points } : {}), approach: d.approach?.trim() ?? '', changes: d.changes ?? [], screens, data: d.data, none, rejected: prev, files };
   r.design = design;
   r.scope.screens = [...new Set([...r.scope.screens, ...screens.map((s) => s.screen)])];
   r.scope.infos = [...new Set([...r.scope.infos, ...design.changes.map((c) => c.info)])];
@@ -378,6 +384,34 @@ export function recordUntracked(scanRoot: string, hash: string, title: string): 
   return record(scanRoot, r, 'user', 'recorded', `커밋 ${hash}을 요청으로 기록함`);
 }
 
+/** 담당 세션이 막혔음을 남긴다(허용 목록 밖 명령 등으로 검증 없이 끝날 뻔한 일을 사용자가 알게). 다음 에이전트 기록이 생기면 풀린다 */
+export function noteBlocked(scanRoot: string, id: number, note: string): Request {
+  const r = loadOne(scanRoot, id);
+  if (ended(r)) throw new Error(`요청 #${id}은 이미 끝났다`);
+  if (!note?.trim()) throw new Error('막힌 명령과 이유(--note)를 적어야 한다');
+  return record(scanRoot, r, 'agent', 'blocked', `막힘: ${note.trim()}`);
+}
+
+/** 담당 세션이 사용자에게 묻고 있는 말을 남긴다(대화 안에만 있으면 사용자가 알 길이 없다). 사용자의 다음 기록이 생기면 사라진다 */
+export function noteAsking(scanRoot: string, id: number, text: string): Request {
+  const r = loadOne(scanRoot, id);
+  if (ended(r)) throw new Error(`요청 #${id}은 이미 끝났다`);
+  if (!text?.trim()) throw new Error('사용자에게 묻는 말(--text)을 적어야 한다');
+  return record(scanRoot, r, 'agent', 'asking', `질문: ${text.trim()}`);
+}
+
+/** 막힘·질문이 지금도 살아 있는지: 막힘은 그 뒤 다른 에이전트 기록이 없을 때, 질문은 그 뒤 사용자 기록이 없을 때만 */
+export function openNotes(r: Request): { blocked?: { at: string; note: string }; asking?: { at: string; text: string } } {
+  const ev = r.events;
+  const lastOf = (kind: string): number => ev.map((e, i) => (e.kind === kind ? i : -1)).filter((i) => i >= 0).pop() ?? -1;
+  const b = lastOf('blocked'), a = lastOf('asking');
+  const strip = (n: string, p: string): string => n.replace(p, '');
+  return {
+    ...(b >= 0 && !ev.slice(b + 1).some((e) => e.by === 'agent') ? { blocked: { at: ev[b].at, note: strip(ev[b].note, '막힘: ') } } : {}),
+    ...(a >= 0 && !ev.slice(a + 1).some((e) => e.by === 'user') ? { asking: { at: ev[a].at, text: strip(ev[a].note, '질문: ') } } : {}),
+  };
+}
+
 // ── 사용자가 하는 일 (설계서 보기 화면에서만) ─────────────
 
 /** 설계 승인(설계 없음 포함) → 구현 */
@@ -385,6 +419,8 @@ export function approveDesign(scanRoot: string, id: number, quote?: string): Req
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'design' || r.step !== 'submitted') throw new Error('승인 대기 중인 설계가 아니다');
   move(r, 'impl', 'working');
+  // 승인된 설계의 파일 목록을 요청에 남긴다(옛 설계는 목록이 없어 범위 검사를 하지 않는다)
+  if (r.design?.files?.length) r.files = r.design.files;
   return record(scanRoot, r, 'user', 'design-approved', `${r.design?.none ? '설계 없음 승인' : '설계 승인'}${quote ? ' (대화에서 한 승인을 인용해 기록함)' : ''}`, quote);
 }
 /** 설계 반려(이유 한 줄) → 에이전트가 다시 작성 */
@@ -532,7 +568,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
       console.log(`요청 #${r.id}: 설계를 시작한다${sid ? ` · 담당 세션을 새로 만들었다(${sid.slice(0, 8)}, 진행은 .spec/wake.log)` : ''}`);
     } else if (pos[0] === 'design') {
       const input = opts.file ? JSON.parse(fs.readFileSync(opts.file, 'utf8')) as DesignInput : {};
-      const r = submitDesign(scanRoot, id, { ...input, none: input.none || opts.none === 'true' });
+      const r = submitDesign(scanRoot, id, { ...input, none: input.none || opts.none === 'true', ...(opts.files ? { files: csv(opts.files).map((p) => ({ path: p })) } : {}) });
       console.log(`요청 #${r.id}: 설계를 올렸다. 사용자가 승인하거나 반려할 때까지 구현하지 않는다`);
     } else if (pos[0] === 'session') {
       // 시작은 했는데 담당 세션이 안 만들어진 요청(옛 기록 등)에 담당 세션을 다시 만든다
@@ -558,6 +594,10 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const r = setScope(scanRoot, id, { scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact) }); console.log(`요청 #${r.id}: 범위에 시나리오를 연결했다`);
     } else if (pos[0] === 'also') {
       const r = addAlsoFixed(scanRoot, id, { text: opts.text, where: opts.where, commit: opts.commit }); console.log(`요청 #${r.id}: 함께 고친 것 ${r.alsoFixed!.length}건째를 남겼다`);
+    } else if (pos[0] === 'blocked') {
+      const r = noteBlocked(scanRoot, id, opts.note); console.log(`요청 #${r.id}: 막혔다는 사실을 남겼다(요청 목록·상세에 '막힘'으로 보인다). 다음 기록을 남기면 풀린다`);
+    } else if (pos[0] === 'ask') {
+      const r = noteAsking(scanRoot, id, opts.text); console.log(`요청 #${r.id}: 사용자에게 묻는 말을 남겼다(요청 목록·상세와 내 차례에 '질문 중'으로 보인다). 사용자의 답이 오면 사라진다`);
     } else if (pos[0] === 'found') {
       const r = foundOutside(scanRoot, id, opts.text); console.log(`요청 #${r.id}: 범위 밖 발견을 리포트로도 올렸다`);
     } else if (['approve-design', 'approve-test', 'reject-design', 'test-problem'].includes(pos[0])) {
@@ -581,12 +621,14 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  wake --id N                      (사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정을 다시 보낸다)',
         '  session --id N                   (시작은 했는데 담당 세션이 안 만들어진 요청에 담당 세션을 다시 만든다. 설정 wake가 켜져 있어야 한다)',
         '  shot --id N --screen 화면이름 --url 주소 [--selector css]   (바꾸기 전 운영 화면을 손대지 않고 그대로 찍어 현행 그림으로 저장. 설계를 올릴 때 이 그림이 현행으로 붙는다)',
-        '  design --id N --file 설계.json   (또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',
+        '  design --id N --file 설계.json [--files 경로1,경로2]   (설계 JSON에 files: [{path, why}]로 건드릴 파일을 적는다(필수). 또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
         '  redesign --id N --quote "사용자가 한 말" --reason "변경사항"   (구현·테스트 중 사용자가 설계 변경을 요구했을 때만 설계 단계로 돌린다. 인용이 없으면 못 한다. 이전 설계는 남고, 고친 설계는 다시 승인받는다)',
         '  test --id N                      (구현을 마치고 테스트를 올림. 고친 뒤 다시 올릴 때도 같다)',
         '  scope --id N [--scenarios 시나리오1,…] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오]   (범위에 시나리오를 연결. 화면이 있는 요청은 시나리오가 있어야 test를 올릴 수 있다)',
         '  also --id N --text "막혔던 일과 고친 일" [--where 화면이나 파일] [--commit 해시]   (구현하다 막혀서 같은 세션에서 함께 고친 일을 남긴다. 구현·테스트 단계에서만. 화면 모양·정보·사용 흐름이 바뀌는 일이면 남기지 말고 멈춰서 설계로 간다)',
+        '  blocked --id N --note "막힌 명령과 이유"   (허용 목록 밖 명령 등으로 막혔을 때. 요청 목록·상세에 붉은 막힘으로 보이고, 다음 에이전트 기록이 생기면 풀린다)',
+        '  ask --id N --text "사용자에게 묻는 말"   (사용자에게 허락·결정을 물을 때. 요청 목록·상세와 내 차례에 질문 중으로 보이고, 사용자의 다음 기록이 생기면 사라진다)',
         '  found --id N --text "범위 밖에서 발견한 것"',
         '  approve-design --id N --quote "사용자가 한 말"   (사용자가 대화에서 설계를 승인했을 때만. 인용이 없으면 못 한다)',
         '  approve-test --id N --quote "사용자가 한 말" [--none true]   (사용자가 대화에서 테스트를 승인했을 때만)',

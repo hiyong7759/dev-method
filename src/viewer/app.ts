@@ -4,6 +4,7 @@
  * @basis 개발 모드 전용이다. 소스에서 계산한 모델을 읽어 그리고, 쓰기는 .spec의 승인·메모·확인 목록뿐이다. 모델은 2.5초마다 다시 받아 달라졌을 때만 그리고, 그릴 때 보던 자리·펼침·입력은 keep-ui.ts로 지킨다.
  * @contract 서버(middleware.ts)가 /__spec/model.json을 준다. 정보 흐름은 창 폭에 맞춰 상자를 줄바꿈해 놓으므로 창 폭이 달라지면 다시 그린다.
  * @does 여러 프로젝트를 띄워 두고 어느 프로젝트인지 알아본다 | 탭 제목이 "프로젝트 이름 · 설계서 보기"이고 머리글에 프로젝트 색 띠와 아이콘·이름이 보이며 탭 아이콘도 같은 색이다 | 여러 프로젝트를 구분한다#1
+ * @does 도구 소스를 고친 뒤 서버를 다시 띄우지 않은 채 설계서 보기를 연다 | 맨 위 줄 위에 붉은 "서버가 옛 코드로 떠 있습니다 — 다시 띄워야 합니다" 줄과 다시 띄우는 명령이 보인다(다시 띄우면 사라진다) | 서버가 옛 코드로 떠 있는지 알아챈다#1
  */
 import { h, get, tag, errorText } from './util.js';
 import type { Kid } from './util.js';
@@ -110,6 +111,8 @@ function render(): void {
   if (!model) return;
   const m = model;
   topEl = topbar(m, r);
+  // 서버가 옛 코드로 떠 있으면 맨 위 줄 위에 알린다(화면 코드는 새것이라 새 모델 항목을 못 읽고 안 열릴 수 있다)
+  if (m.serverStale) root.append(h('div', { class: 'srv-stale' }, '서버가 옛 코드로 떠 있습니다 — 다시 띄워야 합니다', h('span', { class: 'code mono' }, m.serverStale.command)));
   root.append(topEl);
   const body = h('div', { class: r.view === 'screen' ? 'split' : 'map-col', style: r.view === 'screen' ? '' : 'flex:1;display:flex;flex-direction:column;min-height:0;overflow:auto' });
   root.append(body);

@@ -6,7 +6,7 @@
 import { h, get, post, pageHead, chip, tag, fmt, toast, errorText, copyText, sidePanel } from './util.js';
 import type { Kid } from './util.js';
 import { hash, nav, liveAt } from './route.js';
-import { stepperBig, chipFor, scopeTags, withPanel, lightbox, currentDesignApproval, deliveryCard, unread } from './manage-parts.js';
+import { stepperBig, noteBoxes, chipFor, scopeTags, withPanel, lightbox, currentDesignApproval, deliveryCard, unread } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
 import { basket, sendBasket } from './comment-basket.js';
 import type { Model, RequestView, Scenario, ScenarioStep } from '../types.js';
@@ -278,8 +278,11 @@ function testCard(model: Model, r: RequestView, onChange: () => void, td = false
  * @to 화면 변경 전후 비교 | "현행과 비교해서 보기"를 누른다 | 요청 번호
  * @to 화면 설계서 | 테스트 확인표의 "첫 화면 열기"를 누른다 | 화면 이름
  * @does 요청의 원문, 범위, 겹침, 진행 기록을 읽는다 | 한 화면에 모여 보인다 | 요청의 진행을 확인한다#3 | → 3b, 3c
+ * @does 요청 상세를 아래로 스크롤한다 | 맨 위 요청 제목이 화면 위에 붙어 계속 보인다 | 긴 화면을 스크롤해도 제목·거르기·닫기가 보인다#2 | → 3
  * @does 위쪽 "요청"을 눌러 목록으로 돌아간다 | 요청 목록이 열린다 | 요청의 진행을 확인한다#3b | → 1 | 목록으로 돌아가려면
  * @does 겹치는 다른 요청을 열어 본다 | 그 요청의 상세가 열린다 | 요청의 진행을 확인한다#3c | → 3 | 겹치는 요청이 있으면
+ * @does 질문 중·막힘인 요청의 상세를 연다 | 제목 바로 아래에 아래 요소들과 같은 가로 100% 폭의 질문 중·막힘 상자가 각각 보이고, 다음 기록이 생기면 사라진다 | 담당 세션의 질문과 막힘을 확인한다#2 | → 3
+ * @does 멈춘 듯한 요청을 열어 오른쪽 패널의 카드를 보고 "지금 다시 보내기"를 누른다 | 붉은 "담당 세션이 멈춘 듯합니다" 카드가 보이고, 누르면 담당 세션에 결정을 다시 보낸다 | 멈춘 담당 세션을 알아챈다#2
  * @does 전달 안 됨인 요청을 열어 오른쪽 패널의 전달 카드를 보고 "지금 다시 보내기"를 누른다 | 눌림→보냄→읽음→반영 네 칸과 몇 분째 안 읽는지가 빨간 카드로 보이고, 누르면 담당 세션에 결정을 다시 보낸다 | 결정이 담당 세션에 전달됐는지 확인한다#2
  * @does 접수된 요청의 "시작"을 누른다 | 설계 작성 중으로 바뀌고 요청을 맡을 담당 세션이 새로 만들어진다 | 요청을 시작하고 설계를 승인한다#1 | → 2
  * @does 올라온 설계(정보 변경 요약·화면 시안)를 읽고 승인하거나 반려한다 | 승인하면 구현으로, 반려하면 설계 다시 작성 중으로 넘어간다 | 요청을 시작하고 설계를 승인한다#2
@@ -354,6 +357,6 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
     h('button', { class: 'btn sm', onclick: () => { for (const c of cards) if (!c.classList.contains('later')) { FOLD.set(`${r.id}:${c.dataset.fold}`, true); c.classList.remove('shut'); c.querySelector('.tg')!.textContent = '접기'; } } }, '모두 펼치기'),
     h('button', { class: 'btn sm', onclick: () => { for (const k of [...FOLD.keys()]) if (k.startsWith(`${r.id}:`)) FOLD.delete(k); root.replaceChildren(); manageDetail(root, { model, id, sub, onChange }); } }, '단계 기본으로'));
   const decide = testing ? testCard(model, r, onChange, !!model.testEnv) : designSide;
-  root.append(withPanel(h('div', { class: 'wrap' }, head, h('div', { class: 'card' }, stepperBig(r)), tools, h('div', { class: 'dcol' }, cards)),
+  root.append(withPanel(h('div', { class: 'wrap' }, head, noteBoxes(r), h('div', { class: 'card' }, stepperBig(r)), tools, h('div', { class: 'dcol' }, cards)),
     sidePanel({ title: testing && !unread(r) ? '사용 시나리오 테스트' : `요청 #${r.id}`, fold: 'request', body: unread(r) ? [dlv] : [dlv, testing ? testDataNotice(model) : null, decide, model.testEnv ? null : redesignCard(r, onChange)] })));
 }

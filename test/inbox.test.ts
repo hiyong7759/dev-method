@@ -22,7 +22,7 @@ const tick = (): Promise<void> => new Promise((ok) => setTimeout(ok, 15));
 
 test('담당으로 정해진 세션만 새 결정을 한 번 받는다', async () => {
   const { root, src } = tempProject();
-  addRequest(src, { title: '첫 요청' }); submitDesign(src, 1, { none: true });
+  addRequest(src, { title: '첫 요청' }); submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], none: true });
   assert.equal(bind(root, 'S1', 1).out, '');
   assert.equal(prompt(root, 'S1').out, '', '아직 새 결정이 없다');
   await tick(); approveDesign(src, 1);
@@ -36,7 +36,7 @@ test('담당으로 정해진 세션만 새 결정을 한 번 받는다', async (
 
 test('반려는 이유와 함께 다시 올리라고 알린다', async () => {
   const { root, src } = tempProject();
-  addRequest(src, { title: 'a' }); submitDesign(src, 1, { none: true });
+  addRequest(src, { title: 'a' }); submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], none: true });
   bind(root, 'S1', 1);
   await tick(); rejectDesign(src, 1, '범위가 다르다');
   assert.match(prompt(root, 'S1').out, /범위가 다르다.*request design --id 1/s);

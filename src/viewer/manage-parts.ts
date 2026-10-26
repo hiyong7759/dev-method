@@ -20,9 +20,19 @@ export function currentDesignApproval(r: RequestView): RequestView['events'][num
 }
 
 /** 지금 상태와 누구 차례인지를 색으로 알린다(사용자 차례는 노랑) */
-export const chipFor = (r: RequestView): HTMLSpanElement => chip(r.delivery?.state === 'failed' ? 'bad' : r.turn === 'user' ? 'me' : r.turn === 'agent' ? 'ag' : r.stage === 'done' ? 'ok' : 'dim', r.stepLabel);
+export const chipFor = (r: RequestView): HTMLSpanElement => chip(r.delivery?.state === 'failed' || r.delivery?.state === 'stalled' || r.blocked ? 'bad' : r.turn === 'user' ? 'me' : r.turn === 'agent' ? 'ag' : r.stage === 'done' ? 'ok' : 'dim', r.stepLabel);
 /** 요청이 건드리는 화면과 정보를 이름표로 보인다 */
 export const scopeTags = (r: RequestView): HTMLSpanElement[] => [...r.scope.screens.map((s) => tag('c', `화면 ${s}`)), ...r.scope.infos.map((s) => tag('i', `정보 ${s}`))];
+
+/** 담당 세션이 사용자에게 묻고 있거나(노랑 '질문 중') 막혔다고 남긴(빨강 '막힘') 사실의 상자들. 가로를 꽉 채워 목록 행·상세 맨 위가 같은 모양이다. 없으면 빈 목록 */
+export function noteBoxes(r: RequestView): HTMLElement[] {
+  const box = (cls: string, label: string, title: string, at: string, text: string): HTMLElement =>
+    h('div', { class: `mg-note ${cls}` }, h('div', { class: 'mn-h' }, chip(cls === 'ask' ? 'me' : 'bad', label), h('b', null, title), h('span', { class: 'hint' }, fmt(at))), h('div', { class: 'mn-t' }, text));
+  return [
+    r.asking ? box('ask', '질문 중', '담당 세션이 사용자에게 묻고 있습니다', r.asking.at, r.asking.text) : null,
+    r.blocked ? box('blk', '막힘', '검증 없이 끝났을 수 있습니다', r.blocked.at, r.blocked.note) : null,
+  ].filter((x): x is HTMLElement => !!x);
+}
 
 /** 결정이 전달 안 됐거나 읽기 전인가(요청 목록·상세가 같은 기준으로 강조한다) */
 export const notDelivered = (r: RequestView): boolean => r.delivery?.state === 'failed';
@@ -44,6 +54,7 @@ export function deliveryCard(r: RequestView, resend: () => void): HTMLElement | 
   const v = r.delivery;
   if (!v) return null;
   const hm = (iso: string): string => fmt(iso).slice(6);
+  if (v.state === 'stalled') return h('div', { class: 'card dlv bad' }, h('h3', null, '담당 세션이 멈춘 듯합니다', h('small', null, v.decision)), h('div', { class: 'hint' }, '결정을 반영한 뒤 다음 단계(테스트 요청 등)가 없어 한 번 더 보냈지만 그대로입니다. 세션을 열어 보거나 다시 보내세요.'), h('div', { class: 'sp-foot' }, h('button', { class: 'btn pri', onclick: resend }, '지금 다시 보내기')));
   if (v.state === 'applied') return h('div', { class: 'hint dlv-done' }, `${v.decision} · ${hm(v.applied!)} 반영됨`);
   const failed = v.state === 'failed';
   const cells: { label: string; at: string | null; bad: boolean }[] = [

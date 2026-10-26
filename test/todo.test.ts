@@ -13,7 +13,7 @@ test('할 일: 내 차례, 에이전트가 진행 중, 시작 전, 코멘트를 
   const { src } = tempProject();
   addRequest(src, { title: '시작 전 요청' });                       // 1: 시작 전
   addRequest(src, { title: '테스트 올린 요청' });                    // 2: 테스트 승인 대기
-  submitDesign(src, 2, { none: true }); approveDesign(src, 2); noteImpl(src, 2, 'abc'); requestTest(src, 2);
+  submitDesign(src, 2, { files: [{ path: 'a.ts', why: '시험' }], none: true }); approveDesign(src, 2); noteImpl(src, 2, 'abc'); requestTest(src, 2);
   addRequest(src, { title: '설계 쓰는 중' }); startDesign(src, 3);   // 3: 설계 작성 중
   addComment(src, { target: { kind: 'screen', label: '사용 흐름' }, text: '궁금합니다' });
   const text = describeTodo(buildModel(src));

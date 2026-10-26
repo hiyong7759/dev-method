@@ -590,6 +590,13 @@ img.shot.big{margin:0}
 .lrow.pick{cursor:pointer}.lrow.pick.on{border-color:var(--accent);background:var(--accent-bg)}
 .ccard{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);text-align:left;width:100%}
 .ccard.on{border-color:var(--accent);background:var(--accent-bg)}
+.mg-note{width:100%;box-sizing:border-box;margin-top:8px;padding:10px 14px;border-radius:10px;border:1px solid var(--amber-deep);background:var(--amber-bg);font-size:13px;line-height:1.6;cursor:default}
+.mg-note.blk{border-color:var(--red-deep);background:var(--red-bg)}
+.mg-note .mn-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mg-note .mn-t{margin-top:4px;white-space:pre-wrap;word-break:break-word}
+.wrap>.mg-note{margin:10px 0}
+.srv-stale{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;background:var(--red-bg);color:var(--red-text);border-bottom:2px solid var(--red-strong);font-size:13px;font-weight:700}
+.srv-stale .code{font-weight:400;user-select:all}
 .mybar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid var(--amber-deep);background:var(--amber-bg);font-size:13px}.mybar b{color:var(--amber)}
 .hcard{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
 .hcard.mine{border-color:var(--amber-deep);background:var(--amber-bg)}

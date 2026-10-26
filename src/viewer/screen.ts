@@ -53,6 +53,7 @@ export interface ScreenViewHandle {
  * @to 리포트 | 정보 상세의 확인 필요 패널에서 "리포트" 링크를 누른다 |
  * @to 시안 현황 | 패널 위의 "시안 현황"을 누른다 |
  * @why 한 화면의 존재 이유, 하는 일, 구조, 이력을 실제로 동작하는 화면과 나란히 보게 한다.
+ * @does 담당 세션이 질문 중인 요청이 이 화면의 범위에 있으면 설계서 위쪽 줄을 본다 | "질문 중" 줄에 그 질문이 한 줄로 나오고 "관리에서 열기"로 요청 상세에 간다 | 담당 세션의 질문과 막힘을 확인한다#3
  * @does 오른쪽 탭(개요, 현행, 히스토리)을 오가며 본다 | 탭마다 해당 내용이 나온다 | 화면 설계서를 열어 본다#3
  * @does 아래 고정 줄의 코멘트 개수를 눌러 오른쪽 코멘트 창을 연다 | 코멘트 창이 열리고 아래 개수 줄은 제자리에 그대로 있다 | 코멘트를 담아 한번에 보낸다#1 | → 2
  * @does 창 안에서 대상(부품 고르기·영역 그리기·화면 전체)을 고르고 글을 써 "코멘트 담기"를 누른다 | 담은 코멘트 목록에 쌓이고 아직 안 보내졌다고 보인다 | 코멘트를 담아 한번에 보낸다#2 | → 3, 2b
@@ -131,10 +132,10 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   function bannerEl(): HTMLElement | null {
     // 테스트 경로를 따라가는 중이면 그 요청만 보고 있으므로, 다른 요청의 '내 차례' 줄을 띄우지 않는다
     if (new URLSearchParams(location.hash.split('?')[1] ?? '').get('tr')) return null;
-    const mine = requestsHere().filter((r) => r.turn === 'user');
+    const mine = requestsHere().filter((r) => r.turn === 'user' || r.asking);
     if (!mine.length) return null;
-    const r = mine[0];
-    return h('div', { class: 'mybar' }, h('b', null, '내 차례'), h('span', null, `#${r.id} ${r.stepLabel}`), h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => nav(hash('manage', String(r.id))) }, '관리에서 열기 ›'));
+    const r = mine.find((x) => x.asking) ?? mine[0];
+    return h('div', { class: 'mybar' }, h('b', null, r.asking ? '질문 중' : '내 차례'), h('span', null, r.asking ? `#${r.id} ${r.asking.text.length > 60 ? `${r.asking.text.slice(0, 60)}…` : r.asking.text}` : `#${r.id} ${r.stepLabel}`), h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => nav(hash('manage', String(r.id))) }, '관리에서 열기 ›'));
   }
   /** 이 화면에 대응하는 시안 판의 최신 여부 한 줄(없으면 안 그린다) */
   function designLine(): HTMLElement | null {

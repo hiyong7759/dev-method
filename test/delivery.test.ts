@@ -12,7 +12,7 @@ const min = 60_000;
 function rejected(): { src: string } {
   const { src } = tempProject();
   addRequest(src, { title: 'a' });
-  submitDesign(src, 1, { understanding: 'u', screens: [] });
+  submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], understanding: 'u', screens: [] });
   rejectDesign(src, 1, '고쳐 주세요');
   return { src };
 }
@@ -56,7 +56,7 @@ test('에이전트가 이미 반영했으면 읽음·보냄이 비어 있어도 
   const { src } = rejected();
   openDelivery(src, req(src));
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5); // 같은 밀리초에 찍히면 결정 '뒤'로 세지 못한다
-  submitDesign(src, 1, { understanding: 'u2', screens: [] }); // 반려 뒤 에이전트가 설계를 다시 올림 = 반영
+  submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], understanding: 'u2', screens: [] }); // 반려 뒤 에이전트가 설계를 다시 올림 = 반영
   const v = deliveryOf(src, req(src));
   assert.equal(v?.state, 'applied');
   assert.ok(v?.read && v?.sent, '읽음·보냄이 반영 시각으로 채워진다');
@@ -66,7 +66,7 @@ test('새 결정이 생기면 이전 결정의 기록을 이어 쓰지 않는다
   const { src } = rejected();
   openDelivery(src, req(src)); markSent(src, 1, 'wake'); markRead(src, 1);
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5); // 결정 시각이 서로 달라지게
-  submitDesign(src, 1, { understanding: 'u2', screens: [] });
+  submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], understanding: 'u2', screens: [] });
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
   approveDesign(src, 1);
   assert.equal(deliveryOf(src, req(src)), null, '새 결정은 기록을 새로 열기 전에는 상태가 없다');

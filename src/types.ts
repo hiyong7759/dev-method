@@ -259,6 +259,8 @@ export interface RequestDesign {
   none: boolean;
   /** 반려되어 다시 낸 횟수 */
   rejected: number;
+  /** 이 설계가 건드린다고 적은 파일과 이유(승인되면 구현 커밋이 이 안에서만 가능하다. 옛 설계는 없음) */
+  files?: { path: string; why: string }[];
 }
 
 /** 테스트 단계의 확인 기록 */
@@ -333,6 +335,8 @@ export interface Request {
     /** 그렇게 구분한 이유 */
     reason: string;
   };
+  /** 승인된 설계가 건드린다고 적은 파일(구현 커밋은 이 안에서만 가능하다. 설계 승인 때 설계의 files가 여기 남는다. 옛 요청은 없음) */
+  files?: { path: string; why: string }[];
   /** 건드리는 범위(겹침을 찾는 근거) */
   scope: {
     /** 건드리는 화면 이름들 */
@@ -393,8 +397,8 @@ export interface RequestOverlap {
   components: string[];
 }
 
-/** 결정이 담당 세션에 어디까지 갔나: 반영됨, 읽음(반영 전), 전달 중(읽기 전), 훅 대기(보내는 장치가 꺼짐), 전달 안 됨(재전송 끝) */
-export type DeliveryState = 'applied' | 'read' | 'sending' | 'hook-wait' | 'failed';
+/** 결정이 담당 세션에 어디까지 갔나: 반영됨, 읽음(반영 전), 전달 중(읽기 전), 훅 대기(보내는 장치가 꺼짐), 전달 안 됨(재전송 끝), 멈춘 듯함(반영했는데 다음 단계 없이 한 번 더 보내도 그대로) */
+export type DeliveryState = 'applied' | 'read' | 'sending' | 'hook-wait' | 'failed' | 'stalled';
 
 /** 가장 최근 결정의 전달 상태(눌림→보냄→읽음→반영). 시각이 없는 칸은 null */
 export interface Delivery {
@@ -440,6 +444,10 @@ export interface RequestView extends Request {
   cost: { start: number; wake: number; inputTokens: number; outputTokens: number; usd: number };
   /** 구현·테스트 중 설계가 틀려 설계로 되돌린 횟수 */
   redesigns: number;
+  /** 담당 세션이 막혔다고 남긴 사실(다음 에이전트 기록이 생기면 풀려 없어진다) */
+  blocked?: { at: string; note: string };
+  /** 담당 세션이 사용자에게 묻고 있는 말(사용자의 다음 기록이 생기면 없어진다) */
+  asking?: { at: string; text: string };
 }
 
 // ── 정보 분석 (analyze-ts) ───────────────────────────────
@@ -874,6 +882,8 @@ export interface Model {
   brand: Brand;
   /** 테스트용 서버로 띄웠을 때만 있다. 화면 위쪽에 이 글을 표시해 운영 데이터와 헷갈리지 않게 한다 */
   testEnv?: string;
+  /** 서버가 옛 코드로 떠 있을 때만: 다시 띄우는 명령(화면 맨 위에 붉게 알린다) */
+  serverStale?: { command: string };
   /** 요청 상세가 테스트 서버로 보낼 때 쓰는 것. 프로젝트에 testData.reviewUrl이 있고 운영 설계서 보기일 때만 있다 */
   reviewFrame?: ReviewFrame;
   /** 모델을 만든 시각 */

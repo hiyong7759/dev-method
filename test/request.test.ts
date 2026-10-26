@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { liveShotFile } from '../src/request.js';
 
-const design = { understanding: '이해', approach: '방법' };
+const design = { understanding: '이해', approach: '방법', files: [{ path: 'a.ts', why: '시험' }] };
 
 test('요청은 설계 → 구현 → 테스트 → 완료로 흐른다', () => {
   const { src } = tempProject();
@@ -55,15 +55,15 @@ test('반려는 이유가 있어야 하고, 설계가 다시 작성 중이 된�
 test('설계에는 이해한 내용이 있어야 하지만 설계 없음은 비어도 된다', () => {
   const { src } = tempProject();
   addRequest(src, { title: 'a' });
-  assert.throws(() => submitDesign(src, 1, { approach: 'x' }), /understanding/);
-  submitDesign(src, 1, { none: true });
+  assert.throws(() => submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], approach: 'x' }), /understanding/);
+  submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], none: true });
   assert.equal(loadRequests(src)[0].design?.none, true);
 });
 
 test('테스트에서 문제가 있으면 같은 요청에서 고치는 중이 되고 다시 올릴 수 있다', () => {
   const { src } = tempProject();
   addRequest(src, { title: 'a' });
-  submitDesign(src, 1, { none: true }); approveDesign(src, 1); requestTest(src, 1);
+  submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], none: true }); approveDesign(src, 1); requestTest(src, 1);
   assert.throws(() => testProblem(src, 1, ''), /한 줄/);
   testProblem(src, 1, '버튼이 안 눌린다');
   assert.deepEqual([loadRequests(src)[0].stage, loadRequests(src)[0].step], ['test', 'fix']);
@@ -78,7 +78,7 @@ test('겹치는 요청은 순서를 정하면 뒤 요청이 앞 요청이 끝나
   const before = describeRequests(loadRequests(src));
   assert.equal(before[0].overlaps.length, 1);
   setOrder(src, 1, 2);
-  submitDesign(src, 2, { none: true }); approveDesign(src, 2);
+  submitDesign(src, 2, { files: [{ path: 'a.ts', why: '시험' }], none: true }); approveDesign(src, 2);
   const after = describeRequests(loadRequests(src));
   assert.deepEqual(after[1].waitingFor, [1]);
   assert.equal(after[1].stepLabel, '대기');
@@ -116,7 +116,7 @@ test('설계 화면의 현행 그림: 신규 화면은 없어도 되고, 손으�
 test('설계 글은 영역별 항목(points)으로 올릴 수 있다', () => {
   const { src } = tempProject();
   addRequest(src, { title: 'a' });
-  const r = submitDesign(src, 1, { understanding: '요약', points: [{ area: '서버', title: '세션', text: '만든다' }] });
+  const r = submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], understanding: '요약', points: [{ area: '서버', title: '세션', text: '만든다' }] });
   assert.deepEqual(r.design!.points, [{ area: '서버', title: '세션', text: '만든다' }]);
 });
 
@@ -159,7 +159,7 @@ test('화면이 있는 요청은 시나리오가 있어야 테스트를 올리�
 test('화면이 없는 요청은 등록할 때 적은 테스트 없음 이유가 요청에 남는다', () => {
   const { src } = tempProject();
   assert.equal(addRequest(src, { title: '글자 고침', noTest: '화면이 안 바뀌는 문구 수정' }).noTest, '화면이 안 바뀌는 문구 수정');
-  startDesign(src, 1); submitDesign(src, 1, { none: true }); approveDesign(src, 1); requestTest(src, 1);
+  startDesign(src, 1); submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], none: true }); approveDesign(src, 1); requestTest(src, 1);
   approveTest(src, 1, true);
 });
 
@@ -190,7 +190,7 @@ test('대화로 한 반려·문제 알림은 사용자 말 인용이 기록에 �
   const { src } = tempProject();
   addRequest(src, { title: '수리', screens: ['a'] });
   startDesign(src, 1);
-  submitDesign(src, 1, { none: true });
+  submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], none: true });
   const r = rejectDesign(src, 1, '다시 써라', '이건 반려할게요');
   const last = r.events[r.events.length - 1];
   assert.equal(last.kind, 'design-rejected');
