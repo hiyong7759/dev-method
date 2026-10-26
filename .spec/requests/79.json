@@ -28,14 +28,22 @@
     "mode": "design",
     "reason": "시험 추가와 화면 모양 확인이라 설계 확인이 필요하다"
   },
-  "stage": "design",
-  "step": "queued",
+  "stage": "cancelled",
+  "step": "cancelled",
   "events": [
     {
       "at": "2026-10-26T12:48:54.602Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록(#71과 이어짐)"
+    },
+    {
+      "at": "2026-10-26T12:50:24.749Z",
+      "by": "user",
+      "kind": "merged-into",
+      "note": "#76에 합침",
+      "quote": "하나로 올려줘"
     }
-  ]
+  ],
+  "mergedInto": 76
 }

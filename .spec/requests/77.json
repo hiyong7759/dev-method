@@ -31,14 +31,22 @@
     "mode": "design",
     "reason": "정보 선언 범위와 화면 동작이 달라지므로 설계 확인이 필요하다"
   },
-  "stage": "design",
-  "step": "queued",
+  "stage": "cancelled",
+  "step": "cancelled",
   "events": [
     {
       "at": "2026-10-26T12:48:54.420Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록(#69과 이어짐)"
+    },
+    {
+      "at": "2026-10-26T12:50:24.557Z",
+      "by": "user",
+      "kind": "merged-into",
+      "note": "#76에 합침",
+      "quote": "하나로 올려줘"
     }
-  ]
+  ],
+  "mergedInto": 76
 }
