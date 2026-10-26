@@ -15,8 +15,12 @@
       "ProjectConfig",
       "Model"
     ],
-    "scenarios": [],
-    "steps": [],
+    "scenarios": [
+      "여러 프로젝트를 구분한다"
+    ],
+    "steps": [
+      "여러 프로젝트를 구분한다#1"
+    ],
     "impactOnly": []
   },
   "agent": {
@@ -29,8 +33,8 @@
     "mode": "design",
     "reason": "도구 동작이 바뀌어 설계 승인을 받는다"
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-26T13:35:10.808Z",
@@ -87,6 +91,18 @@
       "by": "agent",
       "kind": "impl",
       "note": "구현 시작"
+    },
+    {
+      "at": "2026-10-26T14:44:34.490Z",
+      "by": "agent",
+      "kind": "scope",
+      "note": "범위에 시나리오 연결: 여러 프로젝트를 구분한다"
+    },
+    {
+      "at": "2026-10-26T14:45:00.580Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
     }
   ],
   "mergedFrom": [
@@ -211,5 +227,13 @@
     ],
     "none": false,
     "rejected": 0
+  },
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false,
+    "sigs": {
+      "여러 프로젝트를 구분한다#1": "여러 프로젝트를 띄워 두고 어느 프로젝트인지 알아본다|탭 제목이 \"프로젝트 이름 · 설계서 보기\"이고 머리글에 프로젝트 색 띠와 아이콘·이름이 보이며 탭 아이콘도 같은 색이다"
+    }
   }
 }
