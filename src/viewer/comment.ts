@@ -8,6 +8,7 @@
  */
 import { h, post, chip, tag, toast, errorText } from './util.js';
 import type { Kid } from './util.js';
+import { kst } from '../kst.js';
 import { nav, hash, liveAt } from './route.js';
 import { basket, onBasket, addToBasket, editBasket, removeFromBasket, sendBasket } from './comment-basket.js';
 import type { BasketItem } from './comment-basket.js';
@@ -305,7 +306,7 @@ export function commentTool(init: Model): CommentTool {
     reply.value = replyText.get(c.id) ?? '';
     return h('div', { class: 'cm-th' },
       h('div', { class: 'cm-tg' }, chip(st.tone, st.label), c.target.view ? h('a', { class: 'tag c', href: c.target.view, onclick: () => { nav(c.target.view as string); } }, c.target.label) : tag('c', c.target.label), c.request ? chip('ag', `요청 #${c.request}`) : null),
-      c.thread.map((m) => h('div', { class: `cm-msg${m.who === 'agent' ? ' ag' : ''}` }, h('div', { class: 'cm-who' }, h('b', null, m.who === 'agent' ? '에이전트' : '나'), ` ${m.at.slice(5, 16).replace('T', ' ')}`, m.refs?.length ? chip('ag', `${m.refs.join(', ')} 확인함`) : null), m.text)),
+      c.thread.map((m) => h('div', { class: `cm-msg${m.who === 'agent' ? ' ag' : ''}` }, h('div', { class: 'cm-who' }, h('b', null, m.who === 'agent' ? '에이전트' : '나'), ` ${kst(m.at)}`, m.refs?.length ? chip('ag', `${m.refs.join(', ')} 확인함`) : null), m.text)),
       c.shot ? h('img', { class: 'cm-shot', src: `/__spec/comment-shots/${c.shot}`, alt: '같이 보낸 캡처' }) : null,
       c.status !== 'closed' ? h('div', { class: 'cm-foot' },
         replying.has(c.id) ? [reply, h('button', { class: 'btn pri sm', onclick: () => { const t = replyText.get(c.id) ?? ''; replyText.delete(c.id); replying.delete(c.id); void act('/__spec/comment/reply', { id: c.id, text: t }, '보냈습니다'); } }, '보내기')] : h('button', { class: 'btn sm', onclick: () => { replying.add(c.id); draw(); } }, '추가로 묻기'),

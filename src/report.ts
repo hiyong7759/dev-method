@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { specDir } from './project.js';
+import { kst } from './kst.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { buildModel } from './model.js';
 import type { AgentReport, Choice, Decision, ReportNote, ReportRow, ReviewItem } from './types.js';
@@ -140,7 +141,7 @@ export function describeRow(r: ReportRow): string {
   const out: string[] = [`리포트 #${r.no} · ${r.origin === 'agent' ? '에이전트 발견' : '확인 필요'} · ${r.decision ? `처리함(${{ registered: '요청으로 처리', kept: '그냥 둠', tool: '도구 개선으로 전달' }[r.decision.state] ?? r.decision.state})` : '처리 전'}`, r.title];
   if (r.detail) out.push(`설명: ${r.detail}`);
   if (r.label) out.push(`분류: ${r.label}`);
-  out.push(`발견: ${r.from}${r.at ? ` · ${r.at.slice(0, 16).replace('T', ' ')}` : ''}`);
+  out.push(`발견: ${r.from}${r.at ? ` · ${kst(r.at, true)}` : ''}`);
   if (r.review) {
     out.push(`정의된 곳: ${r.review.where}`);
     out.push(r.review.also.length ? `글자로 나오는 다른 곳: ${r.review.also.join(', ')}` : '글자로 나오는 다른 곳: 없음');
@@ -151,7 +152,7 @@ export function describeRow(r: ReportRow): string {
   if (r.recommend.pick) out.push(`에이전트 추천: ${{ registered: '요청으로 처리', kept: '그냥 둠', analyze: '더 분석' }[r.recommend.pick]} — ${r.recommend.why}`);
   if (r.tool) out.push('도구가 못 읽는 모양: 이 프로젝트가 할 일은 없고 도구 개선으로 전달할 후보');
   for (const n of r.notes) out.push(`${n.by === 'user' ? '사용자 의견' : '에이전트 조사'}: ${n.text}`);
-  if (r.decision) out.push(`결정: ${r.decision.reason ? r.decision.reason + ' · ' : ''}${r.decision.at.slice(0, 16).replace('T', ' ')}`);
+  if (r.decision) out.push(`결정: ${r.decision.reason ? r.decision.reason + ' · ' : ''}${kst(r.decision.at, true)}`);
   return out.join('\n');
 }
 

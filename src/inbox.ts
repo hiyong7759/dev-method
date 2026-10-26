@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { configFile } from './config.js';
+import { kst } from './kst.js';
 import { loadRequests } from './request.js';
 import { markRead } from './delivery.js';
 
@@ -76,7 +77,7 @@ export async function main(): Promise<number> {
     markRead(root, req.id);
     mine.seen = req.events[req.events.length - 1].at;
     save();
-    const lines = news.map((e) => `- ${e.note} (${e.at.slice(5, 16).replace('T', ' ')}): ${NEXT[e.kind](req.id, e.note)}`);
+    const lines = news.map((e) => `- ${e.note} (${kst(e.at)}): ${NEXT[e.kind](req.id, e.note)}`);
     const text = `[spec-view] 요청 #${req.id} "${req.title}"에 사용자가 결정했습니다.\n${lines.join('\n')}`;
     console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: input.hook_event_name || 'UserPromptSubmit', additionalContext: text } }));
   } catch { /* 훅은 세션을 막지 않는다 */ }

@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { specDir } from './project.js';
+import { kst } from './kst.js';
 import { parseArgs, errorText } from './cli.js';
 import { addRequest } from './request.js';
 import type { Comment, CommentTarget } from './types.js';
@@ -82,7 +83,7 @@ export function describeComment(c: Comment): string {
   if (t.view) out.push(`설계서 보기 주소: ${t.view}`);
   if (t.rect) out.push(`영역: x ${Math.round(t.rect.x)}, y ${Math.round(t.rect.y)}, 폭 ${Math.round(t.rect.w)}, 높이 ${Math.round(t.rect.h)}`);
   if (c.shot) out.push(`캡처: .spec/comment-shots/${c.shot}`);
-  out.push('', ...c.thread.map((m) => `${m.who === 'user' ? '사용자' : '에이전트'} ${m.at.slice(0, 16).replace('T', ' ')}: ${m.text}${m.refs?.length ? `  [확인함: ${m.refs.join(', ')}]` : ''}`));
+  out.push('', ...c.thread.map((m) => `${m.who === 'user' ? '사용자' : '에이전트'} ${kst(m.at, true)}: ${m.text}${m.refs?.length ? `  [확인함: ${m.refs.join(', ')}]` : ''}`));
   return out.join('\n');
 }
 

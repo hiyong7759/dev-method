@@ -9,6 +9,7 @@ import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readConfig } from './config.js';
+import { kst } from './kst.js';
 import { loadRequests, noteSessionStarted, STAGE_LABEL, STEP } from './request.js';
 import { projectRoot, specDir } from './project.js';
 import type { Request, SessionCost } from './types.js';
@@ -135,7 +136,7 @@ function launch(root: string, scanRoot: string, id: number, sid: string, msg: st
 /** 요청 내용을 글에 직접 넣는다. 세션이 요청 파일을 읽느라 쓰는 턴(턴마다 기본 맥락을 다시 읽어 비용이 든다)을 없앤다 */
 function briefOf(req: Request | undefined): string {
   if (!req) return '';
-  const events = req.events.slice(-4).map((e) => `- ${e.at.slice(5, 16).replace('T', ' ')} ${e.by === 'user' ? '사용자' : '에이전트'}: ${e.note}${e.quote ? ` (사용자가 한 말: "${e.quote}")` : ''}`).join('\n');
+  const events = req.events.slice(-4).map((e) => `- ${kst(e.at)} ${e.by === 'user' ? '사용자' : '에이전트'}: ${e.note}${e.quote ? ` (사용자가 한 말: "${e.quote}")` : ''}`).join('\n');
   return `\n[요청 내용 — 아래에 넣었으니 요청 파일을 따로 읽지 않아도 됩니다]\n원문: ${req.origin.text.slice(0, 600)}\n상태: ${STAGE_LABEL[req.stage]} · ${STEP[`${req.stage}:${req.step}`]?.label ?? req.step}\n최근 기록:\n${events}\n`;
 }
 
