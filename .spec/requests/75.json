@@ -1,0 +1,31 @@
+{
+  "id": 75,
+  "title": "에이전트가 날짜·시각을 한국시간(KST)으로만 말하고 기록한다",
+  "source": "user",
+  "origin": {
+    "text": "사용자: 에이전트들이 한국 시간으로 얘기를 안 해서 너무 헷갈린다, 한국 시간 기준으로 응답하게 원칙을 정리해",
+    "channel": "대화",
+    "at": "2026-10-26T12:23:11.046Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "noTest": "핵심 문서(CORE.md)에 한 줄 더하는 글 수정이라 화면·동작 테스트 대상이 없다",
+  "stage": "design",
+  "step": "queued",
+  "events": [
+    {
+      "at": "2026-10-26T12:23:11.046Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}
