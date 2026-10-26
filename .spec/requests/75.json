@@ -15,17 +15,118 @@
     "impactOnly": []
   },
   "agent": {
-    "name": ""
+    "name": "요청 #75 담당"
   },
   "noTest": "핵심 문서(CORE.md)에 한 줄 더하는 글 수정이라 화면·동작 테스트 대상이 없다",
-  "stage": "design",
-  "step": "queued",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-26T12:23:11.046Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-26T12:51:44.233Z",
+      "by": "agent",
+      "kind": "started",
+      "note": "설계를 시작함(우선순위를 정해 시작)"
+    },
+    {
+      "at": "2026-10-26T12:51:44.242Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(6cf4dde7)"
+    },
+    {
+      "at": "2026-10-26T12:54:20.809Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(aa216a1e)"
+    },
+    {
+      "at": "2026-10-26T12:55:29.396Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: 요청 #75 담당"
+    },
+    {
+      "at": "2026-10-26T12:56:03.291Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 제출 (정보 변경 0건 · 화면 변경 0건)"
+    },
+    {
+      "at": "2026-10-26T12:56:11.264Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: 요청 #75 담당"
+    },
+    {
+      "at": "2026-10-26T13:01:20.057Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 승인"
+    },
+    {
+      "at": "2026-10-26T13:02:10.394Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 시작"
+    },
+    {
+      "at": "2026-10-26T13:02:27.572Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-26T13:02:41.812Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 없음 승인"
     }
-  ]
+  ],
+  "design": {
+    "understanding": "원칙 문장은 이미 CORE.md에 있는데도 헷갈리는 진짜 원인은, 도구가 에이전트에게 보여 주는 시각이 UTC(세계 표준시)로 찍혀 나오는 것이다. 한국시간으로 나오게 고친다.",
+    "points": [
+      {
+        "area": "원인",
+        "title": "도구 출력이 UTC 그대로",
+        "text": "'최근 기록 10-26 12:23'처럼 에이전트에게 전달되는 시각이 사실은 한국시간 21:23이다. 에이전트가 이 값을 그대로 옮겨 말해서 9시간 어긋난다. 원칙(CORE.md 10행)은 있으나 도구가 UTC를 내주면 지켜지기 어렵다."
+      },
+      {
+        "area": "도구",
+        "title": "시각을 한국시간으로 바꿔 보여 주는 함수 하나",
+        "text": "저장은 지금처럼 UTC(ISO)로 두고(비교·정렬이 안전), 사람·에이전트에게 보이는 글에서만 한국시간 표기로 바꾼다. 'MM-DD HH:mm KST'처럼 시간대 이름을 붙인다."
+      },
+      {
+        "area": "도구",
+        "title": "고칠 곳 5군데",
+        "text": "에이전트에게 가는 글: src/inbox.ts(새 소식 알림), src/session.ts(담당 세션 지시의 최근 기록), src/report.ts(리포트 발견·결정 시각), src/comment.ts(코멘트 스레드). 사용자 화면: src/viewer/comment.ts(코멘트 시각 표시)."
+      },
+      {
+        "area": "원칙",
+        "title": "CORE.md 문장 보강(한 줄)",
+        "text": "현재 '파일에 찍힌 시각을 그대로 옮기지 않는다'를 '파일·도구 출력의 시각(UTC, 끝에 Z 또는 +00:00)은 한국시간으로 바꿔 옮긴다. 바꿀 수 없으면 UTC라고 밝힌다'로 구체화한다. SETTINGS.md는 그대로."
+      },
+      {
+        "area": "확인",
+        "title": "시험",
+        "text": "UTC 12:23이 KST 21:23으로 나오는 단위 시험을 더하고, 요청 #75 자신의 기록으로 inbox 출력을 눈으로 확인한다."
+      }
+    ],
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": false,
+    "rejected": 0
+  },
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": true,
+    "sigs": {}
+  }
 }

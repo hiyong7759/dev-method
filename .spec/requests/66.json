@@ -12,21 +12,127 @@
       "요청 상세"
     ],
     "infos": [],
-    "scenarios": [],
+    "scenarios": [
+      "반려한 사유를 다시 쓰는 동안 확인한다"
+    ],
     "steps": [],
     "impactOnly": []
   },
   "agent": {
-    "name": ""
+    "name": "요청 #66 담당"
   },
-  "stage": "design",
-  "step": "queued",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-24T12:00:29.423Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-24T13:25:58.395Z",
+      "by": "agent",
+      "kind": "started",
+      "note": "설계를 시작함(우선순위를 정해 시작)"
+    },
+    {
+      "at": "2026-10-24T13:25:58.401Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(081e3bcf)"
+    },
+    {
+      "at": "2026-10-24T13:27:34.811Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: 요청 #66 담당"
+    },
+    {
+      "at": "2026-10-24T13:28:51.102Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 제출 (정보 변경 0건 · 화면 변경 1건)"
+    },
+    {
+      "at": "2026-10-24T13:41:24.465Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 승인"
+    },
+    {
+      "at": "2026-10-24T13:49:24.587Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 시작"
+    },
+    {
+      "at": "2026-10-24T13:51:36.635Z",
+      "by": "agent",
+      "kind": "scope",
+      "note": "범위에 시나리오 연결: 반려한 사유를 다시 쓰는 동안 확인한다"
+    },
+    {
+      "at": "2026-10-24T13:51:58.566Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-24T14:47:44.801Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 승인"
     }
-  ]
+  ],
+  "design": {
+    "understanding": "설계를 반려하면 요청 상세 오른쪽 패널에서 반려 사유가 사라지므로, 다시 쓰는 동안 가장 최근 반려 사유 하나를 그 패널에 보인다",
+    "points": [
+      {
+        "area": "요청 상세 오른쪽 패널",
+        "title": "다시 쓰는 중에 가장 최근 반려 사유를 보인다",
+        "text": "'설계 다시 작성 중' 카드 안에 가장 최근 반려의 사유 전문, 반려한 시각, 몇 번째 반려인지를 보인다. 이전 반려는 보이지 않고, 전부 보려면 가운데의 설계 칸 진행 기록을 본다."
+      },
+      {
+        "area": "다시 올렸을 때",
+        "title": "승인 대기가 되면 사유 칸은 사라진다",
+        "text": "에이전트가 설계를 다시 올리면 패널은 지금처럼 승인·반려 칸으로 바뀌고 사유 칸은 없어진다. 또 반려하면 새 사유로 바뀐다."
+      },
+      {
+        "area": "정보·저장",
+        "title": "새로 저장하는 것이 없다",
+        "text": "사유는 이미 요청의 진행 기록(design-rejected)에 남아 있어 그걸 읽어 보이기만 한다. 요청 파일 모양과 에이전트 명령은 그대로다."
+      }
+    ],
+    "approach": "",
+    "changes": [],
+    "screens": [
+      {
+        "screen": "요청 상세",
+        "after": "r66-d1-after.png",
+        "before": "r66-d1-before.png",
+        "beforeSource": "tool",
+        "capturedAt": "2026-10-24T13:28:25.615Z",
+        "link": "",
+        "note": "오른쪽 패널의 '설계 다시 작성 중' 카드에 가장 최근 반려 사유 칸이 생긴다",
+        "counts": {
+          "add": 1,
+          "change": 0,
+          "remove": 0
+        },
+        "highlights": [
+          "가장 최근 반려 사유 칸"
+        ]
+      }
+    ],
+    "none": false,
+    "rejected": 0
+  },
+  "test": {
+    "checks": {
+      "반려한 사유를 다시 쓰는 동안 확인한다#1": true
+    },
+    "found": [],
+    "none": false
+  }
 }

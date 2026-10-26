@@ -23,8 +23,8 @@
   "agent": {
     "name": "요청 #64 담당"
   },
-  "stage": "test",
-  "step": "requested",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-24T11:29:24.452Z",
@@ -134,6 +134,13 @@
       "by": "agent",
       "kind": "test-requested",
       "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-26T12:48:19.770Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "#67, #73, #64, #65, #62, #74는 바로 전부 승인 처리하고"
     }
   ],
   "mergedFrom": [

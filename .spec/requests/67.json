@@ -21,8 +21,8 @@
   "agent": {
     "name": "요청 #67 담당"
   },
-  "stage": "test",
-  "step": "requested",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-24T12:40:03.003Z",
@@ -95,6 +95,13 @@
       "by": "agent",
       "kind": "test-requested",
       "note": "고친 뒤 테스트 다시 요청"
+    },
+    {
+      "at": "2026-10-26T12:48:18.988Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "#67, #73, #64, #65, #62, #74는 바로 전부 승인 처리하고"
     }
   ],
   "design": {
@@ -154,7 +161,7 @@
   "test": {
     "checks": {},
     "found": [],
-    "none": false
+    "none": true
   },
   "noTest": "화면이 바뀌지 않는다. 안 쓰이던 정보 필드를 지우고 점검 결과를 정리했을 뿐이라 따로 볼 화면이 없다"
 }

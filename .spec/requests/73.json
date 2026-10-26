@@ -17,8 +17,8 @@
   "agent": {
     "name": "요청 #73 담당"
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-24T14:22:00.891Z",
@@ -73,6 +73,31 @@
       "by": "user",
       "kind": "design-approved",
       "note": "설계 없음 승인"
+    },
+    {
+      "at": "2026-10-24T14:52:30.183Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 46e4908"
+    },
+    {
+      "at": "2026-10-24T14:52:30.464Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-24T15:08:10.462Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "고친 뒤 테스트 다시 요청"
+    },
+    {
+      "at": "2026-10-26T12:48:19.502Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "#67, #73, #64, #65, #62, #74는 바로 전부 승인 처리하고"
     }
   ],
   "design": {
@@ -130,5 +155,13 @@
     "none": true,
     "rejected": 1
   },
-  "noTest": "바뀌는 화면이 없다. 명령줄 도구(testdata)와 테스트 올릴 때의 확인이 추가될 뿐이라 따로 볼 화면이 없다. 대신 사용자가 쓸 때 보이는 것은 testdata 명령의 출력과, 정상 경우 데이터가 없으면 request test가 거부하는 안내다"
+  "noTest": "바뀌는 화면이 없다. 명령줄 도구(testdata)와 테스트 올릴 때의 확인이 추가될 뿐이라 따로 볼 화면이 없다. 대신 사용자가 쓸 때 보이는 것은 testdata 명령의 출력과, 정상 경우 데이터가 없으면 request test가 거부하는 안내다",
+  "commits": [
+    "46e4908"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": true
+  }
 }

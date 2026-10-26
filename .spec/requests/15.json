@@ -37,8 +37,8 @@
   "agent": {
     "name": "요청 #15 담당"
   },
-  "stage": "test",
-  "step": "requested",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-21T14:00:45.729Z",
@@ -332,6 +332,12 @@
       "by": "agent",
       "kind": "scope",
       "note": "범위에 시나리오 연결: 요청의 진행을 확인한다, 요청을 시작하고 설계를 승인한다"
+    },
+    {
+      "at": "2026-10-24T13:21:12.886Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 승인"
     }
   ],
   "design": {
@@ -594,7 +600,13 @@
     "ad3d396"
   ],
   "test": {
-    "checks": {},
+    "checks": {
+      "요청의 진행을 확인한다#1": true,
+      "요청의 진행을 확인한다#2": true,
+      "요청의 진행을 확인한다#3": true,
+      "요청을 시작하고 설계를 승인한다#1": true,
+      "요청을 시작하고 설계를 승인한다#2": true
+    },
     "found": [],
     "none": false
   }
