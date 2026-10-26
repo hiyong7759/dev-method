@@ -317,6 +317,8 @@ export function commentTool(init: Model): CommentTool {
     const mine = basket(), nHere = mine.filter(sameView).length + model.comments.filter(sameView).length, nAll = mine.length + model.comments.length;
     const info = path ? pathInfo() : null, canAct = !!info && info.r.step === 'requested' && info.r.stage === 'test' && !model.testEnv;
     const allDone = !!info && info.steps.every((st) => info.r.test?.checks[`${info.sc.name}#${st.id}`]);
+    // 평소 화면에서는 담아 둔 코멘트가 있거나 창이 열려 있을 때만 줄을 보인다(늘 떠 있으면 의미가 없다). 테스트 경로에서는 늘 보인다
+    bar.style.display = path || open || mine.length ? '' : 'none';
     const count = (k: 'here' | 'all', label: string, n: number): HTMLElement => h('button', { class: `cnt${open && tab === k ? ' on' : ''}`, onclick: () => { open = !(open && tab === k); tab = k; if (!open) stopPick(); draw(); } }, `${label} ${n}`);
     bar.replaceChildren(count('here', '이 화면', nHere), count('all', '전체', nAll), h('span', { class: 'grow' }),
       ...canAct ? [h('button', { class: 'btn bad', onclick: () => { void sendAll(true); } }, `한번에 보내기(반려)${mine.length ? ` ${mine.length}` : ''}`),
