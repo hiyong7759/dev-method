@@ -127,16 +127,17 @@ function reviewRecommend(r: ReviewItem): Rec {
 /** 리포트 화면에 보일 줄들: 에이전트 발견 + 확인 필요(처리한 것도 결정과 함께) */
 export function reportRows(agent: AgentReport[], reviews: ReviewItem[], decisions: Record<string, Decision>, allNotes: Record<string, ReportNote[]>, numbers: Record<string, number>, screens: Set<string>, infos: Set<string>): ReportRow[] {
   const kindOf = (name: string): 'screen' | 'info' | 'other' => (screens.has(name) ? 'screen' : infos.has(name) ? 'info' : 'other');
-  const state = (id: string, first: Rec): Pick<ReportRow, 'decision' | 'notes' | 'stage' | 'recommend' | 'pending' | 'toolRequest'> => {
+  const state = (id: string, first: Rec, tool: boolean): Pick<ReportRow, 'decision' | 'notes' | 'stage' | 'recommend' | 'pending' | 'toolRequest'> => {
     const decision = decisions[id] ?? null, notes = allNotes[id] ?? [];
     const stage = stageOf(decision, notes), recommend = recommendOf(first, notes);
     // 추천을 못 채운 건은 사용자 앞에 '추천 없음'으로 올리지 않고 에이전트 몫으로 남긴다(사용자가 의견을 달아 맡긴 건은 확인 중이라 그대로)
-    const pending = !decision && stage !== '확인 중' && !recommend.pick;
+    // 도구가 못 읽는 모양은 처음부터 추천이 없는 게 정상이라(도구 몫) 에이전트가 채울 게 없으므로 정리 중에 넣지 않는다
+    const pending = !decision && !tool && stage !== '확인 중' && !recommend.pick;
     return { decision, notes, stage, recommend, pending, ...(decision?.state === 'tool' && decision.request ? { toolRequest: decision.request } : {}) };
   };
   const rows: ReportRow[] = [
-    ...agent.map((a): ReportRow => ({ id: a.id, no: numbers[a.id] ?? 0, origin: 'agent', title: a.title, detail: a.detail, label: a.label, from: a.from, where: a.where.map((n) => ({ kind: kindOf(n), name: n })), at: a.at, review: null, tool: false, ...state(a.id, { pick: a.recommend ?? null, why: a.why ?? '' }) })),
-    ...reviews.map((r): ReportRow => ({ id: r.id, no: numbers[r.id] ?? 0, origin: 'review', title: r.title, detail: r.help, label: '', from: r.screens.length ? '현행 구조 검사' : '정보 검사', where: [{ kind: 'info', name: r.info }, ...r.screens.map((n) => ({ kind: 'screen' as const, name: n }))], at: '', review: r, tool: isToolLimit(r), ...state(r.id, reviewRecommend(r)) })),
+    ...agent.map((a): ReportRow => ({ id: a.id, no: numbers[a.id] ?? 0, origin: 'agent', title: a.title, detail: a.detail, label: a.label, from: a.from, where: a.where.map((n) => ({ kind: kindOf(n), name: n })), at: a.at, review: null, tool: false, ...state(a.id, { pick: a.recommend ?? null, why: a.why ?? '' }, false) })),
+    ...reviews.map((r): ReportRow => ({ id: r.id, no: numbers[r.id] ?? 0, origin: 'review', title: r.title, detail: r.help, label: '', from: r.screens.length ? '현행 구조 검사' : '정보 검사', where: [{ kind: 'info', name: r.info }, ...r.screens.map((n) => ({ kind: 'screen' as const, name: n }))], at: '', review: r, tool: isToolLimit(r), ...state(r.id, reviewRecommend(r), isToolLimit(r)) })),
   ];
   return rows;
 }

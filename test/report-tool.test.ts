@@ -19,6 +19,14 @@ test('추천을 못 채운 에이전트 발견은 정리 중이라 결정할 건
   assert.match(describeRow(row), /정리 중/);
 });
 
+test('도구가 못 읽는 모양은 추천이 처음부터 비어 있어도 정리 중에 넣지 않는다(도구 몫)', () => {
+  const review = { id: 'review:x', title: '손으로 다시 정의한 필드', help: '', info: 'LoginSetting', screens: [], where: 'a.ts', also: ['b.ts'], scenarios: [], tone: 'warn', prop: 'password' } as never;
+  const [row] = reportRows([], [review], {}, {}, { 'review:x': 1 }, new Set(), new Set());
+  assert.equal(row.tool, true);
+  assert.equal(row.recommend.pick, null);
+  assert.equal(row.pending, false);
+});
+
 test('추천을 채우면 결정 대기로 올라온다', () => {
   const [byFirst] = rowsOf([agent({ recommend: 'kept', why: '일부러 그렇다' })]);
   assert.equal(byFirst.pending, false);

@@ -274,7 +274,12 @@ function finishProblem(scanRoot: string): string {
 function shortCommit(scanRoot: string, commit: string): string {
   const c = commit.trim();
   if (!c || /^[0-9a-f]{3,40}$/i.test(c)) return c;
-  try { return execFileSync('git', ['rev-parse', '--short', c], { cwd: projectRoot(scanRoot), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || c; } catch { throw new Error(`커밋 "${c}"을 git에서 찾지 못했다. 커밋 해시(짧은 것도 됨)나 HEAD를 준다`); }
+  try {
+    const h = execFileSync('git', ['rev-parse', '--short', c], { cwd: projectRoot(scanRoot), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || c;
+    // 아직 커밋하기 전에 HEAD를 주면 직전 커밋이 적히므로, 무엇으로 적었는지 알려 잘못 적었으면 해시로 다시 적게 한다
+    console.warn(`"${c}"는 지금 가리키는 커밋 ${h}로 적었다. 이번 구현 커밋이 아직 없다면 커밋한 뒤 그 해시로 다시 적는다`);
+    return h;
+  } catch { throw new Error(`커밋 "${c}"을 git에서 찾지 못했다. 커밋 해시(짧은 것도 됨)나 HEAD를 준다`); }
 }
 
 /** 에이전트가 구현을 시작했거나 커밋을 남겼음을 적는다 */
