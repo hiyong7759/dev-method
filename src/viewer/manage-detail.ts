@@ -17,7 +17,8 @@ function act(path: string, body: Record<string, unknown>, done: string, onChange
 }
 /** 담당 세션의 지난 대화를 읽기만 해서 보여 준다(세션에 접속하지 않으니 일하는 세션이 멈추지 않는다). 누를 때 읽는다 */
 function conversationBox(id: number): HTMLElement {
-  const body = h('div', { class: 'tabcol' });
+  // 대화는 오래된 것부터 줄줄이 이어져 수백 줄이 되므로, 정해진 높이 안에서 넘겨 보게 하고 열면 가장 최근(맨 아래)이 보이게 한다
+  const body = h('div', { class: 'tabcol', style: 'max-height:520px;overflow:auto' });
   let loaded = false;
   const show = (): void => {
     if (loaded) return;
@@ -27,6 +28,7 @@ function conversationBox(id: number): HTMLElement {
         h('div', { class: 'hint' }, `세션 ${c.sid.slice(0, 8)} · 대화 ${c.total}줄${c.total > c.turns.length ? ` 중 마지막 ${c.turns.length}줄` : ''}`),
         ...(c.turns.length ? c.turns.map((t) => h('div', { class: t.role === 'tool' ? 'hint' : 'quote' }, h('b', null, `${t.role === 'user' ? '받은 글' : t.role === 'agent' ? '에이전트' : '도구'} · ${t.at ? fmt(t.at) : ''} `), t.text)) : [h('div', { class: 'hint' }, '남은 대화 기록이 없습니다.')]),
       ]), ...(list.length ? [] : [h('div', { class: 'hint' }, '담당 세션이 아직 없습니다.')]));
+      body.scrollTop = body.scrollHeight;
     }).catch((e: unknown) => { loaded = false; body.replaceChildren(h('div', { class: 'hint' }, errorText(e))); });
   };
   return h('details', { class: 'box', ontoggle: show }, h('summary', null, h('b', null, '대화 보기'), ' · 담당 세션이 지금까지 한 일(읽기만 하며 일을 멈추지 않습니다)'), body);
@@ -317,7 +319,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   const implEvents = r.events.filter((e) => e.kind === 'impl' || e.kind === 'test-requested');
   const comps = [...new Set((r.scope.scenarios ?? []).flatMap((n) => model.scenarios.find((s) => s.name === n)?.steps.map((st) => st.owner) ?? []))];
   const cards: HTMLElement[] = [
-    fold('agent', '맡은 에이전트', idx === 0, r.agent.name ? [chip('ag', r.agent.name), ` 마지막 기록 ${fmt(r.events[r.events.length - 1].at)}`, r.cost && (r.cost.start || r.cost.wake) ? ` · 비용 약 $${r.cost.usd.toFixed(2)}` : ''] : '아직 정해지지 않았습니다',
+    fold('agent', '맡은 에이전트', idx === 0 || !!r.agent.name, r.agent.name ? [chip('ag', r.agent.name), ` 마지막 기록 ${fmt(r.events[r.events.length - 1].at)}`, r.cost && (r.cost.start || r.cost.wake) ? ` · 비용 약 $${r.cost.usd.toFixed(2)}` : ''] : '아직 정해지지 않았습니다',
       [r.agent.name ? conversationBox(r.id) : null,
       r.agent.name ? h('div', { class: 'rm' }, h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, `claude attach ${r.agent.name}`), h('button', { class: 'btn sm', onclick: () => { void copyText(`claude attach ${r.agent.name}`).then(() => toast('복사했습니다')); } }, '복사'), h('span', { class: 'hint' }, `일하는 중에 들어가면 일이 멈출 수 있습니다. 지난 일은 위 "대화 보기"로 보세요. VS Code는 세션 목록에서 "${r.agent.name}"`))
         : h('div', { class: 'hint' }, '이 요청만 알고 일하는 에이전트입니다. 맡으면 이름이 여기에 나옵니다.'),
