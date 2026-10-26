@@ -14,9 +14,10 @@ export const RESEND_AFTER_MIN = 5;
 export const RESEND_MAX = 2;
 
 /** 결정으로 보는 사용자 기록 종류 */
-const DECISIONS = new Set(['design-approved', 'design-rejected', 'test-approved', 'test-problem', 'redesigned']);
+/** (테스트 승인은 요청을 완료로 닫아 이어서 할 일이 없으니 담당 세션에 전달할 결정이 아니다) */
+const DECISIONS = new Set(['design-approved', 'design-rejected', 'test-problem', 'redesigned']);
 /** 반영으로 치지 않는 에이전트 기록 종류(세션을 만들거나 이름을 정한 것은 결정을 읽은 일이 아니다) */
-const NOT_APPLIED = new Set(['session-started', 'agent', 'created', 'started']);
+const NOT_APPLIED = new Set(['session-started', 'session-failed', 'agent', 'created', 'started']);
 
 /** 저장되는 모양 */
 interface Stored { decidedAt: string; sentAt?: string; readAt?: string; lastSentAt?: string; resent: number; via?: 'wake' | 'hook' }

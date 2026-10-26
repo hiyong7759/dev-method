@@ -1,16 +1,17 @@
 /**
  * @spec owner-session 요청 담당 세션 만들기와 비용 기록
  * @why 요청을 시작하면 그 요청 하나만 맡는 세션이 있어야 설계를 쓰고 사용자 결정에 이어서 일할 수 있다. 사람이 세션을 따로 열지 않아도 되게 서버·명령이 세션을 새로 만들고, 만들거나 깨울 때마다 든 비용을 요청별로 남겨 얼마나 드는지 본다.
- * @contract 프로젝트 설정 `wake: true`일 때만 세션을 만든다(호출마다 비용이 들기 때문). 새 세션은 `claude -p 글 --session-id 새번호`로 만들고 .spec/sessions.json에 요청 번호와 함께 바로 적는다. 요청 하나에 담당이 이미 있으면 새로 만들지 않는다. claude는 결과를 JSON으로 받아(`--output-format json`) 토큰과 비용을 .spec/session-costs.json에 적는다. 도구 호출은 기다리지 않고 따로 떨어져 돌며(서버·명령이 먼저 끝나도 계속), 결과는 .spec/wake.log에 남긴다. 어떤 경우에도 시작·결정 자체를 실패시키지 않는다.
+ * @contract 프로젝트 설정 `wake: true`일 때만 세션을 만든다(호출마다 비용이 들기 때문). 시작은 줄 없이 바로, 깨움은 같은 세션끼리 차례로·서로 다른 세션은 3개까지 동시에 돈다. 담당 등록 전의 "시작 중" 세션(30분 안)은 옛 기록으로 걷어 내지 않고, 10분 넘게 소식이 없으면 retryStalledStarts가 한 번 다시 시작한다.새 세션은 `claude -p 글 --session-id 새번호`로 만들고 .spec/sessions.json에 요청 번호와 함께 바로 적는다. 요청 하나에 담당이 이미 있으면 새로 만들지 않는다. claude는 결과를 JSON으로 받아(`--output-format json`) 토큰과 비용을 .spec/session-costs.json에 적는다. 도구 호출은 기다리지 않고 따로 떨어져 돌며(서버·명령이 먼저 끝나도 계속), 결과는 .spec/wake.log에 남긴다. 어떤 경우에도 시작·결정 자체를 실패시키지 않는다.
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readConfig } from './config.js';
 import { kst } from './kst.js';
-import { loadRequests, noteSessionStarted, STAGE_LABEL, STEP } from './request.js';
+import { loadRequests, noteSessionFailed, noteSessionStarted, STAGE_LABEL, STEP } from './request.js';
 import { projectRoot, specDir } from './project.js';
 import type { Request, SessionCost } from './types.js';
 
@@ -25,8 +26,18 @@ const CACHE_COLD_MS = 60 * 60 * 1000;
 /** 대화 기록이 이만큼 커도 압축한다(캐시가 따뜻해도 매 턴 읽는 양이 크다) */
 const BIG_BYTES = 500 * 1024;
 
+/** 서로 다른 세션의 깨움을 동시에 돌릴 수 있는 수 */
+const WAKE_SLOTS = 3;
+
 /** 이 도구의 입구 파일(다른 프로젝트에서도 같은 도구를 부른다) */
 const SPEC_MJS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'skills', 'spec-view', 'spec.mjs');
+
+/** 세션 기록 파일 위치: ~/.claude/projects/<실제 프로젝트 경로에서 글자·숫자 아닌 것을 -로 바꾼 이름>/<세션>.jsonl */
+export function transcriptOf(root: string, sid: string): string {
+  let real = root;
+  try { real = fs.realpathSync(root); } catch { /* 없으면 그대로 */ }
+  return path.join(os.homedir(), '.claude', 'projects', real.replace(/[^A-Za-z0-9]/g, '-'), `${sid}.jsonl`);
+}
 
 /** 비용 기록 파일 */
 const costFile = (scanRoot: string): string => path.join(specDir(scanRoot), 'session-costs.json');
@@ -85,6 +96,19 @@ export function ownersOf(root: string, id: number): string[] {
   } catch { return []; }
 }
 
+/** 시작한 지 이 안이면 아직 시작 중인 세션으로 본다 */
+const STARTING_MS = 30 * 60 * 1000;
+/** 시작한 뒤 담당 등록이 이만큼 없고 기록도 안 늘면 빠진 것으로 보고 다시 시작한다 */
+const STALLED_MS = 10 * 60 * 1000;
+
+/** 요청 id에 서버가 만들어 아직 시작 중인 담당 세션이 있는지 */
+function hasStarting(root: string, id: number): boolean {
+  try {
+    const all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')) as Record<string, { request: number; starting?: string }>;
+    return Object.values(all).some((v) => v.request === id && v.starting && Date.now() - Date.parse(v.starting) < STARTING_MS);
+  } catch { return false; }
+}
+
 /** 요청의 담당 기록을 모두 지운다(담당을 정한 적 없는 세션이 담당으로 남은 옛 기록을 걷어 낼 때) */
 function unregisterOwners(root: string, id: number): void {
   try {
@@ -96,9 +120,10 @@ function unregisterOwners(root: string, id: number): void {
 
 /** 세션이 어느 요청의 담당인지 적는다(훅이 적는 것과 같은 모양) */
 function registerOwner(root: string, sid: string, id: number): void {
-  let all: Record<string, { request: number; seen: string }> = {};
+  let all: Record<string, { request: number; seen: string; starting?: string; retried?: boolean }> = {};
   try { all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')); } catch { /* 처음이면 새로 */ }
-  all[sid] = { request: id, seen: '' };
+  // starting: 이 서버가 만든 시각. 담당 등록이 끝나기 전의 세션을 옛 기록으로 오해해 걷어 내지 않는 근거다
+  all[sid] = { request: id, seen: '', starting: new Date().toISOString() };
   fs.mkdirSync(path.join(root, '.spec'), { recursive: true });
   fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
 }
@@ -115,6 +140,7 @@ export interface Step {
 
 /** 떨어져 도는 셸을 띄워 단계들을 차례로 한다. 서버·명령은 기다리지 않는다 */
 function launch(root: string, scanRoot: string, id: number, sid: string, msg: string, steps: Step[]): void {
+  const kind = steps[0].kind;
   const src = path.relative(root, scanRoot) || '.';
   const allowed = ALLOWED.map((a) => `'${a}'`).join(' ');
   const dir = path.join(root, '.spec', 'wake-out');
@@ -125,9 +151,16 @@ function launch(root: string, scanRoot: string, id: number, sid: string, msg: st
     `rc=$?; echo "$(date -u +%Y-%m-%dT%H:%M:%S.000Z) #${id} ${sid} ${st.kind === 'start' ? '시작' : '깨움'} 단계 ${i + 1}/${steps.length} 끝남 종료코드=$rc" >> "$LOG"`,
     `node "$SPEC" cost --src "$SRC" --id ${id} --sid ${sid} --kind ${st.kind} --file "${base}-${i}.json" >> "$LOG" 2>&1`,
   ].join('; '));
-  // 세션을 부르는 일은 한 번에 하나씩 차례로 한다. 앞 호출이 데운 캐시를 다음 호출이 쓰게 해 비용을 아낀다(잠금은 30분이 지나면 낡은 것으로 보고 푼다)
-  const lock = `LOCK="$ROOT/.spec/wake-out/lock"; until mkdir "$LOCK" 2>/dev/null; do if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ]; then rmdir "$LOCK" 2>/dev/null; fi; sleep 1; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT`;
-  spawn('sh', ['-c', `${lock}; ${lines.join('; ')}`], {
+  // 새 세션 시작은 줄을 서지 않고 바로 한다(이어 쓸 캐시가 없고, 줄에 밀리면 시작이 몇 분 늦어 빠진 것처럼 보인다).
+  // 깨움은 ① 같은 세션에는 한 번에 하나씩(앞 호출이 데운 캐시를 다음 호출이 쓰게 해 비용을 아끼고, 같은 대화에 둘이 끼어들지 않게) ② 전체로는 동시에 WAKE_SLOTS개까지만 한다(여러 건을 한꺼번에 승인해도 한 줄로 밀리지 않게). 잠금은 30분이 지나면 낡은 것으로 보고 푼다
+  const lock = kind === 'start' ? '' : [
+    'D="$ROOT/.spec/wake-out"',
+    'stale() { if [ -n "$(find "$1" -maxdepth 0 -mmin +30 2>/dev/null)" ]; then rmdir "$1" 2>/dev/null; fi; }',
+    `SL="$D/s-${sid}"; until mkdir "$SL" 2>/dev/null; do stale "$SL"; sleep 1; done`,
+    `got=; while [ -z "$got" ]; do n=0; while [ $n -lt ${WAKE_SLOTS} ]; do if mkdir "$D/slot$n" 2>/dev/null; then got=$n; break; fi; stale "$D/slot$n"; n=$((n+1)); done; if [ -z "$got" ]; then sleep 1; fi; done`,
+    `trap 'rmdir "$SL" "$D/slot$got" 2>/dev/null' EXIT`,
+  ].join('; ');
+  spawn('sh', ['-c', `${lock ? `${lock}; ` : ''}${lines.join('; ')}`], {
     cwd: root, detached: true, stdio: 'ignore',
     env: { ...process.env, MSG: msg, SPEC: SPEC_MJS, SRC: src, LOG: logFile(root), ROOT: root },
   }).unref();
@@ -162,6 +195,8 @@ export function startOwner(scanRoot: string, id: number, why: 'start' | 'decisio
     if (ownersOf(root, id).length) {
       // 담당을 정한 적 없는(request agent를 안 부른) 요청의 옛 담당 기록은 요청을 접수한 세션이 남긴 것이라 담당이 아니다
       if (req?.agent.name) { fs.appendFileSync(log, `${new Date().toISOString()} #${id} 담당 세션이 이미 있어 새로 만들지 않음\n`); return null; }
+      // 방금 만든 세션이 아직 담당을 등록하지 못한 것(시작 중)이면 옛 기록이 아니다. 걷어 내고 새로 만들면 담당이 둘이 된다
+      if (hasStarting(root, id)) { fs.appendFileSync(log, `${new Date().toISOString()} #${id} 담당 세션이 시작 중이라 새로 만들지 않음\n`); return null; }
       unregisterOwners(root, id);
       fs.appendFileSync(log, `${new Date().toISOString()} #${id} 담당을 정한 적 없는 옛 기록이라 걷어 내고 새로 만듦\n`);
     }
@@ -186,4 +221,38 @@ export function resumeOwner(scanRoot: string, id: number, sid: string, decided: 
   if (why) steps.unshift({ args: `--resume ${sid}`, prompt: '"/compact"', kind: 'wake' });
   fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} ${sid} ${why ? `압축하고 지시함(${why})` : '압축 없이 바로 지시함'}\n`);
   launch(root, scanRoot, id, sid, msg, steps);
+}
+
+/** 서버가 1분마다 부른다: 시작했는데 담당 등록이 STALLED_MS 넘게 없고 세션 기록도 늘지 않는 요청을 한 번 다시 시작한다. 그래도 안 되면 진행 기록에 실패로 남겨 사용자가 알게 한다 */
+export function retryStalledStarts(scanRoot: string): number[] {
+  const done: number[] = [];
+  try {
+    const root = projectRoot(scanRoot);
+    if (!readConfig(root).wake) return done;
+    const all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')) as Record<string, { request: number; seen: string; starting?: string; retried?: boolean; failed?: boolean }>;
+    const reqs = loadRequests(scanRoot);
+    for (const [sid, v] of Object.entries(all)) {
+      if (!v.starting || v.failed) continue;
+      const req = reqs.find((r) => r.id === v.request);
+      if (!req || req.agent.name || req.stage !== 'design') continue;
+      const age = Date.now() - Date.parse(v.starting);
+      let quiet = Infinity, exists = false;
+      try { quiet = Date.now() - fs.statSync(transcriptOf(root, sid)).mtimeMs; exists = true; } catch { /* 기록이 없으면 아직 시작도 못 한 것 */ }
+      if (age < STALLED_MS * (v.retried ? 2 : 1) || quiet < STALLED_MS) continue;
+      const log = logFile(root);
+      if (v.retried) {
+        v.failed = true;
+        noteSessionFailed(scanRoot, v.request, sid);
+        fs.appendFileSync(log, `${new Date().toISOString()} #${v.request} ${sid} 다시 시작했는데도 담당 등록이 없어 실패로 남김\n`);
+      } else {
+        v.retried = true;
+        const msg = newOwnerMessage(scanRoot, root, req, v.request, '');
+        fs.appendFileSync(log, `${new Date().toISOString()} #${v.request} ${sid} 시작이 끝나지 않아 같은 세션으로 다시 시작함\n`);
+        launch(root, scanRoot, v.request, sid, msg, [{ args: `${exists ? '--resume' : '--session-id'} ${sid} --name "요청 #${v.request} 담당"`, prompt: '"$MSG"', kind: 'start' }]);
+      }
+      done.push(v.request);
+    }
+    if (done.length) fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
+  } catch { /* 점검이 실패해도 서버는 계속 돈다 */ }
+  return done;
 }

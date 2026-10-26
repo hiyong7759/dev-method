@@ -7,7 +7,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { wakeOwner } from '../src/wake.js';
-import { startOwner, parseUsage } from '../src/session.js';
+import { startOwner, parseUsage, retryStalledStarts } from '../src/session.js';
+import { conversationsOf } from '../src/conversation.js';
+import { openDelivery } from '../src/delivery.js';
 import { addRequest, setAgent } from '../src/request.js';
 import { tempProject } from './helpers.js';
 
@@ -199,7 +201,7 @@ test('1시간 넘게 쉬었거나 대화 기록이 크면 먼저 압축한다', 
   } finally { env.restore(); }
 });
 
-test('세션을 부르는 일은 한 번에 하나씩 차례로 한다(앞 호출이 데운 캐시를 쓰게)', async () => {
+test('새 세션 시작은 줄을 서지 않고 바로 한다(줄에 밀려 시작이 늦어져 빠진 것처럼 보이지 않게)', async () => {
   const env = fakeEnv();
   try {
     // 호출마다 시작·끝 시각을 남기고 잠깐 걸리는 가짜 claude
@@ -208,7 +210,90 @@ test('세션을 부르는 일은 한 번에 하나씩 차례로 한다(앞 호�
     const { src } = tempProject({ wake: true }); addRequest(src, { title: 'a' }); addRequest(src, { title: 'b' });
     assert.ok(startOwner(src, 1, 'start')); assert.ok(startOwner(src, 2, 'start'));
     await wait(() => fs.existsSync(env.calls) && fs.readFileSync(env.calls, 'utf8').trim().split('\n').length >= 4);
-    assert.deepEqual(fs.readFileSync(env.calls, 'utf8').trim().split('\n'), ['시작', '끝', '시작', '끝'], '겹치지 않고 하나가 끝난 뒤 다음이 시작한다');
+    assert.deepEqual(fs.readFileSync(env.calls, 'utf8').trim().split('\n'), ['시작', '시작', '끝', '끝'], '시작은 서로 기다리지 않는다');
+  } finally { env.restore(); }
+});
+
+test('같은 세션을 부르는 깨움은 한 번에 하나씩 차례로 한다(같은 대화에 둘이 끼어들지 않게)', async () => {
+  const env = fakeEnv();
+  try {
+    const bin = path.dirname(path.join(path.dirname(env.calls), 'bin', 'claude'));
+    fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\nif [ "$1" = "agents" ]; then cat "${env.agents}"; exit 0; fi\necho "시작" >> "${env.calls}"; sleep 1; echo "끝" >> "${env.calls}"\necho '{"total_cost_usd":0.1,"usage":{}}'\n`, { mode: 0o755 });
+    const { src } = closedSession(env, 20, 1000);
+    wakeOwner(src, 1, true); wakeOwner(src, 1, true);
+    await wait(() => fs.existsSync(env.calls) && fs.readFileSync(env.calls, 'utf8').trim().split('\n').length >= 4);
+    assert.deepEqual(fs.readFileSync(env.calls, 'utf8').trim().split('\n'), ['시작', '끝', '시작', '끝']);
+  } finally { env.restore(); }
+});
+
+test('시작 중인 담당 세션은 옛 기록으로 보지 않아, 다시 시작해도 담당이 둘이 되지 않는다', () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = tempProject({ wake: true }); addRequest(src, { title: '연달아 시작' });
+    const first = startOwner(src, 1, 'start');
+    assert.ok(first);
+    assert.equal(startOwner(src, 1, 'start'), null, '담당 등록 전이라도 시작한 지 얼마 안 됐으면 새로 만들지 않는다');
+    const sessions = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'sessions.json'), 'utf8')) as Record<string, unknown>;
+    assert.deepEqual(Object.keys(sessions), [first]);
+    assert.match(fs.readFileSync(path.join(root, '.spec', 'wake.log'), 'utf8'), /시작 중이라 새로 만들지 않음/);
+  } finally { env.restore(); }
+});
+
+test('시작한 지 10분이 넘도록 담당 등록도 기록도 없으면 같은 세션으로 한 번 다시 시작하고, 그래도 안 되면 실패로 남긴다', async () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = tempProject({ wake: true }); addRequest(src, { title: '빠진 시작' });
+    const sid = startOwner(src, 1, 'start') as string;
+    await wait(() => fs.existsSync(env.calls));
+    fs.writeFileSync(env.calls, '');
+    const file = path.join(root, '.spec', 'sessions.json');
+    const age = (min: number): void => { const s = JSON.parse(fs.readFileSync(file, 'utf8')); s[sid].starting = new Date(Date.now() - min * 60000).toISOString(); fs.writeFileSync(file, JSON.stringify(s)); };
+    assert.deepEqual(retryStalledStarts(src), [], '방금 시작했으면 기다린다');
+    age(11);
+    assert.deepEqual(retryStalledStarts(src), [1]);
+    await wait(() => fs.readFileSync(env.calls, 'utf8').includes(`--session-id ${sid}`));
+    assert.deepEqual(retryStalledStarts(src), [], '다시 시작한 직후에는 또 하지 않는다');
+    age(25);
+    assert.deepEqual(retryStalledStarts(src), [1]);
+    const req = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'requests', '1.json'), 'utf8')) as { events: { kind: string }[] };
+    assert.ok(req.events.some((e) => e.kind === 'session-failed'), '끝내 안 되면 진행 기록에 실패로 남긴다');
+    assert.deepEqual(retryStalledStarts(src), [], '실패로 남긴 뒤에는 더 하지 않는다');
+  } finally { env.restore(); }
+});
+
+test('이미 완료된 요청은 결정이 와도 담당 세션을 깨우지 않는다', () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = closedSession(env, 20, 1000);
+    const f = path.join(root, '.spec', 'requests', '1.json');
+    const r = JSON.parse(fs.readFileSync(f, 'utf8')); r.stage = 'done'; r.step = 'done'; fs.writeFileSync(f, JSON.stringify(r));
+    assert.deepEqual(wakeOwner(src, 1, true), []);
+    assert.equal(fs.existsSync(env.calls), false);
+  } finally { env.restore(); }
+});
+
+test('테스트 승인처럼 완료로 닫는 결정은 전달 기록을 만들지 않는다', () => {
+  const { src } = tempProject({ wake: true }); const r = addRequest(src, { title: '닫는 승인' });
+  const d = openDelivery(src, { ...r, events: [...r.events, { at: new Date().toISOString(), by: 'user', kind: 'test-approved', note: '테스트 승인' }] });
+  assert.equal(d, null);
+});
+
+test('담당 세션의 지난 대화를 기록 파일에서 읽기만 해서 돌려준다', () => {
+  const env = fakeEnv();
+  try {
+    const { root, src } = closedSession(env, 20, 0);
+    const line = (o: unknown): string => JSON.stringify(o);
+    fs.writeFileSync(env.transcript(root, 'S1'), [
+      line({ type: 'user', timestamp: '2026-10-26T01:00:00Z', message: { content: '설계를 올려 주세요' } }),
+      line({ type: 'assistant', timestamp: '2026-10-26T01:00:05Z', message: { content: [{ type: 'text', text: '올렸습니다' }, { type: 'tool_use', name: 'Bash', input: { command: 'node spec.mjs todo' } }] } }),
+      line({ type: 'user', timestamp: '2026-10-26T01:00:06Z', message: { content: [{ type: 'tool_result', content: '긴 결과' }] } }),
+      '깨진 줄',
+    ].join('\n'));
+    const before = fs.readFileSync(env.transcript(root, 'S1'), 'utf8');
+    const [c] = conversationsOf(src, 1);
+    assert.equal(c.sid, 'S1');
+    assert.deepEqual(c.turns.map((t) => [t.role, t.text]), [['user', '설계를 올려 주세요'], ['agent', '올렸습니다'], ['tool', 'Bash node spec.mjs todo']]);
+    assert.equal(fs.readFileSync(env.transcript(root, 'S1'), 'utf8'), before, '기록 파일은 고치지 않는다');
   } finally { env.restore(); }
 });
 

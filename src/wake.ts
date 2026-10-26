@@ -4,20 +4,12 @@
  * @contract 프로젝트 설정 `wake: true`일 때만 동작한다(호출마다 비용이 들기 때문에 기본은 꺼짐). 담당 세션은 .spec/sessions.json에서 찾고, `claude agents --json`으로 보아 지금 일하는 중(busy)인 세션이면 건드리지 않고 훅에 맡긴다. 기다리는 중이거나 살아 있지 않은 세션(열어 둔 세션, 일을 마치고 쉬는 세션 포함)에는 session.ts가 (1시간 넘게 쉬어 캐시가 식었거나 대화 기록이 클 때만 먼저 압축하고) 이어서 "사용자가 결정한 그 일만 하고 끝나면 멈추라"는 글을 같은 세션에 보낸다(압축이 실패해도 글은 보낸다). 담당 세션이 한 번도 없었으면 새로 만들어 그 일을 맡긴다(시작 때 만든 것과 같은 길). 결과는 .spec/wake.log에 남기고, 서버는 기다리지 않는다. 어떤 경우에도 사용자 결정 자체를 실패시키지 않는다.
  */
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { readConfig } from './config.js';
 import { loadRequests } from './request.js';
 import { projectRoot } from './project.js';
-import { aliveStatus, ownersOf, resumeOwner, startOwner } from './session.js';
+import { aliveStatus, ownersOf, resumeOwner, startOwner, transcriptOf } from './session.js';
 import { dueForResend, markSent, openDelivery } from './delivery.js';
-
-/** 세션 기록 파일 위치: ~/.claude/projects/<실제 프로젝트 경로에서 글자·숫자 아닌 것을 -로 바꾼 이름>/<세션>.jsonl */
-function transcriptOf(root: string, sid: string): string {
-  let real = root;
-  try { real = fs.realpathSync(root); } catch { /* 없으면 그대로 */ }
-  return path.join(os.homedir(), '.claude', 'projects', real.replace(/[^A-Za-z0-9]/g, '-'), `${sid}.jsonl`);
-}
 
 /** 사용자 결정 직후 부른다. 깨우거나 새로 만든 세션 번호들을 돌려준다(없으면 빈 목록). force면 일하는 중인 세션에도 글을 보낸다(결정이 전달되지 않았을 때 다시 보내는 용도) */
 export function wakeOwner(scanRoot: string, id: number, force = false): string[] {
@@ -28,6 +20,8 @@ export function wakeOwner(scanRoot: string, id: number, force = false): string[]
     // 전달 기록은 보내는 장치(wake)가 꺼져 있어도 만든다: 그때는 훅이 읽을 때까지 '훅 대기'로 보인다
     openDelivery(scanRoot, req);
     if (!readConfig(root).wake) return woken;
+    // 완료·취소된 요청은 더 할 일이 없으니 깨우지 않는다(깨우면 일 없이 비용만 든다). 완료로 닫는 승인은 애초에 전달 기록도 만들지 않는다(delivery.ts)
+    if (req && (req.stage === 'done' || req.stage === 'cancelled')) return woken;
     const last = req?.events[req.events.length - 1];
     const decided = last?.note ?? '';
     const log = path.join(root, '.spec', 'wake.log');

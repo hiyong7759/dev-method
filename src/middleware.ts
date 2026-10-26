@@ -17,9 +17,10 @@ import { addComment, replyComment, closeComment, commentToRequest, shotDir } fro
 import { ensureTestServer } from './testdata.js';
 import { addRequest, startDesign, recordUntracked, approveDesign, rejectDesign, redesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
 import { wakeOwner } from './wake.js';
+import { conversationsOf } from './conversation.js';
 import { startOwner } from './session.js';
 import { errorText } from './cli.js';
-import { ROOT_DIR, SKILL_DIR, VIEWER_DIR } from './paths.js';
+import { ROOT_DIR, SKILL_DIR, SRC_DIR, VIEWER_DIR } from './paths.js';
 
 /** 파일 확장자별 응답 종류 */
 const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
@@ -76,6 +77,11 @@ export function specHandler(scanRoot: string): SpecHandler {
         if (!fs.existsSync(f)) { res.statusCode = 404; return void res.end('없음'); }
         return send(res, f);
       }
+      if (url === '/__spec/kst.js') {
+        // 화면 코드(comment.ts)가 서버와 같이 쓰는 ../kst.js를 불러오므로 이것도 내준다. 안 내주면 화면 전체가 빈 화면이 된다
+        const code = viewerScript(path.join(SRC_DIR, 'kst.js'));
+        if (code != null) { res.setHeader('content-type', 'text/javascript; charset=utf-8'); res.setHeader('cache-control', 'no-store'); return void res.end(code); }
+      }
       if (url === '/__spec/vendor/html-to-image.js') return send(res, path.join(ROOT_DIR, 'node_modules', 'html-to-image', 'dist', 'html-to-image.js'));
       if (url.startsWith('/__spec/shots/')) {
         const f = path.join(specDir(scanRoot), 'shots', path.basename(url));
@@ -90,6 +96,8 @@ export function specHandler(scanRoot: string): SpecHandler {
         return void res.end(fs.readFileSync(f));
       }
       if (url === '/__spec/model.json') return json(res, buildModel(scanRoot));
+      // 담당 세션의 지난 대화(읽기만 한다. 세션에 접속하지 않으니 일하는 세션이 멈추지 않는다)
+      if (url === '/__spec/request/conversation.json') return json(res, conversationsOf(scanRoot, Number(u.searchParams.get('id'))));
       if (url === '/__spec/history.json') {
         const out = extractSpecs(scanRoot);
         const sc = out.screens.find((s) => s.name === u.searchParams.get('screen'));

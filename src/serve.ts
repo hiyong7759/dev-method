@@ -11,6 +11,7 @@ import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { specHandler } from './middleware.js';
 import { resendUnread } from './wake.js';
+import { retryStalledStarts } from './session.js';
 import { extractSpecs } from './extract.js';
 import { readConfig } from './config.js';
 import { parseArgs } from './cli.js';
@@ -78,7 +79,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
     socket.on('error', () => t.destroy());
   });
   // 1분마다 읽히지 않은 결정을 찾아 다시 보낸다(설정 wake가 켜진 프로젝트만 실제로 보낸다)
-  setInterval(() => { resendUnread(scanRoot); }, 60_000).unref();
+  // 같은 점검에서 시작이 끝나지 않은 담당 세션도 찾아 다시 시작한다
+  setInterval(() => { resendUnread(scanRoot); retryStalledStarts(scanRoot); }, 60_000).unref();
   server.listen(port, () => console.log(`설계서 보기: http://localhost:${port}/\n앱 중계: ${app ? `${app.origin} (설계서 안에 끼워 넣어 보인다)` : '없음'}\n소스: ${scanRoot}`));
   return undefined;
 }
