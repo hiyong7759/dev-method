@@ -791,3 +791,11 @@ a.open.td{border-color:var(--amber-deep);color:var(--amber)}
 .td-band{position:absolute;left:0;right:0;top:0;height:30px;box-sizing:border-box;z-index:5;background:var(--hl);color:var(--on-hl);font-weight:800;font-size:14px;padding:5px 16px;text-align:center}
 .td-edge{position:absolute;inset:0;border:5px solid var(--hl);pointer-events:none;z-index:5}
 .stage.td iframe{top:30px;left:5px;width:calc(100% - 10px);height:calc(100% - 35px)}
+
+/* 설계 변경 확인 창과 이전 설계 목록 */
+.rd-veil{position:fixed;inset:0;z-index:3000;background:rgba(10,10,14,.6);display:flex;align-items:center;justify-content:center}
+.rd-box{width:460px;max-width:calc(100vw - 32px);background:var(--bg);border:2px solid var(--hl);border-radius:12px;padding:22px 24px;display:flex;flex-direction:column;gap:10px;line-height:1.6}
+.rd-box b{font-size:17px}
+.rd-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
+.dver{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.dver img.shot{max-width:100%;border-radius:6px}

@@ -3,7 +3,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addRequest, startDesign, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, setScope, loadRequests, describeRequests } from '../src/request.js';
+import { redesign, checkTest, addRequest, startDesign, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, setScope, loadRequests, describeRequests } from '../src/request.js';
 import { tempProject } from './helpers.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -196,4 +196,39 @@ test('대화로 한 반려·문제 알림은 사용자 말 인용이 기록에 �
   assert.equal(last.kind, 'design-rejected');
   assert.equal(last.quote, '이건 반려할게요');
   assert.match(last.note, /대화에서 한 반려/);
+});
+
+test('설계 변경: 사용자는 변경사항만 적으면 되고, 에이전트는 사용자 말을 인용해야 하며, 이전 설계는 남는다', () => {
+  const { src } = tempProject();
+  addRequest(src, { title: '요청' });
+  startDesign(src, 1); submitDesign(src, 1, { ...design, understanding: '처음 이해' }); approveDesign(src, 1); requestTest(src, 1);
+  assert.throws(() => redesign(src, 1, 'user', ''), /변경사항을 적어야/);
+  assert.throws(() => redesign(src, 1, 'agent', '제멋대로 바꿈'), /--quote/);
+  assert.throws(() => redesign(src, 1, 'agent', '바꿈', '아'), /--quote/);
+  const r = redesign(src, 1, 'user', '확인 기준을 바꾼다');
+  assert.deepEqual([r.stage, r.step], ['design', 'revise']);
+  assert.equal(r.events.at(-1)?.note, '설계 변경(테스트 중): 확인 기준을 바꾼다');
+  assert.equal(r.designVersions?.length, 1);
+  assert.equal(r.designVersions?.[0].design.understanding, '처음 이해');
+  assert.ok(r.designVersions?.[0].approvedAt);
+  assert.throws(() => redesign(src, 1, 'user', '또'), /설계 변경을 시작할 단계가 아니다/);
+  // 새 설계가 승인된 뒤 구현·테스트 중에 에이전트가 사용자 요구를 인용해 다시 설계 변경을 시작할 수 있고, 인용은 기록에 남는다
+  submitDesign(src, 1, { ...design, understanding: '바뀐 이해' }); approveDesign(src, 1);
+  const r2 = redesign(src, 1, 'agent', '요구가 늘었다', '이것도 추가해줘');
+  assert.equal(r2.events.at(-1)?.quote, '이것도 추가해줘');
+  assert.deepEqual(r2.designVersions?.map((v) => v.design.understanding), ['처음 이해', '바뀐 이해']);
+});
+
+test('설계 변경 뒤 테스트를 다시 올리면 내용이 바뀐 단계의 체크만 풀린다', () => {
+  const { src } = tempProject();
+  const write = (second: string): void => fs.writeFileSync(path.join(src, 'a.ts'), `/**\n * @screen 화면A\n * @route /a\n * @does 첫째를 한다 | 첫째 결과 | 시나리오X#1\n * @does 둘째를 한다 | ${second} | 시나리오X#2\n */\nexport const a = 1;\n`);
+  write('둘째 결과');
+  addRequest(src, { title: '요청', screens: ['화면A'], scenarios: ['시나리오X'] });
+  startDesign(src, 1); submitDesign(src, 1, design); approveDesign(src, 1); requestTest(src, 1);
+  checkTest(src, 1, '시나리오X#1', true); checkTest(src, 1, '시나리오X#2', true);
+  testProblem(src, 1, '문제');
+  write('바뀐 결과'); requestTest(src, 1);
+  const checks = loadRequests(src)[0].test?.checks ?? {};
+  assert.equal(checks['시나리오X#1'], true);
+  assert.equal(checks['시나리오X#2'], undefined);
 });

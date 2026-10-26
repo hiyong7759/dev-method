@@ -269,6 +269,8 @@ export interface RequestTest {
   found: { text: string; reportId: string }[];
   /** 테스트 없음으로 승인했는가 */
   none: boolean;
+  /** 테스트를 올릴 때 본 각 단계의 내용(제목·확인 기준) 서명: "시나리오#단계" → 서명. 설계가 바뀐 뒤 테스트를 다시 올릴 때 내용이 바뀐 단계의 체크를 풀기 위해 쓴다 */
+  sigs?: Record<string, string>;
 }
 
 /** 시안 판 하나의 최신 여부(설계서 보기 "시안 현황"과 화면 패널에 보인다) */
@@ -346,6 +348,8 @@ export interface Request {
   };
   /** 설계 단계에서 에이전트가 낸 결과 */
   design?: RequestDesign;
+  /** 설계 변경으로 바뀌기 전의 설계들(오래된 것부터). 이전 설계와 그림은 지우지 않고 남긴다 */
+  designVersions?: DesignVersion[];
   /** 테스트 단계의 확인 기록 */
   test?: RequestTest;
   /** 구현으로 남은 커밋들(짧은 해시) */
@@ -1146,6 +1150,20 @@ export interface TestDataConfig {
 export interface ReviewFrame {
   /** 테스트 데이터로 뜬 검토 대상 앱의 주소 */
   url: string;
+}
+
+/** 설계 변경으로 바뀌기 전의 설계 한 판 */
+export interface DesignVersion {
+  /** 그 판의 설계 */
+  design: RequestDesign;
+  /** 설계 변경이 시작돼 이 판이 바뀐 때 */
+  replacedAt: string;
+  /** 설계 변경을 시작한 쪽 */
+  by: Actor;
+  /** 적은 변경사항 */
+  reason: string;
+  /** 이 판이 승인된 때(승인 전에 바뀐 판이면 없음) */
+  approvedAt?: string;
 }
 
 /** 시나리오 하나에 만들어 둔 테스트 데이터 한 경우 */

@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import net from 'node:net';
 import { spawn } from 'node:child_process';
 import { parseArgs, errorText } from './cli.js';
 import { LAUNCHER } from './paths.js';
@@ -104,6 +105,41 @@ export function syncRequest(root: string, id: number): boolean {
   return true;
 }
 
+/** 테스트 서버 포트: 설정 reviewUrl의 포트, 없으면 운영 포트+100 */
+function defaultPort(root: string, c: TestDataConfig): number {
+  try { if (c.reviewUrl) { const p = Number(new URL(c.reviewUrl).port); if (p) return p; } } catch { /* 주소가 이상하면 기본 */ }
+  return (readConfig(root).port || 5290) + 100;
+}
+
+/** 테스트용 설계서 서버를 운영과 다른 포트에 띄운다: 운영 .spec 대신 저장소 밖 테스트 자리의 .spec을 읽고 쓰며, 담당 세션은 깨우지 않는다 */
+function startServer(root: string, scanRoot: string, dir: string, port: number): void {
+  fs.mkdirSync(dir, { recursive: true });
+  const log = fs.openSync(path.join(dir, 'serve.log'), 'a');
+  const child = spawn(process.execPath, [LAUNCHER, 'serve', '--project', root, '--src', path.relative(root, scanRoot) || '.', '--port', String(port)], { cwd: root, detached: true, stdio: ['ignore', log, log], env: { ...process.env, SPEC_TEST_DIR: dir } });
+  child.unref();
+}
+
+/** 포트가 열려 있는지(그 서버가 켜져 있는지) */
+const listening = (port: number): Promise<boolean> => new Promise((resolve) => {
+  const s = net.connect({ port, host: '127.0.0.1' });
+  s.once('connect', () => { s.destroy(); resolve(true); });
+  s.once('error', () => resolve(false));
+  s.setTimeout(800, () => { s.destroy(); resolve(false); });
+});
+
+/** 화면의 "테스트 데이터로 첫 화면 열기"가 부른다: 테스트 서버가 꺼져 있으면 켜고(복사본이 없으면 만들어) 열릴 때까지 기다린다. 켜져 있으면 아무것도 안 한다 */
+export async function ensureTestServer(scanRoot: string): Promise<{ started: boolean; port: number }> {
+  const root = projectRoot(scanRoot);
+  const c = testDataConfig(root);
+  if (!c || c.kind !== 'folder' || dataProblem(root, c) || process.env.SPEC_TEST_DIR) return { started: false, port: 0 };
+  const port = defaultPort(root, c);
+  if (await listening(port)) return { started: false, port };
+  copyBase(root, dataDir(root, c), false);
+  startServer(root, scanRoot, dataDir(root, c), port);
+  for (let i = 0; i < 40; i++) { await new Promise((r) => setTimeout(r, 250)); if (await listening(port)) return { started: true, port }; }
+  throw new Error(`테스트 서버(포트 ${port})가 10초 안에 켜지지 않았다. ${dataDir(root, c)}/serve.log를 본다`);
+}
+
 /** 명령 입구 */
 export async function main(argv: string[]): Promise<number | undefined> {
   const { pos, opts } = parseArgs(argv);
@@ -135,12 +171,10 @@ export async function main(argv: string[]): Promise<number | undefined> {
     } else if (pos[0] === 'serve') {
       // 테스트용 설계서 서버: 운영과 다른 포트, 운영 .spec 대신 저장소 밖 테스트 자리의 .spec을 읽고 쓰며, 담당 세션은 깨우지 않는다
       if (c.kind !== 'folder') throw new Error('이 명령은 folder 종류(저장소 밖 폴더) 프로젝트에서만 쓴다. remote는 테스트 서버 주소로, local-db는 테스트 DB 접속 주소로 앱을 띄운다');
+      const port = Number(opts.port || defaultPort(root, c));
       const fresh = copyBase(root, dir, opts.fresh === 'true');
-      const port = Number(opts.port || (readConfig(root).port || 5290) + 100);
-      const log = fs.openSync(path.join(dir, 'serve.log'), 'a');
-      const child = spawn(process.execPath, [LAUNCHER, 'serve', '--project', root, '--src', path.relative(root, scanRoot) || '.', '--port', String(port)], { cwd: root, detached: true, stdio: ['ignore', log, log], env: { ...process.env, SPEC_TEST_DIR: dir } });
-      child.unref();
-      console.log(`${fresh ? '운영 요청·리포트를 복사해 테스트 자리를 채웠다. ' : '기존 테스트 자리를 그대로 쓴다. '}테스트용 서버: http://localhost:${port}/__spec/  (자리 ${dir}/.spec, 화면 위쪽에 "테스트 데이터" 표시, 담당 세션은 깨우지 않음)`);
+      startServer(root, scanRoot, dir, port);
+      console.log(`${fresh ? '운영 요청·리포트를 복사해 테스트 자리를 채웠다. ' : '기존 테스트 자리를 그대로 쓴다. '}테스트용 서버: http://localhost:${port}/__spec/  (자리 ${dir}/.spec, 담당 세션은 깨우지 않음)`);
     } else if (pos[0] === 'sync') {
       if (!id) throw new Error('--id(요청 번호)가 필요하다');
       console.log(syncRequest(root, id) ? `요청 #${id}을 테스트 자리로 복사했다` : '복사하지 않았다(folder 종류가 아니거나 테스트 자리가 아직 없다. `testdata serve`로 한 번 띄운 뒤 쓴다)');

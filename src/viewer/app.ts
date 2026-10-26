@@ -27,7 +27,7 @@ import type { Model } from '../types.js';
 /** 설계서 보기 틀의 전부가 그려지는 자리 */
 const root = document.getElementById('app') as HTMLElement;
 let commentUi: CommentTool | null = null;
-let model: Model | null = null, active: (ScreenViewHandle & { name: string }) | null = null, key = '', topEl: HTMLElement | null = null, menu: HTMLElement | null = null;
+let model: Model | null = null, active: (ScreenViewHandle & { name: string; tr: string }) | null = null, key = '', topEl: HTMLElement | null = null, menu: HTMLElement | null = null;
 
 /** 주소(#)를 읽은 결과: 어느 화면(view), 그 안의 대상(arg), 그 아래 쪽(sub), 쿼리(params) */
 interface Route { view: string; arg: string; sub: string; params: URLSearchParams }
@@ -91,7 +91,7 @@ function topbar(m: Model, r: Route): HTMLElement {
 function render(): void {
   const r = parse();
   closeMenu();
-  if (active && model && r.view === 'screen' && active.name === r.arg) { active.setScreen(r.arg, r.params.get('tab')); topEl?.replaceWith(topEl = topbar(model, r)); return; }
+  if (active && model && r.view === 'screen' && active.name === r.arg && active.tr === (r.params.get('tr') ?? '')) { active.setScreen(r.arg, r.params.get('tab')); topEl?.replaceWith(topEl = topbar(model, r)); return; }
   if (active) { active.destroy(); active = null; }
   root.replaceChildren();
   if (!model) return;
@@ -104,7 +104,7 @@ function render(): void {
   if (r.view === 'screen') {
     if (!m.screens.find((s) => s.name === r.arg)) { body.append(h('div', { class: 'empty-note', style: 'flex:1' }, `화면 "${r.arg}"을 찾지 못했다`)); return; }
     const v = screenView(body, { model: m, name: r.arg, tab: r.params.get('tab'), at: r.params.get('at'), go: (n, t, at) => { const q = parse().params; nav(hash('screen', n, { tab: t, at, tr: q.get('tr') ?? undefined, ts: q.get('ts') ?? undefined, tn: q.get('tn') ?? undefined }), true); topEl?.replaceWith(topEl = topbar(m, parse())); } });
-    active = { name: r.arg, ...v };
+    active = { name: r.arg, tr: r.params.get('tr') ?? '', ...v };
   } else if (r.view === 'info') {
     const sel = r.arg || '';
     const kind = (['screen', 'internal', 'review'].includes(r.params.get('kind') ?? '') ? r.params.get('kind') : 'all') as InfoFilter;

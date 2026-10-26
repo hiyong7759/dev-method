@@ -14,6 +14,7 @@ import { specDir } from './project.js';
 import { screenHistory } from './history.js';
 import { decide, addNote } from './report.js';
 import { addComment, replyComment, closeComment, commentToRequest, shotDir } from './comment.js';
+import { ensureTestServer } from './testdata.js';
 import { addRequest, startDesign, recordUntracked, approveDesign, rejectDesign, redesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
 import { wakeOwner } from './wake.js';
 import { startOwner } from './session.js';
@@ -159,6 +160,7 @@ export function specHandler(scanRoot: string): SpecHandler {
         if (url === '/__spec/request/record') return json(res, recordUntracked(scanRoot, String(b.hash || ''), String(b.title || '')));
         // 결정이 저장되면 그 요청을 맡은 세션이 닫혀 있을 때만 깨운다(열린 세션은 inbox 훅이 알린다)
         // 사용자가 '지금 다시 보내기'를 누르면 마지막 결정을 일하는 중인 세션에도 다시 보낸다
+        if (url === '/__spec/testdata/ensure') return json(res, await ensureTestServer(scanRoot));
         if (url === '/__spec/request/resend') return json(res, { woken: wakeOwner(scanRoot, Number(b.id), true).length });
         if (url === '/__spec/request/start') { const r = startDesign(scanRoot, Number(b.id)); startOwner(scanRoot, Number(b.id), 'start'); return json(res, r); }
         if (url === '/__spec/request/design-approve') { const r = approveDesign(scanRoot, Number(b.id)); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }

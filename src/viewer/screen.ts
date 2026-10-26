@@ -3,7 +3,7 @@
  * @why 왼쪽은 실제로 동작하는 화면(iframe), 오른쪽은 개요·현행·히스토리 패널로, 화면을 눌러 보면서 그 화면의 존재 이유·하는 일·구조·변경 이력을 한자리에서 확인하게 한다. 정보를 고르면 같은 정보 상세 패널이 열린다.
  * @contract 상태와 동작을 ctx.ts의 ScreenCtx 객체 하나에 모아 탭들(tabs.ts)에 넘긴다. 화면 안에서 다른 화면으로 가면 이 화면 설계서도 그 화면으로 따라간다(go 콜백으로 주소를 바꾼다). 메모와 화면 승인은 없다(변경은 요청 단위로 한다).
  */
-import { h, matchScreen, chip, sidePanel } from './util.js';
+import { h, post, matchScreen, chip, sidePanel } from './util.js';
 import { infoDrawer } from './info.js';
 import { runStep } from './steps.js';
 import { overview, nowTab, history } from './tabs.js';
@@ -58,6 +58,7 @@ export interface ScreenViewHandle {
  * @does 창 안에서 대상(부품 고르기·영역 그리기·화면 전체)을 고르고 글을 써 "코멘트 담기"를 누른다 | 담은 코멘트 목록에 쌓이고 아직 안 보내졌다고 보인다 | 코멘트를 담아 한번에 보낸다#2 | → 3, 2b
  * @does "이 화면"과 "전체" 탭을 오가며 담은 것과 보낸 것을 본다 | 이 화면 탭은 지금 화면의 것만, 전체 탭은 모든 화면의 것이 나온다 | 코멘트를 담아 한번에 보낸다#2b | → 3 | 다른 화면에서 담은 것까지 보려면
  * @does 아래 고정 줄의 "한번에 보내기"를 누른다 | 담은 코멘트가 모두 한꺼번에 에이전트에게 가고 담은 목록이 비워진다 | 코멘트를 담아 한번에 보낸다#3
+ * @does 테스트 승인 대기 요청의 "테스트 데이터로 첫 화면 열기"로 화면 설계서를 연다 | 안쪽 실제 화면에만 테스트 서버의 화면과 "테스트 데이터로 보는 화면입니다" 띠·테두리가 붙고 바깥 틀과 코멘트 창은 운영 그대로다 | 눌러 보기 전에 테스트 데이터로 한다는 것을 안다#2
  */
 export function screenView(root: HTMLElement, { model, name, tab, at, go }: ScreenViewOptions): ScreenViewHandle {
   let alive = true, raf = 0;
@@ -87,10 +88,13 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   const urlEl = h('span', { class: 'url mono' });
   const okEl = h('span', { class: 'ok-dot' });
   const shellBtn = h('button', { class: 'shell-tog', onclick: () => { c.showShell = !c.showShell; shellBtn.classList.toggle('off', !c.showShell); shellBtn.textContent = `공통 화면 표시 ${c.showShell ? '켜짐' : '꺼짐'}`; } }, '공통 화면 표시 켜짐');
+  // 테스트 데이터 서버로 안쪽 화면을 보여 주는 때: 테스트 환경이 있는 프로젝트에서, 테스트 경로로 열었고 그 요청이 지금 테스트 단계일 때만
+  const testReq = Number(new URLSearchParams(location.hash.split('?')[1] ?? '').get('tr')) || 0;
+  const testMode = !!c.model.reviewFrame && c.model.requests.some((r) => r.id === testReq && r.stage === 'test');
   const live = h('div', { class: 'live' },
     h('div', { class: 'livebar' }, h('span', { class: 'badge-live' }, '실제 화면'), urlEl, h('span', { class: 'grow' }), shellBtn, okEl),
-    // 테스트 데이터로 띄운 서버(testEnv)에서는 검토받는 안쪽 화면에만 띠와 테두리를 둔다. 띠는 한 줄 자리를 따로 잡아 안쪽 화면을 아래로 밀고(아무것도 가리지 않는다), 바깥 틀·코멘트 창은 그대로다
-    h('div', { class: `stage${c.model.testEnv ? ' td' : ''}` }, iframe, marks, c.model.testEnv ? [h('div', { class: 'td-band' }, `${c.model.testEnv}로 보는 화면입니다 · 운영 데이터가 아닙니다`), h('div', { class: 'td-edge' })] : null));
+    // 테스트 경로(주소에 tr)로 열었고 그 요청이 지금 테스트 단계이면, 안쪽 실제 화면에만 테스트 서버 화면과 띠·테두리를 둔다. 띠는 한 줄 자리를 따로 잡아 안쪽 화면을 아래로 밀고 테두리는 바깥에 둘러 아무것도 가리지 않는다. 바깥 틀·코멘트 창은 운영 그대로다
+    h('div', { class: `stage${testMode ? ' td' : ''}` }, iframe, marks, testMode ? [h('div', { class: 'td-band' }, '테스트 데이터로 보는 화면입니다 · 운영 데이터가 아닙니다'), h('div', { class: 'td-edge' })] : null));
   // 오른쪽 패널은 공통 패널 틀(늘 떠 있는 패널이라 접기 토글). 다시 그릴 때마다 틀째 바꿔 끼운다
   let side: HTMLElement = h('aside', { class: 'sidepanel' });
   const banners = h('div', { class: 'banners' }), tabsEl = h('div', { class: 'tabs' });
@@ -98,12 +102,17 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   root.append(live, side);
 
   // ── 실제 화면 ──
-  const loadFrame = (path: string): void => { iframe.src = path; urlEl.textContent = `${location.host}${path}`; };
+  const loadFrame = (path: string): void => { iframe.src = path; urlEl.textContent = /^https?:/.test(path) ? path.replace(/^https?:\/\//, '') : `${location.host}${path}`; };
   const status = (): void => { okEl.classList.remove('bad'); okEl.textContent = STATUS[c.tab]; };
   iframe.addEventListener('load', status);
   iframe.addEventListener('error', () => { okEl.classList.add('bad'); okEl.textContent = '열리지 않음'; });
   const sc0 = c.sc();
-  loadFrame(at || liveAt(c.model, c.name) || sc0.route || '/');
+  const route = at || liveAt(c.model, c.name) || sc0.route || '/';
+  if (testMode) {
+    // 테스트 서버가 꺼져 있으면 켠 뒤 그 서버의 같은 화면 주소를 안쪽에 띄운다
+    const u = new URL(route, c.model.reviewFrame!.url);
+    void post('/__spec/testdata/ensure').catch(() => undefined).then(() => { if (alive) loadFrame(u.href); });
+  } else loadFrame(route);
 
   // 화면 안에서 다른 화면으로 가면 설계서도 따라간다
   let lastPath: string | null = null;

@@ -13,6 +13,6 @@
   "testData": {
     "kind": "folder",
     "dir": "~/.spec-testdata/dev-method",
-    "reviewUrl": "http://localhost:5391/__spec/"
+    "reviewUrl": "http://test.localhost:5391/__spec/"
   }
 }

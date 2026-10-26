@@ -11,6 +11,8 @@ import { specDir, projectRoot } from './project.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { addReport } from './report.js';
 import { seedProblem, syncRequest } from './testdata.js';
+import { extractSpecs } from './extract.js';
+import { buildScenarios } from './scenarios.js';
 import type { Actor, DesignChange, DesignPoint, DesignScreen, Delivery, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
 
 /** 화면에 보이는 단계 이름. 사람이 읽는 말이라 여기서만 정한다 */
@@ -125,6 +127,8 @@ function loadOne(scanRoot: string, id: number): Request {
 function record(scanRoot: string, r: Request, by: Actor, kind: string, note: string, quote?: string): Request {
   r.events.push({ at: new Date().toISOString(), by, kind, note, ...(quote ? { quote } : {}) });
   save(scanRoot, r);
+  // 테스트 데이터 서버의 복사본이 낡지 않게 요청이 바뀔 때마다 그 요청을 복사본에 맞춘다(테스트 서버 자신 안에서는 하지 않는다: 복사본 위의 기록을 운영 것으로 덮지 않도록). 테스트 자리가 없거나 쓸 수 없어도 요청 기록은 막지 않는다
+  if (!process.env.SPEC_TEST_DIR) { try { syncRequest(projectRoot(scanRoot), r.id); } catch { /* 복사본만 낡을 뿐 */ } }
   return r;
 }
 /** 단계를 옮긴다 */
@@ -196,9 +200,9 @@ function copyShot(scanRoot: string, file: string | undefined, name: string): str
 export const liveShotFile = (scanRoot: string, id: number, screen: string): string => path.join(specDir(scanRoot), 'live-shots', String(id), `${screen.replace(/[^\p{L}\p{N}]+/gu, '_')}.png`);
 
 /** 화면 하나의 현행 그림을 정한다: 신규 화면이면 없음, 손으로 올린 파일이 있으면 그것(경고 대상), 아니면 도구가 운영 화면에서 찍어 둔 것. 어느 쪽도 없으면 올릴 수 없다 */
-function resolveBefore(scanRoot: string, id: number, i: number, s: NonNullable<DesignInput['screens']>[number]): Pick<DesignScreen, 'before' | 'beforeSource' | 'capturedAt' | 'isNew'> {
+function resolveBefore(scanRoot: string, id: number, i: number, s: NonNullable<DesignInput['screens']>[number], prefix: string): Pick<DesignScreen, 'before' | 'beforeSource' | 'capturedAt' | 'isNew'> {
   if (s.isNew) return { before: '', isNew: true };
-  const name = `r${id}-d${i + 1}-before`;
+  const name = `${prefix}${i + 1}-before`;
   if (s.before) return { before: copyShot(scanRoot, s.before, name), beforeSource: 'manual' };
   const live = liveShotFile(scanRoot, id, s.screen);
   if (fs.existsSync(live)) {
@@ -224,8 +228,11 @@ export function submitDesign(scanRoot: string, id: number, d: DesignInput): Requ
   const none = !!d.none;
   if (!none && !d.understanding?.trim()) throw new Error('이렇게 이해했다(understanding)를 적어야 한다');
   const prev = r.design?.rejected ?? 0;
+  // 설계 변경으로 새 판이 되면 그림 이름에 판 번호를 붙여, 이전 판의 그림을 덮어쓰지 않는다
+  const version = (r.designVersions?.length ?? 0) + 1;
+  const prefix = version === 1 ? `r${id}-d` : `r${id}-v${version}-d`;
   const screens: DesignScreen[] = (d.screens ?? []).map((s, i) => ({
-    screen: s.screen, after: copyShot(scanRoot, s.after, `r${id}-d${i + 1}-after`), ...resolveBefore(scanRoot, id, i, s), link: s.link ?? '', note: s.note ?? '', counts: { add: s.counts?.add ?? 0, change: s.counts?.change ?? 0, remove: s.counts?.remove ?? 0 },
+    screen: s.screen, after: copyShot(scanRoot, s.after, `${prefix}${i + 1}-after`), ...resolveBefore(scanRoot, id, i, s, prefix), link: s.link ?? '', note: s.note ?? '', counts: { add: s.counts?.add ?? 0, change: s.counts?.change ?? 0, remove: s.counts?.remove ?? 0 },
     ...(s.highlights?.length ? { highlights: s.highlights } : {}),
   }));
   const design: RequestDesign = { understanding: d.understanding?.trim() ?? '', ...(d.points?.length ? { points: d.points } : {}), approach: d.approach?.trim() ?? '', changes: d.changes ?? [], screens, data: d.data, none, rejected: prev };
@@ -286,10 +293,23 @@ export function requestTest(scanRoot: string, id: number): Request {
   const again = r.stage === 'test';
   move(r, 'test', 'requested');
   r.test = r.test ?? { checks: {}, found: [], none: false };
-  const rec = record(scanRoot, r, 'agent', 'test-requested', again ? '고친 뒤 테스트 다시 요청' : '구현을 마치고 테스트 요청');
-  // 검토 화면이 테스트 데이터 서버에서 이 요청을 열 수 있도록 요청 파일을 테스트 자리로 복사한다(실패해도 테스트 요청은 막지 않는다)
-  try { syncRequest(projectRoot(scanRoot), id); } catch { /* 테스트 자리를 못 쓰면 검토 화면만 요청을 못 찾는다 */ }
-  return rec;
+  // 설계가 바뀐 뒤 다시 올릴 때: 제목과 확인 기준이 그대로인 단계의 체크는 두고, 바뀌었거나 없어진 단계의 체크는 푼다
+  const sigs = stepSigs(scanRoot, r);
+  if (sigs) {
+    if (r.test.sigs) for (const k of Object.keys(r.test.checks)) if (sigs[k] !== r.test.sigs[k]) delete r.test.checks[k];
+    r.test.sigs = sigs;
+  }
+  return record(scanRoot, r, 'agent', 'test-requested', again ? '고친 뒤 테스트 다시 요청' : '구현을 마치고 테스트 요청');
+}
+
+/** 범위의 시나리오 단계마다 내용 서명(제목+확인 기준): "시나리오#단계" → 서명. 소스를 읽지 못하면 null */
+function stepSigs(scanRoot: string, r: Request): Record<string, string> | null {
+  try {
+    const names = new Set(r.scope.scenarios ?? []);
+    const out: Record<string, string> = {};
+    for (const sc of buildScenarios(extractSpecs(scanRoot))) if (names.has(sc.name)) for (const st of sc.steps) out[`${sc.name}#${st.id}`] = `${st.title}|${st.check}`;
+    return out;
+  } catch { return null; }
 }
 
 /** 구현하다 막혀서 같은 세션에서 함께 고친 일을 요청에 남긴다(구현·테스트 단계에서만, 크기는 사용자가 보고 판단한다) */
@@ -358,15 +378,20 @@ export function rejectDesign(scanRoot: string, id: number, note: string, quote?:
   move(r, 'design', 'revise');
   return record(scanRoot, r, 'user', 'design-rejected', `설계 반려: ${note.trim()}${quote ? ' (대화에서 한 반려를 인용해 기록함)' : ''}`, quote);
 }
-/** 구현·테스트 중 설계가 틀렸다고 드러났을 때 설계 단계로 되돌린다. 사용자도 에이전트도 허락 없이 할 수 있고, 이유는 꼭 남긴다. 구현 커밋과 이전 설계는 지우지 않으며, 새 설계가 올라가 승인받으면 이어서 구현한다 */
-export function redesign(scanRoot: string, id: number, by: Actor, reason: string): Request {
+/** 구현·테스트 중 설계 변경이 필요할 때(틀렸든, 바꾸고 싶든, 요구가 바뀌거나 늘었든) 요청을 설계 단계로 돌린다. 설계가 바뀌면 테스트는 의미가 없어서 설계 변경을 먼저 처리한다: 테스트는 멈추고 새 설계가 승인되기 전에는 소스 커밋이 막힌다.
+ *  사용자는 허락 없이 누른다. 에이전트는 사용자가 요구한 경우에만 하므로 사용자가 한 말(quote)을 그대로 적어야 한다. 이전 설계와 그림은 지우지 않고 남긴다 */
+export function redesign(scanRoot: string, id: number, by: Actor, reason: string, quote?: string): Request {
   const r = loadOne(scanRoot, id);
-  if (r.stage !== 'impl' && r.stage !== 'test') throw new Error(`요청 #${id}은 설계로 되돌릴 단계가 아니다(지금: ${STAGE_LABEL[r.stage]}). 설계 단계의 요청은 그대로 설계를 고쳐 올린다`);
-  if (!reason?.trim()) throw new Error('설계로 되돌리는 이유를 한 줄 적어야 한다');
+  if (r.stage !== 'impl' && r.stage !== 'test') throw new Error(`요청 #${id}은 설계 변경을 시작할 단계가 아니다(지금: ${STAGE_LABEL[r.stage]}). 설계 단계의 요청은 그대로 설계를 고쳐 올린다`);
+  if (!reason?.trim()) throw new Error('변경사항을 적어야 한다');
+  if (by === 'agent' && (quote ?? '').trim().length < 2) throw new Error('--quote에 사용자가 설계 변경을 요구하며 대화에서 한 말을 그대로 적어야 한다(사용자가 요구하지 않았다면 에이전트는 설계를 바꾸지 않는다)');
   const from = STAGE_LABEL[r.stage];
+  if (r.design) r.designVersions = [...(r.designVersions ?? []), { design: r.design, replacedAt: new Date().toISOString(), by, reason: reason.trim(), ...approvedAtOf(r) }];
   move(r, 'design', 'revise');
-  return record(scanRoot, r, by, 'redesigned', `설계로 되돌림(${from} 중): ${reason.trim()}`);
+  return record(scanRoot, r, by, 'redesigned', `설계 변경(${from} 중): ${reason.trim()}`, quote?.trim() || undefined);
 }
+/** 가장 최근 설계 승인 시각(없으면 빈 객체) */
+const approvedAtOf = (r: Request): { approvedAt?: string } => { const e = [...r.events].reverse().find((x) => x.kind === 'design-approved'); return e ? { approvedAt: e.at } : {}; };
 /** 테스트 확인표의 한 칸을 체크한다 */
 export function checkTest(scanRoot: string, id: number, key: string, done: boolean): Request {
   const r = loadOne(scanRoot, id);
@@ -510,7 +535,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
     } else if (pos[0] === 'test') {
       const r = requestTest(scanRoot, id); console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
     } else if (pos[0] === 'redesign') {
-      const r = redesign(scanRoot, id, 'agent', opts.reason ?? ''); console.log(`요청 #${r.id}: 설계로 되돌렸다. 설계를 고쳐 request design --id ${r.id}로 다시 올리고 사용자 승인을 받는다(이미 한 커밋은 기록으로 남는다)`);
+      const r = redesign(scanRoot, id, 'agent', opts.reason ?? '', opts.quote); console.log(`요청 #${r.id}: 설계 변경을 시작했다(사용자 요구를 인용해 기록). 설계를 고쳐 request design --id ${r.id}로 다시 올리고 사용자 승인을 받는다(이미 한 커밋과 이전 설계는 남는다)`);
     } else if (pos[0] === 'scope') {
       const r = setScope(scanRoot, id, { scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact) }); console.log(`요청 #${r.id}: 범위에 시나리오를 연결했다`);
     } else if (pos[0] === 'also') {
@@ -540,7 +565,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  shot --id N --screen 화면이름 --url 주소 [--selector css]   (바꾸기 전 운영 화면을 손대지 않고 그대로 찍어 현행 그림으로 저장. 설계를 올릴 때 이 그림이 현행으로 붙는다)',
         '  design --id N --file 설계.json   (또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
-        '  redesign --id N --reason "왜 설계가 틀렸나"   (구현·테스트 중 설계가 잘못된 것이 드러났을 때 설계 단계로 되돌린다. 허락은 필요 없고 이유만 남기며, 고친 설계는 다시 승인받는다)',
+        '  redesign --id N --quote "사용자가 한 말" --reason "변경사항"   (구현·테스트 중 사용자가 설계 변경을 요구했을 때만 설계 단계로 돌린다. 인용이 없으면 못 한다. 이전 설계는 남고, 고친 설계는 다시 승인받는다)',
         '  test --id N                      (구현을 마치고 테스트를 올림. 고친 뒤 다시 올릴 때도 같다)',
         '  scope --id N [--scenarios 시나리오1,…] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오]   (범위에 시나리오를 연결. 화면이 있는 요청은 시나리오가 있어야 test를 올릴 수 있다)',
         '  also --id N --text "막혔던 일과 고친 일" [--where 화면이나 파일] [--commit 해시]   (구현하다 막혀서 같은 세션에서 함께 고친 일을 남긴다. 구현·테스트 단계에서만. 화면 모양·정보·사용 흐름이 바뀌는 일이면 남기지 말고 멈춰서 설계로 간다)',

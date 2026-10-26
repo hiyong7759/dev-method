@@ -76,26 +76,46 @@ function testDataNotice(model: Model): HTMLElement | null {
   return model.reviewFrame ? h('div', { class: 'td-notice' }, h('b', null, '⚠ 이 테스트는 테스트 데이터로 합니다'), h('div', null, '운영 데이터가 아닙니다. 아래 "테스트 데이터로 첫 화면 열기"는 테스트 데이터로 뜬 화면을 엽니다.')) : null;
 }
 
-/** 시나리오의 첫 화면 주소: 테스트 환경이 있으면 테스트 데이터 서버의 화면, 없으면 이 서버의 화면 */
+/** 시나리오의 첫 화면 주소: 운영 설계서 보기의 화면 설계서(테스트 경로). 테스트 환경이 있으면 그 안쪽 실제 화면만 테스트 서버 화면으로 뜬다 */
 function firstScreenHref(model: Model, r: RequestView, screen: string, sc: Scenario, step: string | undefined): string {
-  const q = hash('screen', screen, { tr: String(r.id), ts: sc.name, tn: step, at: liveAt(model, screen, r.id) });
-  const f = model.reviewFrame;
-  if (!f) return `${location.pathname}${q}`;
-  const u = new URL(f.url);
-  return `${u.origin}${u.pathname}${q}`;
+  return `${location.pathname}${hash('screen', screen, { tr: String(r.id), ts: sc.name, tn: step, at: liveAt(model, screen, r.id) })}`;
 }
 
-/** 구현·테스트 중 설계가 틀렸을 때 설계 단계로 되돌리는 칸(허락 없이 누를 수 있고 이유만 적는다) */
+/** 구현·테스트 중 설계 변경이 필요할 때 쓰는 칸: 변경사항을 적고 "설계 변경"을 누르면 확인 창이 단계가 바뀐다고 알린 뒤 설계 단계로 돌린다(허락은 필요 없다) */
 function redesignCard(r: RequestView, onChange: () => void): HTMLElement | null {
   if (r.stage !== 'impl' && r.stage !== 'test') return null;
-  const why = h('textarea', { class: 'hidden', placeholder: '설계의 어디가 틀렸는지 한 줄로 적어 주세요', rows: '2' });
-  const go = (): void => {
-    if (why.classList.contains('hidden')) { why.classList.remove('hidden'); why.focus(); return; }
-    act('redesign', { id: r.id, reason: why.value }, '설계로 되돌렸습니다. 에이전트가 설계를 고쳐 다시 올립니다', onChange);
+  const why = h('textarea', { placeholder: '변경사항을 적어주세요', rows: '3' });
+  const confirmDialog = (text: string): void => {
+    const close = (): void => { document.removeEventListener('keydown', onKey); veil.remove(); };
+    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') close(); };
+    const veil = h('div', { class: 'rd-veil', onclick: (e) => { if (e.target === veil) close(); } }, h('div', { class: 'rd-box' },
+      h('b', null, `${STAGE_LABEL_UI[r.stage] ?? '지금'} 단계가 설계 단계로 바뀝니다`),
+      h('div', null, '테스트는 멈추고, 에이전트가 설계를 고쳐 올리면 다시 승인해야 합니다. 설계 승인 전에는 소스 커밋도 막힙니다.'),
+      h('div', { class: 'hint' }, `변경사항: ${text}`),
+      h('div', { class: 'rd-btns' }, h('button', { class: 'btn', onclick: close }, '취소'),
+        h('button', { class: 'btn pri', onclick: () => { close(); act('redesign', { id: r.id, reason: text }, '설계 단계로 돌렸습니다. 에이전트가 설계를 고쳐 다시 올립니다', onChange); } }, '설계 변경'))));
+    document.addEventListener('keydown', onKey);
+    document.body.append(veil);
   };
-  return h('div', { class: 'card' }, h('div', { class: 'hint' }, '구현·테스트 중 설계가 틀렸다면'), why,
-    h('button', { class: 'btn', style: 'margin-top:8px', onclick: go }, '설계가 잘못됨 → 설계로 되돌리기'),
-    r.redesigns ? h('div', { class: 'hint' }, `지금까지 설계 되돌림 ${r.redesigns}회`) : null);
+  const go = (): void => { const t = why.value.trim(); if (!t) { toast('변경사항을 적어주세요'); why.focus(); return; } confirmDialog(t); };
+  return h('div', { class: 'card' }, h('div', { class: 'hint' }, '설계를 바꿔야 한다면'), why,
+    h('button', { class: 'btn', style: 'margin-top:8px;width:100%', onclick: go }, '설계 변경'),
+    r.redesigns ? h('div', { class: 'hint' }, `지금까지 설계 변경 ${r.redesigns}회`) : null);
+}
+/** 확인 창 제목에 쓰는 단계 이름 */
+const STAGE_LABEL_UI: Record<string, string> = { impl: '구현', test: '테스트' };
+
+/** 설계 변경으로 바뀌기 전의 설계들: 이전 판을 지우지 않고 보여 준다(변경사항·승인 시각·이해한 내용·항목·시안) */
+function designVersionsBox(r: RequestView): HTMLElement | null {
+  const vs = r.designVersions ?? [];
+  if (!vs.length) return null;
+  return h('div', { class: 'dver' }, h('div', { class: 'hint' }, `이전 설계 ${vs.length}개 — 설계 변경으로 바뀌었고 기록으로 남아 있습니다`),
+    vs.map((v, i) => h('details', { class: 'box' },
+      h('summary', null, h('b', null, `설계 ${i + 1}판`), ` · ${v.approvedAt ? `${fmt(v.approvedAt)} 승인됨` : '승인 전에 바뀜'} · ${fmt(v.replacedAt)} ${v.by === 'user' ? '사용자' : '에이전트'}가 설계 변경 요청`),
+      h('div', { class: 'hint' }, `변경사항: ${v.reason}`),
+      v.design.understanding ? h('div', { class: 'quote' }, v.design.understanding) : null,
+      (v.design.points ?? []).map((p) => h('div', null, h('b', null, `${p.area}: `), p.title)),
+      v.design.screens.map((sc) => sc.after ? h('div', null, h('div', { class: 'hint' }, `${sc.screen} 시안`), h('img', { class: 'shot zoomable', src: `/__spec/shots/${sc.after}`, alt: `${sc.screen} 시안` })) : null))));
 }
 
 /** 구현하다 막혀서 같이 고친 일 목록(없으면 null). 구현 칸과 테스트 확인에서 같은 모양으로 보인다 */
@@ -261,7 +281,7 @@ function testCard(model: Model, r: RequestView, onChange: () => void, td = false
  * @does 반려해서 설계 다시 작성 중인 요청의 오른쪽 패널을 본다 | 가장 최근 반려의 사유·시각·몇 번째인지가 보인다 | 반려한 사유를 다시 쓰는 동안 확인한다#1
  * @does 함께 고친 것이 남은 요청의 구현 칸과 테스트 요청 카드를 본다 | 구현 칸에 "함께 고친 것 N건"이 보이고 테스트 요청 카드에 같은 목록이 점선 상자로 보인다 | 구현하다 막혀 함께 고친 것을 확인한다#1
  * @does 테스트 승인 대기인 요청을 열어 오른쪽 "사용 시나리오 테스트" 패널을 본다 | 맨 위에 "이 테스트는 테스트 데이터로 합니다 · 운영 데이터가 아닙니다" 안내가 보이고 시나리오 옆 단추가 "테스트 데이터로 첫 화면 열기"로 나온다 | 눌러 보기 전에 테스트 데이터로 한다는 것을 안다#1
- * @does 구현·테스트 중 설계가 틀렸다고 보고 오른쪽 패널의 "설계가 잘못됨 → 설계로 되돌리기"를 눌러 이유를 적는다 | 허락 없이 요청이 설계 다시 작성 중으로 돌아가고 이유가 진행 기록에 남으며 담당 세션에 전달된다 | 잘못된 설계를 안고 가지 않고 설계를 고쳐 다시 승인받는다#1
+ * @does 구현·테스트 중 설계 변경이 필요해 오른쪽 패널 아래 "변경사항을 적어주세요" 칸에 쓰고 "설계 변경"을 누른다 | 단계가 설계 단계로 바뀐다는 확인 창이 뜨고 확인하면 요청이 설계 다시 작성 중으로 돌아가며 변경사항이 진행 기록에 남고 담당 세션에 전달된다 | 잘못된 설계를 안고 가지 않고 설계를 고쳐 다시 승인받는다#1
  * @does 테스트 칸에서 시나리오 옆"첫 화면 열기"를 누른다 | 새 창에 첫 화면이 열리고 오른쪽 코멘트 창에 경로 단계 목록이 나온다 | 테스트를 경로 따라가며 승인한다#1 | → 2
  * @does 단계마다 대상을 고르고 코멘트를 담은 뒤 "다음 화면"으로 간다 | 다음 단계의 화면으로 넘어가고 담은 코멘트가 쌓인다 | 테스트를 경로 따라가며 승인한다#2 | → 3
  * @does 경로 끝에서 "승인"이나 "한번에 보내기(반려)"를 누른다 | 승인하면 요청이 끝나고, 반려하면 담은 코멘트가 한 묶음으로 가며 같은 요청에서 고친다 | 테스트를 경로 따라가며 승인한다#3
@@ -289,7 +309,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   };
   const sumText = (t: string, n = 70): string => (t.length > n ? `${t.slice(0, n)}…` : t);
   const dsum = r.detail?.mode === 'direct' ? '바로 작업으로 등록되어 설계 없음 승인으로 처리됨' : !d ? '아직 올라오지 않았습니다' : d.none ? '정보도 화면도 바뀌지 않는 요청(설계 없음)' : `정보 변경 ${d.changes.length}건 · 화면 변경 ${d.screens.length}건${d.rejected ? ` · 반려 ${d.rejected}회` : ''}`;
-  const designEvents = r.events.filter((e) => e.kind.startsWith('design-'));
+  const designEvents = r.events.filter((e) => e.kind.startsWith('design-') || e.kind === 'redesigned');
   const designState = approved ? chip('ok', '승인됨') : r.stage === 'design' ? chip('me', r.step === 'submitted' ? '승인 대기' : '작성 중') : null;
   const implEvents = r.events.filter((e) => e.kind === 'impl' || e.kind === 'test-requested');
   const comps = [...new Set((r.scope.scenarios ?? []).flatMap((n) => model.scenarios.find((s) => s.name === n)?.steps.map((st) => st.owner) ?? []))];
@@ -303,7 +323,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
         h('div', { class: 'tagrow' }, chip(r.detail.mode === 'direct' ? 'ok' : 'dim', r.detail.mode === 'direct' ? '바로 작업' : '정식 설계'), r.detail.reason ? h('span', { class: 'hint' }, r.detail.reason) : null)) : null]),
     fold('design', '설계', idx === 0, approved ? `${fmt(approved.at)} 사용자 승인 · ${dsum}` : dsum,
       [d && (!d.none || d.understanding) ? designText(d) : null,
-        designResult(model, r), designEvents.length ? h('div', { class: 'tl' }, designEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`, e.quote ? h('div', { class: 'hint', style: 'margin-top:2px' }, `사용자가 한 말: “${e.quote}”`) : null)))) : h('div', { class: 'hint' }, '설계 기록이 없습니다.')],
+        designResult(model, r), designVersionsBox(r), designEvents.length ? h('div', { class: 'tl' }, designEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`, e.quote ? h('div', { class: 'hint', style: 'margin-top:2px' }, `사용자가 한 말: “${e.quote}”`) : null)))) : h('div', { class: 'hint' }, '설계 기록이 없습니다.')],
       { label: designState, cur: idx === 0 }),
     fold('impl', '구현', idx === 1, r.commits?.length ? `커밋 ${r.commits.length}개 (${r.commits.join(', ')})${at('test-requested') ? ` · ${fmt(at('test-requested')!.at)} 테스트 요청` : ''}${r.alsoFixed?.length ? ` · 함께 고친 것 ${r.alsoFixed.length}건` : ''}` : idx < 1 ? '설계 승인 뒤에 시작합니다' : `남은 커밋 기록이 없습니다${r.alsoFixed?.length ? ` · 함께 고친 것 ${r.alsoFixed.length}건` : ''}`,
       [alsoFixedBox(r, false), implEvents.length ? h('div', { class: 'tl' }, implEvents.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${fmt(e.at)}`)))) : h('div', { class: 'hint' }, '구현 기록이 없습니다.')],
