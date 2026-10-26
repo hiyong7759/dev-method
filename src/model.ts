@@ -15,6 +15,7 @@ import { deliveryOf } from './delivery.js';
 import { untrackedCommits } from './history.js';
 import { designViews } from './design.js';
 import { readConfig } from './config.js';
+import { brandOf } from './brand.js';
 import { reviewFrame } from './testdata.js';
 import { loadComments } from './comment.js';
 import { loadReports, reportRows, openCount, assignNumbers } from './report.js';
@@ -232,7 +233,7 @@ export function buildModel(scanRoot: string): Model {
   const rawRequests = loadRequests(scanRoot);
   const requests = describeRequests(rawRequests, componentsOf, (r) => deliveryOf(scanRoot, r)).map((r) => ({ ...r, cost: costOf(scanRoot, r.id) }));
   return {
-    project: path.basename(root), ...(process.env.SPEC_TEST_DIR ? { testEnv: '테스트 데이터' } : {}), generatedAt: new Date().toISOString(),
+    project: brandOf(root).name, projectDir: path.resolve(root), brand: brandOf(root), ...(process.env.SPEC_TEST_DIR ? { testEnv: '테스트 데이터' } : {}), generatedAt: new Date().toISOString(),
     screens, specs: out.specs, infos, relations, reports: rows, glossary: loadGlossary(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
     requests, reviewFrame: reviewFrame(root), designs: designViews(root), designCanvas: readConfig(root).designCanvas ?? '', comments: loadComments(scanRoot), untracked: untrackedCommits(scanRoot, rawRequests),
     summary: {

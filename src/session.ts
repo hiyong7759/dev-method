@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readConfig } from './config.js';
+import { brandOf } from './brand.js';
 import { kst } from './kst.js';
 import { loadRequests, noteSessionFailed, noteSessionStarted, STAGE_LABEL, STEP } from './request.js';
 import { projectRoot, specDir } from './project.js';
@@ -176,11 +177,15 @@ function briefOf(req: Request | undefined): string {
 /** 설계 파일 모양(세션이 규칙 문서를 찾아 읽지 않아도 되게 줄여서 넣는다) */
 const DESIGN_SHAPE = '설계 파일(JSON) 모양: understanding(짧은 한 줄 요약), points[{area 영역, title 바뀌는 것, text 설명}], changes[{info, kind add|remove|change|link, field, note}], screens[{screen, after 시안 그림, note, counts, highlights, isNew}]. 이미 있는 화면은 먼저 `request shot --id 번호 --screen 화면 --url 운영 화면 주소`로 현행을 찍어 둔다(손으로 올린 그림은 경고가 붙는다). 설계서 보기에 없는 새 화면은 isNew: true. 정보도 화면도 안 바뀌면 `request design --id 번호 --none true`. "이렇게 처리하겠습니다"(approach)는 설계 없음에서 항목이 하나뿐인 짧은 설명에만 쓰고, 항목이 둘 이상이면 설계 없음이어도 points 표로 적는다.';
 
+/** 담당 세션 이름: 여러 프로젝트를 함께 쓸 때 헷갈리지 않게 프로젝트 이름을 앞에 붙인다 */
+const ownerName = (root: string, id: number): string => `${brandOf(root).name} #${id} 담당`;
+
 /** 새 담당 세션이 받는 글: 담당 등록 → 설계 올리고 승인 대기에서 멈춤. 사용자가 이미 결정한 상태(decided)면 그 일만 하게 한다 */
 function newOwnerMessage(scanRoot: string, root: string, req: Request | undefined, id: number, decided: string): string {
   const src = path.relative(root, scanRoot) || '.';
-  const intro = `[요청 #${id} 담당] 당신은 요청 #${id} "${req?.title ?? ''}"의 담당 세션입니다. 이 요청 하나만 합니다.`;
-  const register = `\`node ${SPEC_MJS} request agent --id ${id} --name "요청 #${id} 담당" --src ${src}\`로 담당을 등록하세요.`;
+  const pn = brandOf(root).name;
+  const intro = `[${pn} 요청 #${id} 담당] 당신은 ${pn} 프로젝트의 요청 #${id} "${req?.title ?? ''}"의 담당 세션입니다. 이 요청 하나만 합니다. 사용자에게 하는 보고에서는 요청 번호 앞에 프로젝트 이름을 붙이고(예: ${pn} 요청 #${id}), 파일로 보내는 캡처 이름 앞에도 붙입니다.`;
+  const register = `\`node ${SPEC_MJS} request agent --id ${id} --name "${ownerName(root, id)}" --src ${src}\`로 담당을 등록하세요.`;
   if (decided) return `${intro} 사용자가 결정했습니다(${decided}). ${register}${briefOf(req)}\n사용자가 결정한 그 일만 하고 끝나면 멈추세요. 다른 일을 시작하지 마세요. 더 알아야 하면 .spec/requests/${id}.json을 읽으세요.`;
   return `${intro} 1) ${register} 2) 아래 요청 내용을 읽고 설계를 써서 \`request design --id ${id}\`로 올린 뒤(화면이 바뀌면 현행·시안 그림과 함께) 사용자 승인 대기에서 멈추세요. 승인 전에는 구현하지 않고, 다른 요청은 건드리지 않습니다.${briefOf(req)}\n${DESIGN_SHAPE} 더 알아야 하면 \`node ${SPEC_MJS} todo --src ${src}\`나 .spec/requests/${id}.json을 읽으세요.`;
 }
@@ -205,7 +210,7 @@ export function startOwner(scanRoot: string, id: number, why: 'start' | 'decisio
     registerOwner(root, sid, id);
     fs.appendFileSync(log, `${new Date().toISOString()} #${id} ${sid} 담당 세션을 새로 만듦(${why === 'start' ? '시작' : '결정'})\n`);
     noteSessionStarted(scanRoot, id, sid);
-    launch(root, scanRoot, id, sid, msg, [{ args: `--session-id ${sid} --name "요청 #${id} 담당"`, prompt: '"$MSG"', kind: 'start' }]);
+    launch(root, scanRoot, id, sid, msg, [{ args: `--session-id ${sid} --name "${ownerName(root, id)}"`, prompt: '"$MSG"', kind: 'start' }]);
     return sid;
   } catch { return null; /* 시작·결정은 세션 만들기 실패와 상관없이 성공해야 한다 */ }
 }
@@ -215,7 +220,7 @@ export function resumeOwner(scanRoot: string, id: number, sid: string, decided: 
   const root = projectRoot(scanRoot);
   const req = loadRequests(scanRoot).find((r) => r.id === id);
   const src = path.relative(root, scanRoot) || '.';
-  const msg = `[spec-view] 요청 #${id}${req ? ` "${req.title}"` : ''}에 사용자가 결정했습니다(${decided}).${briefOf(req)}\n사용자가 결정한 그 일만 하고, 끝나면 멈추세요. 다른 일을 시작하지 마세요. 더 알아야 하면 .spec/requests/${id}.json과 \`node ${SPEC_MJS} todo --src ${src}\`로 지금 할 일을 확인하세요.`;
+  const msg = `[spec-view] ${brandOf(root).name} 요청 #${id}${req ? ` "${req.title}"` : ''}에 사용자가 결정했습니다(${decided}).${briefOf(req)}\n사용자가 결정한 그 일만 하고, 끝나면 멈추세요. 다른 일을 시작하지 마세요. 더 알아야 하면 .spec/requests/${id}.json과 \`node ${SPEC_MJS} todo --src ${src}\`로 지금 할 일을 확인하세요.`;
   const why = state.idleMs >= CACHE_COLD_MS ? '1시간 넘게 쉬어 캐시가 식음' : state.bytes >= BIG_BYTES ? '대화 기록이 커서' : '';
   const steps: Step[] = [{ args: `--resume ${sid}`, prompt: '"$MSG"', kind: 'wake' }];
   if (why) steps.unshift({ args: `--resume ${sid}`, prompt: '"/compact"', kind: 'wake' });
@@ -248,7 +253,7 @@ export function retryStalledStarts(scanRoot: string): number[] {
         v.retried = true;
         const msg = newOwnerMessage(scanRoot, root, req, v.request, '');
         fs.appendFileSync(log, `${new Date().toISOString()} #${v.request} ${sid} 시작이 끝나지 않아 같은 세션으로 다시 시작함\n`);
-        launch(root, scanRoot, v.request, sid, msg, [{ args: `${exists ? '--resume' : '--session-id'} ${sid} --name "요청 #${v.request} 담당"`, prompt: '"$MSG"', kind: 'start' }]);
+        launch(root, scanRoot, v.request, sid, msg, [{ args: `${exists ? '--resume' : '--session-id'} ${sid} --name "${ownerName(root, v.request)}"`, prompt: '"$MSG"', kind: 'start' }]);
       }
       done.push(v.request);
     }

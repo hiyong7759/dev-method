@@ -1,7 +1,7 @@
 /**
  * @spec open 설계서 보기 한 번에 띄우기
  * @why 프로젝트 이름만 대면 서버 둘을 따로 띄우지 않아도 설계서 보기가 열리게 한다. 사용자도 에이전트도 같은 한 줄이다. 앱 개발 서버(꺼져 있으면 시작) → 설계서 보기 서버(serve) → 브라우저 순서로 띄운다.
- * @basis 프로젝트 이름은 install.sh spec으로 등록된 프로젝트의 폴더 이름(spec-projects.txt)이고, 설정은 <프로젝트>/.spec/config.json이다. 앱 개발 서버가 없는 프로젝트는 설정의 app을 null로 둔다.
+ * @basis 프로젝트 이름은 install.sh spec으로 등록된 프로젝트의 폴더 이름(spec-projects.txt)이고, 설정은 <프로젝트>/.spec/config.json이다. 앱 개발 서버가 없는 프로젝트는 설정의 app을 null로 둔다. 그 포트에서 응답한 설계서 보기가 다른 프로젝트 것이면(model.json의 projectDir 비교) 알리고 멈춘다.
  * @contract 옵션: --no-open은 ego-browser를 열지 않는다(에이전트가 끝낼 때 확인용으로 띄울 때), --stop은 이 도구가 띄운 서버를 끈다. 띄운 서버의 번호는 <프로젝트>/.spec/pids.json에 적는다.
  */
 import fs from 'node:fs';
@@ -28,6 +28,15 @@ const up = async (url: string): Promise<boolean> => { try { await fetch(url, { s
 const isSpec = async (u: string): Promise<boolean> => {
   try { const j = await (await fetch(u, { signal: AbortSignal.timeout(12000) })).json() as { screens?: unknown }; return Array.isArray(j.screens); } catch { return false; }
 };
+/** 응답한 설계서 보기 서버가 누구 것인지 읽는다. 설계서 보기가 아니면 null, 프로젝트 정보가 없는 옛 서버는 dir이 빈 글 */
+const whose = async (u: string): Promise<{ dir: string; name: string } | null> => {
+  try {
+    const j = await (await fetch(u, { signal: AbortSignal.timeout(12000) })).json() as { screens?: unknown; projectDir?: string; project?: string };
+    return Array.isArray(j.screens) ? { dir: j.projectDir ?? '', name: j.project ?? '' } : null;
+  } catch { return null; }
+};
+/** 같은 폴더인가(바로가기·대소문자 차이를 같게 본다) */
+const sameDir = (a: string, b: string): boolean => { try { return fs.realpathSync(a) === fs.realpathSync(b); } catch { return path.resolve(a) === path.resolve(b); } };
 /** 주소가 응답할 때까지 기다린다. 시간 안에 안 되면 false */
 const waitUp = async (url: string, ms: number, check: (u: string) => Promise<boolean> = up): Promise<boolean> => {
   const t = Date.now();
@@ -75,6 +84,12 @@ export async function main(argv: string[]): Promise<number | undefined> {
 
   const stampFile = path.join(project, '.spec', 'serve-stamp');
   const base = `http://localhost:${port}`;
+  // 그 포트에서 응답한 설계서 보기가 다른 프로젝트 것이면 이 프로젝트 것으로 착각하지 않고, 남의 서버를 끄지도 않는다
+  const other = await whose(`${base}/__spec/model.json`);
+  if (other && other.dir && !sameDir(other.dir, project)) {
+    console.error(`포트 ${port}는 다른 프로젝트(${other.name || path.basename(other.dir)}, ${other.dir})의 설계서 보기가 쓰고 있다. ${configFile(project)}의 port를 바꾼다. 그 서버는 끄지 않았다.`);
+    return 1;
+  }
   if (flags.has('stop')) {
     for (const [k, pid] of Object.entries(readPids())) {
       try { process.kill(-pid); console.log(`끔: ${k} (${pid})`); } catch { try { process.kill(pid); console.log(`끔: ${k} (${pid})`); } catch { console.log(`이미 꺼져 있음: ${k}`); } }
@@ -89,7 +104,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
   }
 
   const pids = readPids();
-  if (!app) console.log('앱 서버 없음 (설정의 app이 null)');
+  if (!app) console.log('앱 서버 없음 (설정의 app이 null) — 설계서 보기만 띄운다');
   else if (await up(app)) console.log(`앱 서버 이미 떠 있음: ${app}`);
   else {
     pids.app = launch(start, [], 'app.log', true); writePids(pids);

@@ -854,10 +854,24 @@ export interface UntrackedCommit {
   title: string;
 }
 
+/** 프로젝트를 알아보게 하는 이름·색·아이콘 */
+export interface Brand {
+  /** 화면 맨 위와 탭 제목에 보이는 프로젝트 이름 */
+  name: string;
+  /** 띠·표지에 쓰는 색(CSS 색) */
+  color: string;
+  /** 이름 앞에 붙는 아이콘(이모지 한 글자) */
+  icon: string;
+}
+
 /** 설계서 보기 화면이 읽는 모델 한 덩어리 */
 export interface Model {
   /** 프로젝트 이름 */
   project: string;
+  /** 이 프로젝트 폴더의 전체 경로. 띄우는 도구가 응답한 서버가 이 프로젝트 것인지 비교한다 */
+  projectDir: string;
+  /** 화면이 쓰는 프로젝트 이름·색·아이콘 */
+  brand: Brand;
   /** 테스트용 서버로 띄웠을 때만 있다. 화면 위쪽에 이 글을 표시해 운영 데이터와 헷갈리지 않게 한다 */
   testEnv?: string;
   /** 요청 상세가 테스트 서버로 보낼 때 쓰는 것. 프로젝트에 testData.reviewUrl이 있고 운영 설계서 보기일 때만 있다 */
@@ -936,6 +950,8 @@ export interface ProjectConfig {
   port?: number;
   /** 앱 개발 서버를 띄우는 명령. 안 적으면 npm run dev */
   start?: string;
+  /** 여러 프로젝트를 구분하는 이름·색·아이콘. 안 적으면 폴더 이름, 이름에서 고른 색, 📁 */
+  project?: Partial<Brand>;
   /** 설계 디자인을 요청마다 모아 두는 Claude Design 캔버스 주소 */
   designCanvas?: string;
   /** true면 요청을 시작할 때 담당 세션을 새로 만들고, 사용자가 결정했을 때 닫혀 있는 담당 세션을 서버가 깨운다(비용이 들어 기본은 꺼짐) */

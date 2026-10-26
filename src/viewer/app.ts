@@ -72,6 +72,14 @@ function screenMenuItems(m: Model, cur: string): Kid[] {
 /** 정보 ▾ 메뉴의 목록 */
 const infoMenuItems = (m: Model, cur: string): Kid[] => (m.infos.length ? m.infos.map((i) => h('button', { class: `mitem${i.name === cur ? ' cur' : ''}`, onclick: () => nav(hash('info', i.name)) }, h('span', { class: 'mono' }, i.name), i.kind === 'internal' ? tag('', '내부') : null)) : [h('div', { class: 'mgroup' }, '정보가 없다')]);
 
+/** 탭 아이콘을 프로젝트 색 바탕에 아이콘을 얹은 그림으로 바꾼다 */
+function setFavicon(b: Model['brand']): void {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="${b.color}"/><text x="16" y="23" font-size="19" text-anchor="middle">${b.icon}</text></svg>`;
+  let l = document.querySelector<HTMLLinkElement>('link[rel=icon]');
+  if (!l) { l = document.createElement('link'); l.rel = 'icon'; document.head.append(l); }
+  l.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 /** 맨 위 줄: DEV · 프로젝트 · 현행|관리 · 그 영역의 메뉴 · 내 차례 · 밝기 단추. 확인 필요·승인·메모 개수는 올리지 않는다 */
 function topbar(m: Model, r: Route): HTMLElement {
   const s = m.summary;
@@ -84,7 +92,10 @@ function topbar(m: Model, r: Route): HTMLElement {
     ? h('div', { class: 'tabs-top' }, item('요청', r.view === 'manage', hash('manage')), item(['리포트', s.reportsOpen ? h('b', { class: 'cnt' }, s.reportsOpen) : null], r.view === 'reports', hash('manage', 'reports')), item('용어집', r.view === 'glossary', hash('manage', 'glossary')), item('시안 현황', r.view === 'designs', hash('manage', 'designs')))
     : h('div', { class: 'tabs-top' }, item('사용 흐름', r.view === 'flow', hash('flow')), item('정보 흐름', r.view === 'info' && !r.arg, hash('info')),
       menuBtn('화면', 'screens', r.view === 'screen', () => screenMenuItems(m, r.view === 'screen' ? r.arg : '')), menuBtn('정보', 'infos', r.view === 'info' && !!r.arg, () => infoMenuItems(m, r.view === 'info' ? r.arg : '')));
-  return h('header', { class: 'top' }, h('span', { class: 'dev mono' }, 'DEV'), m.testEnv ? h('span', { class: 'testenv', title: '운영 요청·리포트가 아닌 저장소 밖 테스트 데이터로 띄운 화면입니다' }, m.testEnv) : null, h('span', { class: 'ttl' }, m.project), seg, nav2, h('span', { class: 'grow' }), mine, themeButton());
+  const b = m.brand;
+  document.title = `${b.name} · 설계서 보기${m.testEnv ? ` (${m.testEnv})` : ''}`;
+  setFavicon(b);
+  return h('header', { class: 'top', style: `--brand:${b.color}` }, h('span', { class: 'dev mono' }, 'DEV'), m.testEnv ? h('span', { class: 'testenv', title: '운영 요청·리포트가 아닌 저장소 밖 테스트 데이터로 띄운 화면입니다' }, m.testEnv) : null, h('span', { class: 'ttl' }, h('span', { class: 'brand-icon' }, b.icon), ' ', b.name), seg, nav2, h('span', { class: 'grow' }), mine, themeButton());
 }
 
 /** 주소에 맞는 화면을 그린다 */

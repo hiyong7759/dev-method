@@ -42,7 +42,44 @@ hooks)
 spec)
   P=$(cd "$2" && pwd) || exit 1
   mkdir -p "$P/.spec"
-  [ -f "$P/.spec/config.json" ] || printf '{ "src": "%s", "app": "%s", "port": %s, "start": "npm run dev" }\n' "${3:-src}" "${4:-http://localhost:5173}" "${5:-5290}" > "$P/.spec/config.json"
+  # 새 프로젝트 기본값: 담당 세션 자동 생성(wake) 켬, 앱 주소를 비우거나 '-'로 주면 앱 서버 없음(null),
+  # 포트는 등록된 다른 프로젝트가 쓰는 번호(설계서 보기·시험 서버)를 피해 배정하고, 직접 준 번호가 겹치면 알리고 멈춘다. 이미 설정이 있으면 건드리지 않는다
+  if [ ! -f "$P/.spec/config.json" ]; then
+    python3 - "$P" "$ROOT/spec-projects.txt" "${3:-src}" "${4:--}" "${5:-}" <<'PY' || exit 1
+import json, os, re, sys
+P, lst, src, app, port = sys.argv[1:6]
+used = {}
+for q in (open(lst).read().split("\n") if os.path.exists(lst) else []):
+    q = q.strip()
+    f = os.path.join(q, ".spec", "config.json")
+    if not q or os.path.realpath(q) == os.path.realpath(P) or not os.path.exists(f):
+        continue
+    try:
+        c = json.load(open(f))
+    except Exception:
+        continue
+    name = os.path.basename(q)
+    used[c.get("port", 5290)] = name
+    m = re.search(r":(\d+)", (c.get("testData") or {}).get("reviewUrl", "") or "")
+    if m:
+        used[int(m.group(1))] = name
+if port:
+    if int(port) in used:
+        print(f"포트 {port}는 프로젝트 {used[int(port)]}가 이미 쓴다. 다른 번호를 주거나 그쪽 설정을 바꾼다 (쓰는 번호: {sorted(used)})")
+        sys.exit(1)
+    port = int(port)
+else:
+    port = 5290
+    while port in used or port + 100 in used:
+        port += 1
+cfg = {"src": src, "app": None if app in ("", "-") else app, "port": port, "start": "npm run dev", "wake": True}
+json.dump(cfg, open(os.path.join(P, ".spec", "config.json"), "w"), ensure_ascii=False)
+open(os.path.join(P, ".spec", "config.json"), "a").write("\n")
+if cfg["app"] is None:
+    print("앱 서버 없음(app: null) — 설계서 보기만 띄운다. 앱이 생기면 .spec/config.json의 app을 주소로 바꾼다")
+print(f"설계서 보기 포트: {port}")
+PY
+  fi
   HOOK="$P/.git/hooks/pre-commit"
   LINE='node '"$ROOT"'/skills/spec-view/spec.mjs precommit "$(git rev-parse --show-toplevel)" || exit 1'
   if [ ! -f "$HOOK" ]; then printf '#!/bin/bash\n%s\n' "$LINE" > "$HOOK"; chmod +x "$HOOK"
