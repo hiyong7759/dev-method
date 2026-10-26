@@ -71,3 +71,20 @@ export function stepperBig(r: RequestView): HTMLDivElement {
 export function withPanel(main: Kid, panel: HTMLElement): HTMLElement {
   return h('div', { class: 'with-panel' }, h('div', { class: 'wp-main' }, main), panel);
 }
+
+/** 그림을 크게 보는 창. 위쪽 줄(제목·현행/시안 전환·닫기)은 화면에 붙어 있고 그림만 스크롤되므로, 아래로 내려가도 닫으러 올라올 필요가 없다. 바깥을 누르거나 Esc로도 닫는다.
+ *  startBefore를 주면 현행 그림부터 보여 준다(비교 화면에서 현행 쪽을 눌렀을 때) */
+export function lightbox(title: string, after: string, before: string, startBefore = false): void {
+  let showBefore = startBefore && !!before;
+  const src = (): string => `/__spec/shots/${showBefore || !after ? before : after}`;
+  const text = (): string => `${title} · ${showBefore ? '현행' : '시안'} (원본 크기)`;
+  const img = h('img', { class: 'lbx-img', src: src(), alt: title });
+  const label = h('span', null, text());
+  const swap = before && after ? h('button', { class: 'btn sm', onclick: (e: Event) => { e.stopPropagation(); showBefore = !showBefore; img.setAttribute('src', src()); label.textContent = text(); swap!.textContent = showBefore ? '시안 보기' : '현행 보기'; } }, showBefore ? '시안 보기' : '현행 보기') : null;
+  const close = (): void => { ov.remove(); document.removeEventListener('keydown', onKey); window.removeEventListener('hashchange', close); };
+  const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') close(); };
+  const ov = h('div', { class: 'lbx', onclick: close }, h('div', { class: 'lbx-bar', onclick: (e: Event) => e.stopPropagation() }, label, h('span', { class: 'grow' }), swap, h('button', { class: 'btn sm lbx-x', onclick: close }, '닫기 ✕ (Esc)')), img);
+  document.addEventListener('keydown', onKey);
+  window.addEventListener('hashchange', close);
+  document.body.append(ov);
+}

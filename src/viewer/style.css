@@ -15,7 +15,7 @@
 .tag.i{border-color:var(--green-deep);color:var(--green)}
 .rv{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;border:1px solid var(--amber-deep);background:var(--amber-bg);color:var(--amber);font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
 .rv:before{content:"";width:9px;height:8px;background:var(--amber);clip-path:polygon(50% 0,100% 100%,0 100%)}
-.fchips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fchips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:sticky;top:var(--ph-h,0px);z-index:19;background:var(--bg);padding:8px 0}
 .fc{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg2);color:var(--dim);font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer}
 .fc small{margin-left:5px;font-weight:400;opacity:.8}
 .fc.on{border-color:var(--accent-deep);color:var(--accent);background:var(--accent-bg)}
@@ -60,6 +60,12 @@
 .sp-x{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:none;display:flex;align-items:center;justify-content:center;color:var(--dim);padding:0}
 .sp-foot{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
 .wrap{width:100%;max-width:1240px;margin:0 auto;padding:28px 24px 48px;display:flex;flex-direction:column;gap:20px;flex:none}
+/* 페이지 머리는 스크롤해도 위에 붙는다(util.ts stickHead). 붙으면 설명 줄을 접어 자리를 줄인다 */
+.ph{position:sticky;top:0;z-index:20;background:var(--bg);padding:8px 0}
+.ph-mark{position:absolute;left:0;top:-9px;width:1px;height:1px;pointer-events:none}
+.ph.stuck{border-bottom:1px solid var(--line)}
+.ph.stuck .lead:not(.meta){display:none}
+.ph.stuck h1{font-size:18px}
 .ph h1{margin:0;font-size:24px;line-height:1.35}
 .ph .crumb{margin-bottom:4px;font-size:12px;color:var(--dim)}
 .ph .crumb a{color:var(--accent);text-decoration:none;cursor:pointer}
@@ -757,8 +763,18 @@ img.shot.zoomable{cursor:zoom-in}
 .shot-wrap .hl{position:absolute;border:2px solid var(--green);background:rgba(31,157,85,.14);border-radius:5px;pointer-events:none}
 .shot-wrap .hl span{position:absolute;top:-11px;left:6px;white-space:nowrap;background:var(--green);color:var(--on-green);font:700 11px sans-serif;padding:0 6px;border-radius:8px}
 .shot-src{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}
-.lbx{position:fixed;inset:0;z-index:99999;background:rgba(20,16,10,.8);overflow:auto;display:flex;flex-direction:column;align-items:center;padding:24px;cursor:zoom-out}
-.lbx-bar{width:100%;max-width:1400px;display:flex;align-items:center;gap:10px;color:#fff;font:600 14px sans-serif;margin-bottom:10px;cursor:default}
+.lbx{position:fixed;inset:0;z-index:99999;background:rgba(20,16,10,.8);overflow:auto;display:flex;flex-direction:column;align-items:center;padding:0 24px 24px;cursor:zoom-out}
+/* 위쪽 줄은 스크롤해도 붙어 있다. 닫기는 흰 테두리 단추로 눈에 띄게 */
+.lbx-bar{position:sticky;top:0;left:0;z-index:2;width:100%;max-width:1400px;display:flex;align-items:center;gap:10px;color:#fff;font:600 14px sans-serif;padding:14px 0 10px;margin-bottom:0;background:rgba(20,16,10,.96);cursor:default}
+.lbx-bar .btn{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.5)}
+.lbx-bar .lbx-x{border:2px solid #fff;background:#fff;color:#1c1a17}
+/* 비교 그림: 크게 볼 수 있다는 것이 보이게(단추·확대 표시·올리면 점선) */
+.zpane{min-width:0}
+.zcap{color:#3a342c;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:13px}
+.zbtn{border:2px solid var(--accent-deep);color:var(--accent);background:var(--accent-bg)}
+.zbox{position:relative;cursor:zoom-in;border:3px solid transparent;border-radius:6px}
+.zbox:hover{border:3px dashed var(--accent)}
+.zbadge{position:absolute;right:8px;top:8px;background:rgba(20,20,20,.85);color:#fff;border-radius:8px;padding:4px 10px;font:700 12px sans-serif;pointer-events:none}
 .lbx-img{max-width:none;background:#fff;border-radius:8px;display:block;flex:none}
 .rm.cost{margin-top:10px}
 

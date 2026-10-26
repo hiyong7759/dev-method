@@ -6,7 +6,7 @@
 import { h, get, post, pageHead, chip, tag, fmt, toast, errorText, copyText, sidePanel } from './util.js';
 import type { Kid } from './util.js';
 import { hash, nav, liveAt } from './route.js';
-import { stepperBig, chipFor, scopeTags, withPanel, currentDesignApproval, deliveryCard, unread } from './manage-parts.js';
+import { stepperBig, chipFor, scopeTags, withPanel, lightbox, currentDesignApproval, deliveryCard, unread } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
 import { basket, sendBasket } from './comment-basket.js';
 import type { Model, RequestView, Scenario, ScenarioStep } from '../types.js';
@@ -159,19 +159,6 @@ function designApproval(r: RequestView, onChange: () => void, td = false): HTMLE
     td ? null : note,
     td ? h('div', { class: 'hint' }, '테스트 데이터 서버의 복사본이라 승인·반려는 운영 요청 상세에서 합니다.') : h('div', { class: 'sp-foot' }, h('button', { class: 'btn bad', onclick: () => act('design-reject', { id: r.id, note: note.value }, '반려했습니다. 에이전트가 설계를 다시 작성합니다', onChange) }, '반려'), ok),
     none ? null : h('div', { class: 'hint' }, '정보도 화면도 바뀌지 않는 요청이면 에이전트가 "설계 없음"으로 올리고, 그때는 "설계 없음 승인"만 누르면 됩니다.'));
-}
-
-/** 그림을 눌렀을 때 원본 크기로 보는 창. 현행 그림이 있으면 "현행 보기"로 바꿔 볼 수 있다. 바깥을 누르거나 Esc로 닫는다 */
-function lightbox(title: string, after: string, before: string): void {
-  let showBefore = false;
-  const img = h('img', { class: 'lbx-img', src: `/__spec/shots/${after}`, alt: title });
-  const label = h('span', null, `${title} · 시안 (원본 크기)`);
-  const swap = before ? h('button', { class: 'btn sm', onclick: (e: Event) => { e.stopPropagation(); showBefore = !showBefore; img.setAttribute('src', `/__spec/shots/${showBefore ? before : after}`); label.textContent = `${title} · ${showBefore ? '현행' : '시안'} (원본 크기)`; swap!.textContent = showBefore ? '시안 보기' : '현행 보기'; } }, '현행 보기') : null;
-  const close = (): void => { ov.remove(); document.removeEventListener('keydown', onKey); };
-  const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') close(); };
-  const ov = h('div', { class: 'lbx', onclick: close }, h('div', { class: 'lbx-bar', onclick: (e: Event) => e.stopPropagation() }, label, h('span', { class: 'grow' }), swap, h('button', { class: 'btn sm', onclick: close }, '닫기 ✕')), img);
-  document.addEventListener('keydown', onKey);
-  document.body.append(ov);
 }
 
 /** 정보 변경을 정보(테이블) 하나에 한 줄로 요약한 칸 하나: 바뀐 정도와 더해지거나 바뀌는 칸 이름만 보이고, 자세한 것은 겹쳐 보기에서 본다 */

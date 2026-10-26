@@ -79,7 +79,16 @@ export interface PageHeadOptions {
 }
 export function pageHead({ crumb, title, lead, meta, actions }: PageHeadOptions): HTMLElement {
   const main = h('div', null, crumb ? h('div', { class: 'crumb' }, crumb) : null, h('h1', null, title), lead ? h('p', { class: 'lead' }, lead) : null, meta ? h('div', { class: 'lead meta' }, meta) : null);
-  return h('header', { class: 'ph' }, actions ? h('div', { class: 'phrow' }, main, h('div', { style: 'display:flex;gap:8px;flex:none' }, actions)) : main);
+  const el = h('header', { class: 'ph' }, h('i', { class: 'ph-mark' }), actions ? h('div', { class: 'phrow' }, main, h('div', { style: 'display:flex;gap:8px;flex:none' }, actions)) : main);
+  stickHead(el);
+  return el;
+}
+
+/** 페이지 머리를 스크롤해도 위에 붙여 두는 일. 붙으면(stuck) 설명 줄을 접어 자리를 줄이고, 아래에 붙는 필터 칩이 비켜 설 높이(--ph-h)를 알린다 */
+function stickHead(el: HTMLElement): void {
+  const mark = el.firstElementChild as HTMLElement;
+  new IntersectionObserver(([e]) => el.classList.toggle('stuck', !e.isIntersecting)).observe(mark);
+  new ResizeObserver(() => { if (el.isConnected) document.documentElement.style.setProperty('--ph-h', `${el.offsetHeight}px`); }).observe(el);
 }
 
 /** 오른쪽 패널(sidepanel): 제목(+닫기·접기) / 본문 칸들 / 아래 단추. 폭은 380 고정.

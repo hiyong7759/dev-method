@@ -4,7 +4,7 @@
  * @contract 요청의 설계(types.ts의 RequestDesign)를 읽어 그린다. 정보 변경은 현행 관계도(erd.ts) 위에 얹고, 화면 변경은 에이전트가 올린 변경 후 그림과 지금 화면 그림을 비교한다.
  */
 import { h, pageHead, chip, sidePanel } from './util.js';
-import { withPanel } from './manage-parts.js';
+import { withPanel, lightbox } from './manage-parts.js';
 import { buildErd } from './erd.js';
 import { hash, nav } from './route.js';
 import type { DesignChange, Model, RequestView } from '../types.js';
@@ -87,16 +87,24 @@ export function manageCompare(root: HTMLElement, { r, screen }: { r: RequestView
   const mode = modeOf('side');
   const img = (name: string, alt: string): HTMLElement => (name ? h('img', { class: 'shot big', src: `/__spec/shots/${name}`, alt }) : h('div', { class: 'empty-note' }, `${alt} 그림이 없습니다`));
   const CAP: Record<string, string> = { before: '지금 화면을 그대로 찍은 모습입니다.', after: '승인 대상 디자인(변경 후)입니다.', side: '왼쪽이 현행, 오른쪽이 변경 후입니다.', blend: '두 그림을 겹쳐 놓았습니다. 아래 막대를 움직여 섞는 정도를 바꿔 보세요.' };
+  /** 그림 한 장: 위에 "🔍 크게 보기" 단추, 모서리에 "확대" 표시, 올리면 점선 테두리·돋보기 커서. 단추든 그림이든 누르면 확대 창이 열린다 */
+  const zoom = (name: string, alt: string, startBefore: boolean): HTMLElement => {
+    const open = (): void => lightbox(d.screen, d.after, d.before, startBefore);
+    if (!name) return img(name, alt);
+    return h('div', { class: 'zpane' },
+      h('div', { class: 'zcap' }, h('b', null, alt), h('button', { class: 'btn sm zbtn', onclick: open }, '🔍 크게 보기')),
+      h('div', { class: 'zbox', title: '누르면 크게 봅니다', onclick: open }, img(name, alt), h('span', { class: 'zbadge' }, '⤢ 확대')));
+  };
   const view = h('div', { class: 'cmp-stage' });
-  if (mode === 'before') view.append(img(d.before, '현행'));
-  else if (mode === 'after') view.append(img(d.after, '변경 후'));
+  if (mode === 'before') view.append(zoom(d.before, '현행', true));
+  else if (mode === 'after') view.append(zoom(d.after, '변경 후', false));
   else if (mode === 'blend') {
     const top = img(d.after, '변경 후'); top.classList.add('top');
     const range = h('input', { type: 'range', min: '0', max: '100', value: '50', 'aria-label': '섞는 정도' });
     top.style.opacity = '.5';
     range.addEventListener('input', () => { top.style.opacity = String(Number(range.value) / 100); });
-    view.append(h('div', { class: 'blend' }, img(d.before, '현행'), top), h('div', { class: 'blendbar' }, h('span', { class: 'hint' }, '현행'), range, h('span', { class: 'hint' }, '변경 후')));
-  } else view.append(h('div', { class: 'sbs' }, h('div', null, h('div', { class: 'hint' }, '현행'), img(d.before, '현행')), h('div', null, h('div', { class: 'hint' }, '변경 후'), img(d.after, '변경 후'))));
+    view.append(h('div', { class: 'zcap' }, h('b', null, '겹쳐 보기'), h('button', { class: 'btn sm zbtn', onclick: () => lightbox(d.screen, d.after, d.before) }, '🔍 크게 보기')), h('div', { class: 'blend' }, img(d.before, '현행'), top), h('div', { class: 'blendbar' }, h('span', { class: 'hint' }, '현행'), range, h('span', { class: 'hint' }, '변경 후')));
+  } else view.append(h('div', { class: 'sbs' }, zoom(d.before, '현행', true), zoom(d.after, '변경 후', false)));
   root.append(withPanel(h('div', { class: 'wrap' },
     pageHead({ crumb: [h('a', { href: hash('manage') }, '요청'), ' › ', h('a', { href: hash('manage', String(r.id)) }, `#${r.id}`), ` › 화면 변경 · ${d.screen}`], title: `${d.screen} 화면이 이렇게 바뀝니다`, lead: `요청 #${r.id} 설계에서 승인한 화면 디자인을 지금 화면과 네 가지 방식으로 비교합니다.`,
       actions: modeSeg([['before', '현행'], ['after', '변경 후'], ['side', '나란히'], ['blend', '겹쳐 보기']], mode, (k) => setQuery(r.id, 'compare', { mode: k, screen: d.screen })) }),

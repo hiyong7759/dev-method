@@ -94,6 +94,7 @@ function render(): void {
   if (active && model && r.view === 'screen' && active.name === r.arg && active.tr === (r.params.get('tr') ?? '')) { active.setScreen(r.arg, r.params.get('tab')); topEl?.replaceWith(topEl = topbar(model, r)); return; }
   if (active) { active.destroy(); active = null; }
   root.replaceChildren();
+  document.documentElement.style.removeProperty('--ph-h');
   if (!model) return;
   const m = model;
   topEl = topbar(m, r);
