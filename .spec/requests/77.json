@@ -1,0 +1,44 @@
+{
+  "id": 77,
+  "title": "LoginSetting의 password·idSelector를 '바깥이 읽음'으로 선언하고, 이름표 클릭 설명과 @external 시험을 더한다 (#69 이어서)",
+  "source": "user",
+  "origin": {
+    "text": "사용자: #51·#69·#70·#71은 해야 할 것을 다시 요청으로 올려서 처리해 (테스트 대기 검토에서 나온 미완 항목)",
+    "channel": "대화",
+    "at": "2026-10-26T12:48:54.420Z"
+  },
+  "scope": {
+    "screens": [
+      "리포트",
+      "정보 흐름"
+    ],
+    "infos": [
+      "LoginSetting"
+    ],
+    "scenarios": [
+      "정보를 살펴본다"
+    ],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "relatedTo": 69,
+  "detail": {
+    "text": "#69 검토에서 나온 것: (1) 같은 타입에서 id·url만 @external이고 password·idSelector는 선언이 없어 리포트에 '지워도 안전, 요청으로 처리 추천'으로 올라와 있다(같은 사정인지 login.ts 동작을 끝까지 따라가 확인한 뒤 선언) (2) 설계는 '눌러 보면 읽는 쪽 설명'인데 지금은 마우스를 올릴 때 뜨는 말풍선뿐 (3) @external을 지키는 자동 시험이 없다(리포트에서 빠짐, 빈 설명 경고).",
+    "confirmedAt": "2026-10-26T12:48:54.420Z",
+    "mode": "design",
+    "reason": "정보 선언 범위와 화면 동작이 달라지므로 설계 확인이 필요하다"
+  },
+  "stage": "design",
+  "step": "queued",
+  "events": [
+    {
+      "at": "2026-10-26T12:48:54.420Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록(#69과 이어짐)"
+    }
+  ]
+}
