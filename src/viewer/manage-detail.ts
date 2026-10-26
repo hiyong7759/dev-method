@@ -106,7 +106,7 @@ function alsoFixedBox(r: RequestView, hint: boolean): HTMLElement | null {
     a.map((x) => h('div', { style: 'margin-top:6px' }, x.text, h('div', { class: 'hint' }, `${[x.where && `고친 곳: ${x.where}`, fmt(x.at), x.commit && `커밋 ${x.commit}`].filter(Boolean).join(' · ')}`))));
 }
 
-function designApproval(r: RequestView, onChange: () => void): HTMLElement {
+function designApproval(r: RequestView, onChange: () => void, td = false): HTMLElement {
   const d = r.design;
   const none = !!d?.none;
   const hasInfo = !!d?.changes.length, hasScreen = !!d?.screens.length;
@@ -120,8 +120,8 @@ function designApproval(r: RequestView, onChange: () => void): HTMLElement {
   return h('div', { class: 'card approve' }, h('h3', null, none ? '설계 없음 승인' : '설계 승인'),
     h('div', null, none ? '에이전트가 정보도 화면도 바뀌지 않는 요청이라고 올렸습니다. 맞다면 "설계 없음"으로 승인하고 구현으로 넘어갑니다.' : '정보와 화면을 함께 확인하고 한 번에 승인합니다. 승인하기 전에는 구현을 시작하지 않습니다.'),
     none ? null : [hasInfo ? check('ck-info', c1, '정보 변경을 확인했다') : null, hasScreen ? check('ck-screen', c2, '화면 디자인을 확인했다') : null],
-    note,
-    h('div', { class: 'sp-foot' }, h('button', { class: 'btn bad', onclick: () => act('design-reject', { id: r.id, note: note.value }, '반려했습니다. 에이전트가 설계를 다시 작성합니다', onChange) }, '반려'), ok),
+    td ? null : note,
+    td ? h('div', { class: 'hint' }, '테스트 데이터 서버의 복사본이라 승인·반려는 운영 요청 상세에서 합니다.') : h('div', { class: 'sp-foot' }, h('button', { class: 'btn bad', onclick: () => act('design-reject', { id: r.id, note: note.value }, '반려했습니다. 에이전트가 설계를 다시 작성합니다', onChange) }, '반려'), ok),
     none ? null : h('div', { class: 'hint' }, '정보도 화면도 바뀌지 않는 요청이면 에이전트가 "설계 없음"으로 올리고, 그때는 "설계 없음 승인"만 누르면 됩니다.'));
 }
 
@@ -210,7 +210,7 @@ function testScenario(model: Model, r: RequestView, sc: Scenario, impactOnly: bo
 }
 
 /** 테스트 단계 칸: 확인표와 테스트 승인·반려 */
-function testCard(model: Model, r: RequestView, onChange: () => void): HTMLElement {
+function testCard(model: Model, r: RequestView, onChange: () => void, td = false): HTMLElement {
   const names = r.scope.scenarios ?? [];
   const impact = new Set(r.scope.impactOnly ?? []);
   const scs = names.map((n) => model.scenarios.find((s) => s.name === n)).filter((s): s is Scenario => !!s);
@@ -235,8 +235,8 @@ function testCard(model: Model, r: RequestView, onChange: () => void): HTMLEleme
       : h('div', { class: 'hint' }, '범위에 화면이 있는데 사용 시나리오가 없습니다. 시나리오가 있어야 테스트를 확인할 수 있어, 에이전트가 시나리오를 올려 범위에 연결하기 전에는 승인할 수 없습니다.'),
     scs.length ? h('div', { class: 'hint' }, `확인 ${done} / ${all.length}`) : null,
     stashed ? h('div', { class: 'hint' }, `담아 둔 코멘트 ${stashed}건이 있습니다. "한번에 보내기(반려)"로 모두 함께 보냅니다.`) : null,
-    note,
-    ready ? h('div', { class: 'sp-foot' },
+    td ? null : note,
+    td ? h('div', { class: 'hint' }, '테스트 데이터 서버의 복사본이라 승인·반려는 운영 요청 상세에서 합니다.') : ready ? h('div', { class: 'sp-foot' },
       scs.length ? h('button', { class: `btn ok${ready2 ? '' : ' off'}`, disabled: !ready2, onclick: () => act('test-approve', { id: r.id, none: false }, '테스트를 승인했습니다', onChange) }, '테스트 승인') : null,
       noTestOnly ? h('button', { class: 'btn ok', onclick: () => act('test-approve', { id: r.id, none: true }, '테스트 없음으로 승인했습니다', onChange) }, '테스트 없음 승인') : null,
       h('button', { class: 'btn bad', onclick: reject }, stashed ? `한번에 보내기(반려) ${stashed}` : '반려')) : h('div', { class: 'hint' }, r.stage === 'test' ? '에이전트가 고치는 중입니다. 다시 테스트를 올리면 여기서 확인합니다.' : ''),
@@ -314,7 +314,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
       h('div', { class: 'tl' }, r.events.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`, e.quote ? h('div', { class: 'hint', style: 'margin-top:2px' }, `사용자가 한 말: “${e.quote}”`) : null))))),
     fold('done', '완료', idx === 3, idx === 3 ? `${fmt(r.events[r.events.length - 1].at)} 끝남` : '테스트를 승인하면 이 칸에 결과가 남습니다', h('div', { class: 'hint' }, idx === 3 ? r.events[r.events.length - 1].note : ''), { later: idx < 3 }),
   ];
-  const designSide = r.stage === 'design' && r.step === 'submitted' ? designApproval(r, onChange)
+  const designSide = r.stage === 'design' && r.step === 'submitted' ? designApproval(r, onChange, !!model.testEnv)
     : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : r.step === 'queued' ? '접수' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : r.step === 'queued' ? '우선순위를 정했으면 시작합니다. 누르면 이 요청을 맡을 담당 세션이 새로 만들어지고, 설계를 작성해 승인을 기다립니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.'),
       r.step === 'queued' ? h('button', { class: 'btn pri', style: 'margin-top:10px', onclick: () => act('start', { id: r.id }, `요청 #${r.id}을 시작했습니다. 담당 세션이 설계를 쓰는 중입니다`, onChange) }, '시작') : null,
       // 반려하면 사유가 패널에서 사라져 무엇을 고치는 중인지 알 수 없었다 → 다시 쓰는 동안 가장 최근 반려 사유만 보인다
@@ -327,7 +327,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   const tools = h('div', { class: 'tools' }, h('span', { class: 'hint' }, '칸 제목을 누르면 접고 폅니다'),
     h('button', { class: 'btn sm', onclick: () => { for (const c of cards) if (!c.classList.contains('later')) { FOLD.set(`${r.id}:${c.dataset.fold}`, true); c.classList.remove('shut'); c.querySelector('.tg')!.textContent = '접기'; } } }, '모두 펼치기'),
     h('button', { class: 'btn sm', onclick: () => { for (const k of [...FOLD.keys()]) if (k.startsWith(`${r.id}:`)) FOLD.delete(k); root.replaceChildren(); manageDetail(root, { model, id, sub, onChange }); } }, '단계 기본으로'));
-  const decide = testing ? testCard(model, r, onChange) : designSide;
+  const decide = testing ? testCard(model, r, onChange, !!model.testEnv) : designSide;
   root.append(withPanel(h('div', { class: 'wrap' }, head, h('div', { class: 'card' }, stepperBig(r)), tools, h('div', { class: 'dcol' }, cards)),
-    sidePanel({ title: testing && !unread(r) ? '사용 시나리오 테스트' : `요청 #${r.id}`, fold: 'request', body: unread(r) ? [dlv] : [dlv, testing ? testDataNotice(model) : null, decide, redesignCard(r, onChange)] })));
+    sidePanel({ title: testing && !unread(r) ? '사용 시나리오 테스트' : `요청 #${r.id}`, fold: 'request', body: unread(r) ? [dlv] : [dlv, testing ? testDataNotice(model) : null, decide, model.testEnv ? null : redesignCard(r, onChange)] })));
 }

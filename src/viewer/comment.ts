@@ -315,12 +315,13 @@ export function commentTool(init: Model): CommentTool {
   /** 아래 고정 줄: 코멘트 창이 열려도 닫혀도 같은 자리. 개수를 눌러 창을 열고, 담은 것을 한번에 보낸다(테스트 경로에서는 반려·승인도 여기서) */
   function drawBar(): void {
     const mine = basket(), nHere = mine.filter(sameView).length + model.comments.filter(sameView).length, nAll = mine.length + model.comments.length;
-    const info = path ? pathInfo() : null, canAct = !!info && info.r.step === 'requested' && info.r.stage === 'test';
+    const info = path ? pathInfo() : null, canAct = !!info && info.r.step === 'requested' && info.r.stage === 'test' && !model.testEnv;
     const allDone = !!info && info.steps.every((st) => info.r.test?.checks[`${info.sc.name}#${st.id}`]);
     const count = (k: 'here' | 'all', label: string, n: number): HTMLElement => h('button', { class: `cnt${open && tab === k ? ' on' : ''}`, onclick: () => { open = !(open && tab === k); tab = k; if (!open) stopPick(); draw(); } }, `${label} ${n}`);
     bar.replaceChildren(count('here', '이 화면', nHere), count('all', '전체', nAll), h('span', { class: 'grow' }),
       ...canAct ? [h('button', { class: 'btn bad', onclick: () => { void sendAll(true); } }, `한번에 보내기(반려)${mine.length ? ` ${mine.length}` : ''}`),
         h('button', { class: `btn ok${allDone ? '' : ' off'}`, disabled: !allDone, title: allDone ? '' : '모든 단계를 확인(체크)해야 승인할 수 있습니다', onclick: () => { void act('/__spec/request/test-approve', { id: info!.r.id, none: false }, '테스트를 승인했습니다'); } }, '승인')]
+        : model.testEnv ? [h('span', { class: 'hint', title: '이 서버는 테스트 데이터용 복사본이라 여기서 보낸 것은 진짜 요청에 닿지 않습니다' }, '승인·반려·코멘트 보내기는 운영 요청 상세에서')]
         : [h('button', { class: `btn pri${mine.length ? '' : ' off'}`, disabled: !mine.length, onclick: () => { void sendAll(false); } }, `한번에 보내기${mine.length ? ` ${mine.length}` : ''}`)]);
   }
   function draw(): void {

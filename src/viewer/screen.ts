@@ -89,7 +89,8 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   const shellBtn = h('button', { class: 'shell-tog', onclick: () => { c.showShell = !c.showShell; shellBtn.classList.toggle('off', !c.showShell); shellBtn.textContent = `공통 화면 표시 ${c.showShell ? '켜짐' : '꺼짐'}`; } }, '공통 화면 표시 켜짐');
   const live = h('div', { class: 'live' },
     h('div', { class: 'livebar' }, h('span', { class: 'badge-live' }, '실제 화면'), urlEl, h('span', { class: 'grow' }), shellBtn, okEl),
-    h('div', { class: 'stage' }, iframe, marks));
+    // 테스트 데이터로 띄운 서버(testEnv)에서는 검토받는 안쪽 화면에만 띠와 테두리를 둔다. 띠는 한 줄 자리를 따로 잡아 안쪽 화면을 아래로 밀고(아무것도 가리지 않는다), 바깥 틀·코멘트 창은 그대로다
+    h('div', { class: `stage${c.model.testEnv ? ' td' : ''}` }, iframe, marks, c.model.testEnv ? [h('div', { class: 'td-band' }, `${c.model.testEnv}로 보는 화면입니다 · 운영 데이터가 아닙니다`), h('div', { class: 'td-edge' })] : null));
   // 오른쪽 패널은 공통 패널 틀(늘 떠 있는 패널이라 접기 토글). 다시 그릴 때마다 틀째 바꿔 끼운다
   let side: HTMLElement = h('aside', { class: 'sidepanel' });
   const banners = h('div', { class: 'banners' }), tabsEl = h('div', { class: 'tabs' });

@@ -420,7 +420,7 @@ export function similarRequests(scanRoot: string, probe: { screens?: string[]; i
 /** 합치기. `text`는 남는 요청에 덧붙일 새 요구, `from`은 이 요청에 합쳐 닫을 이미 접수된 요청. 사용자 말 인용이 있어야 한다 */
 export function mergeRequests(scanRoot: string, into: number, o: { text?: string; from?: number; quote?: string }): Request {
   const quote = (o.quote ?? '').trim();
-  if (quote.length < 4) throw new Error('--quote에 사용자가 합치기로 정하며 한 말을 그대로 적어야 한다(사용자가 합치기로 정하지 않았다면 이 명령을 쓰지 않는다)');
+  if (quote.length < 2) throw new Error('--quote에 사용자가 합치기로 정하며 한 말을 그대로 적어야 한다(사용자가 합치기로 정하지 않았다면 이 명령을 쓰지 않는다)');
   const r = loadOne(scanRoot, into);
   if (!mergeable(r)) throw new Error(`요청 #${into}은 합칠 수 없다(지금: ${STAGE_LABEL[r.stage]} · ${STEP[`${r.stage}:${r.step}`]?.label ?? r.step}). 접수나 설계 작성 중인 요청만 합친다. 새 요청으로 접수하고 --related ${into}로 이어 둔다`);
   const now = new Date().toISOString();
@@ -520,7 +520,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
     } else if (['approve-design', 'approve-test', 'reject-design', 'test-problem'].includes(pos[0])) {
       // 사용자가 대화에서 결정했을 때만 쓴다. 그때 한 말을 그대로 --quote에 적어야 하고, 인용이 없으면 기록하지 않는다. 화면에서 결정한 것과 똑같이 담당 세션에도 전달한다
       const quote = (opts.quote ?? '').trim();
-      if (quote.length < 4) throw new Error('--quote에 사용자가 대화에서 결정하며 한 말을 그대로 적어야 한다(사용자가 결정하지 않았다면 이 명령을 쓰지 않는다)');
+      if (quote.length < 2) throw new Error('--quote에 사용자가 대화에서 결정하며 한 말을 그대로 적어야 한다(사용자가 결정하지 않았다면 이 명령을 쓰지 않는다)');
       const r = pos[0] === 'approve-design' ? approveDesign(scanRoot, id, quote)
         : pos[0] === 'approve-test' ? approveTest(scanRoot, id, opts.none === 'true', quote)
         : pos[0] === 'reject-design' ? rejectDesign(scanRoot, id, opts.note ?? '', quote)

@@ -128,13 +128,6 @@ function render(): void {
   }
 }
 
-/** 테스트 데이터로 띄운 서버(testEnv)의 화면 위에는 항상 큰 띠와 테두리를 둬, 운영 데이터가 아님이 한눈에 보이게 한다 */
-function markTestEnv(m: Model): void {
-  if (!m.testEnv || document.querySelector('.td-band')) return;
-  document.body.classList.add('td-on');
-  document.body.append(h('div', { class: 'td-band' }, `${m.testEnv}로 보는 화면입니다 · 운영 데이터가 아닙니다`), h('div', { class: 'td-edge' }));
-}
-
 /** 서버에서 모델을 받아 달라졌을 때만 다시 그린다 */
 async function load(initial: boolean): Promise<void> {
   const m = await get<Model>('/__spec/model.json');
@@ -142,7 +135,6 @@ async function load(initial: boolean): Promise<void> {
   const k = JSON.stringify({ ...m, generatedAt: 0, comments: 0 });
   // 화면 설계서의 '실제 화면' 안(iframe)에서는 바깥 창의 코멘트 도구가 이미 있어, 안쪽에 하나 더 띄우면 겹쳐 보인다
   const framed = window.parent !== window;
-  markTestEnv(m);
   if (!commentUi && !framed) commentUi = commentTool(m); else commentUi?.update(m);
   if (!initial && k === key) return;
   key = k; model = m;
