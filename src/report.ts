@@ -6,7 +6,9 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { specDir } from './project.js';
+import { specDir, projectRoot } from './project.js';
+import { ROOT_DIR } from './paths.js';
+import { addRequest, loadRequests } from './request.js';
 import { kst } from './kst.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { buildModel } from './model.js';
@@ -125,9 +127,12 @@ function reviewRecommend(r: ReviewItem): Rec {
 /** 리포트 화면에 보일 줄들: 에이전트 발견 + 확인 필요(처리한 것도 결정과 함께) */
 export function reportRows(agent: AgentReport[], reviews: ReviewItem[], decisions: Record<string, Decision>, allNotes: Record<string, ReportNote[]>, numbers: Record<string, number>, screens: Set<string>, infos: Set<string>): ReportRow[] {
   const kindOf = (name: string): 'screen' | 'info' | 'other' => (screens.has(name) ? 'screen' : infos.has(name) ? 'info' : 'other');
-  const state = (id: string, first: Rec): Pick<ReportRow, 'decision' | 'notes' | 'stage' | 'recommend'> => {
+  const state = (id: string, first: Rec): Pick<ReportRow, 'decision' | 'notes' | 'stage' | 'recommend' | 'pending' | 'toolRequest'> => {
     const decision = decisions[id] ?? null, notes = allNotes[id] ?? [];
-    return { decision, notes, stage: stageOf(decision, notes), recommend: recommendOf(first, notes) };
+    const stage = stageOf(decision, notes), recommend = recommendOf(first, notes);
+    // 추천을 못 채운 건은 사용자 앞에 '추천 없음'으로 올리지 않고 에이전트 몫으로 남긴다(사용자가 의견을 달아 맡긴 건은 확인 중이라 그대로)
+    const pending = !decision && stage !== '확인 중' && !recommend.pick;
+    return { decision, notes, stage, recommend, pending, ...(decision?.state === 'tool' && decision.request ? { toolRequest: decision.request } : {}) };
   };
   const rows: ReportRow[] = [
     ...agent.map((a): ReportRow => ({ id: a.id, no: numbers[a.id] ?? 0, origin: 'agent', title: a.title, detail: a.detail, label: a.label, from: a.from, where: a.where.map((n) => ({ kind: kindOf(n), name: n })), at: a.at, review: null, tool: false, ...state(a.id, { pick: a.recommend ?? null, why: a.why ?? '' }) })),
@@ -151,13 +156,37 @@ export function describeRow(r: ReportRow): string {
   } else if (r.where.length) out.push(`관련: ${r.where.map((w) => w.name).join(', ')}`);
   if (r.recommend.pick) out.push(`에이전트 추천: ${{ registered: '요청으로 처리', kept: '그냥 둠', analyze: '더 분석' }[r.recommend.pick]} — ${r.recommend.why}`);
   if (r.tool) out.push('도구가 못 읽는 모양: 이 프로젝트가 할 일은 없고 도구 개선으로 전달할 후보');
+  if (r.pending) out.push('에이전트가 추천을 정리 중: 아직 사용자가 결정할 건이 아니다(report note로 추천을 채우면 결정 대기로 올라간다)');
+  if (r.toolRequest) out.push(`도구 개선 요청: dev-method 요청 #${r.toolRequest}로 접수됨`);
   for (const n of r.notes) out.push(`${n.by === 'user' ? '사용자 의견' : '에이전트 조사'}: ${n.text}`);
   if (r.decision) out.push(`결정: ${r.decision.reason ? r.decision.reason + ' · ' : ''}${kst(r.decision.at, true)}`);
   return out.join('\n');
 }
 
-/** 사용자가 결정할 리포트가 몇 건인지 센다(도구 몫과 에이전트가 확인 중인 것은 뺀다) */
-export const openCount = (rows: ReportRow[]): number => rows.filter((r) => !r.decision && !r.tool && r.stage !== '확인 중').length;
+/** 사용자가 결정할 리포트가 몇 건인지 센다(도구 몫과 에이전트가 확인 중이거나 정리 중인 것은 뺀다) */
+export const openCount = (rows: ReportRow[]): number => rows.filter((r) => !r.decision && !r.tool && !r.pending && r.stage !== '확인 중').length;
+
+/** 도구 개선 요청이 들어갈 dev-method의 소스 폴더(도구 저장소 안의 src) */
+export const TOOL_SCAN_ROOT = path.join(ROOT_DIR, 'src');
+
+/** 도구 개선으로 전달: 그 건들을 dev-method 쪽에 '시작 전' 개선 요청으로 접수하고 건마다 요청 번호를 돌려준다. 같은 건(같은 프로젝트·같은 열쇠)이 이미 접수돼 있으면 새로 만들지 않고 그 번호를 쓴다 */
+export function sendToTool(scanRoot: string, rows: ReportRow[], toolScanRoot: string = TOOL_SCAN_ROOT): Record<string, number> {
+  const project = path.basename(projectRoot(scanRoot));
+  const mark = (r: ReportRow): string => `[${project}:${r.id}]`;
+  const existing = loadRequests(toolScanRoot).filter((q) => q.stage !== 'cancelled');
+  const out: Record<string, number> = {};
+  const fresh: ReportRow[] = [];
+  for (const r of rows) {
+    const hit = existing.find((q) => q.origin.text.includes(mark(r)));
+    if (hit) out[r.id] = hit.id; else fresh.push(r);
+  }
+  if (fresh.length) {
+    const origin = fresh.map((r) => [`${mark(r)} #${r.no} ${r.title}`, r.review ? `  정의된 곳 ${r.review.where}${r.review.also.length ? ` · 같은 이름이 나오는 곳 ${r.review.also.slice(0, 5).join(', ')}` : ''}` : ''].filter(Boolean).join('\n')).join('\n');
+    const q = addRequest(toolScanRoot, { title: `도구 개선: ${project}에서 도구가 못 읽은 모양 ${fresh.length}건`, origin, channel: '도구 개선', source: 'report', noTest: '도구가 못 읽는 모양을 고치는 후보라, 화면·시나리오는 설계에서 정한다' });
+    for (const r of fresh) out[r.id] = q.id;
+  }
+  return out;
+}
 
 /** 명령: report add / list */
 export async function main(argv: string[]): Promise<number | undefined> {

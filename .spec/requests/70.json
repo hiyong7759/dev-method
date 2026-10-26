@@ -27,8 +27,8 @@
     "name": "요청 #70 담당"
   },
   "relatedTo": 15,
-  "stage": "test",
-  "step": "requested",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-24T13:20:52.399Z",
@@ -118,7 +118,7 @@
       "at": "2026-10-24T15:02:49.380Z",
       "by": "agent",
       "kind": "impl",
-      "note": "구현 커밋 HEAD"
+      "note": "구현 커밋 0269d7d"
     },
     {
       "at": "2026-10-24T15:04:48.687Z",
@@ -131,6 +131,13 @@
       "by": "agent",
       "kind": "test-requested",
       "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-26T12:51:22.828Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "#51, #69, #70, #71 해야할거는 다시 요청올려서 처리하는걸로 정리해줘"
     }
   ],
   "design": {
@@ -242,10 +249,14 @@
     "rejected": 2
   },
   "commits": [
-    "HEAD"
+    "0269d7d",
+    "299867f"
   ],
   "test": {
-    "checks": {},
+    "checks": {
+      "결정이 담당 세션에 전달됐는지 확인한다#1": false,
+      "결정이 담당 세션에 전달됐는지 확인한다#2": false
+    },
     "found": [],
     "none": false
   }

@@ -27,7 +27,7 @@ test('에이전트 발견도 같은 번호 줄에 들어간다', () => {
 });
 
 test('번호 하나로 풀어 쓴 글에 근거와 소스 위치가 들어간다', () => {
-  const row: ReportRow = { id: 'review:예약.임시메모', no: 31, origin: 'review', title: '필드 “임시메모”를 어디에서도 쓰지 않습니다', detail: '코드에서도 글자로도 쓰는 곳이 없습니다', label: '', from: '현행 구조 검사', where: [], at: '', decision: null, tool: false, notes: [], stage: '처리 전', recommend: { pick: 'registered', why: '쓰는 곳이 없음' },
+  const row: ReportRow = { id: 'review:예약.임시메모', no: 31, origin: 'review', title: '필드 “임시메모”를 어디에서도 쓰지 않습니다', detail: '코드에서도 글자로도 쓰는 곳이 없습니다', label: '', from: '현행 구조 검사', where: [], at: '', decision: null, tool: false, notes: [], stage: '처리 전', recommend: { pick: 'registered', why: '쓰는 곳이 없음' }, pending: false,
     review: { id: 'review:예약.임시메모', title: 't', help: 'h', tone: 'ok', where: 'models/booking.ts:42', also: [], info: '예약', prop: '임시메모', screens: ['하루 일정'], scenarios: [] } };
   const text = describeRow(row);
   assert.match(text, /리포트 #31 · 확인 필요 · 처리 전/);

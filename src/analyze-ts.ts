@@ -84,7 +84,14 @@ export function analyzeTs(rootIn: string, opts: { tsconfigs?: string[] } = {}): 
     const parts: string[] = [];
     for (const d of (n as tsTypes.Node & { jsDoc?: tsTypes.JSDoc[] }).jsDoc || []) {
       const text = typeof d.comment === 'string' ? d.comment : (d.comment || []).map((c) => c.text).join('');
-      parts.push([text, ...(d.tags || []).map((t) => `@${t.tagName.text} ${typeof t.comment === 'string' ? t.comment : ''}`)].join('\n'));
+      // 줄 중간의 "@이름"도 TS는 태그로 쪼개므로, 줄 맨 앞이 아닌 태그는 본문에 이어 붙여 선언(@external 등)으로 읽히지 않게 한다
+      let body = text;
+      for (const t of d.tags || []) {
+        const lineStart = sf.text.lastIndexOf('\n', t.getStart()) + 1;
+        const atLineHead = /^[\s*/]*$/.test(sf.text.slice(lineStart, t.getStart()));
+        body += `${atLineHead ? '\n' : ' '}@${t.tagName.text} ${typeof t.comment === 'string' ? t.comment : ''}`;
+      }
+      parts.push(body);
     }
     if (!parts.length) {
       const text = sf.text;

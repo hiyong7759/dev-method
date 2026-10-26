@@ -270,9 +270,17 @@ function finishProblem(scanRoot: string): string {
   return hit ? `끝낼 때 확인(finish, ${rec.at}) 뒤에 소스가 바뀌었다(${path.relative(projectRoot(scanRoot), hit)}). finish를 다시 돌려 통과해야 한다` : '';
 }
 
+/** 커밋 자리에 HEAD·브랜치 이름처럼 해시가 아닌 이름이 오면 지금 가리키는 실제 짧은 해시로 바꾼다(글자 그대로 적으면 나중에 어느 커밋인지 알 수 없다). 해시처럼 생겼으면 그대로 둔다 */
+function shortCommit(scanRoot: string, commit: string): string {
+  const c = commit.trim();
+  if (!c || /^[0-9a-f]{3,40}$/i.test(c)) return c;
+  try { return execFileSync('git', ['rev-parse', '--short', c], { cwd: projectRoot(scanRoot), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || c; } catch { throw new Error(`커밋 "${c}"을 git에서 찾지 못했다. 커밋 해시(짧은 것도 됨)나 HEAD를 준다`); }
+}
+
 /** 에이전트가 구현을 시작했거나 커밋을 남겼음을 적는다 */
-export function noteImpl(scanRoot: string, id: number, commit: string): Request {
+export function noteImpl(scanRoot: string, id: number, commitArg: string): Request {
   const r = loadOne(scanRoot, id);
+  const commit = shortCommit(scanRoot, commitArg);
   if (r.stage !== 'impl' && r.stage !== 'test') throw new Error(`요청 #${id}은 구현할 수 있는 단계가 아니다(지금: ${STAGE_LABEL[r.stage]}). 설계 승인이 먼저다`);
   if (commit) assertAfterApproval(scanRoot, r, commit);
   if (commit) r.commits = [...new Set([...(r.commits ?? []), commit])];

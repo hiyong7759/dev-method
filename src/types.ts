@@ -903,16 +903,20 @@ export interface LoginSetting {
   /** 테스트 계정 아이디
    * @external .spec/local.json의 login을 login.ts가 통째로 읽어 ego-browser 로그인 지시문에 넘긴다 */
   id: string;
-  /** 테스트 계정 비밀번호 */
+  /** 테스트 계정 비밀번호
+   * @external .spec/local.json의 login을 login.ts가 통째로 읽어 ego-browser 로그인 지시문에 넘긴다 */
   password: string;
   /** 로그인 화면 주소(앱 서버 기준). 안 적으면 /login
    * @external .spec/local.json의 login을 login.ts가 통째로 읽어 ego-browser 로그인 지시문에 넘긴다 */
   url?: string;
-  /** 아이디 입력칸 선택자. 안 적으면 화면의 첫 글자 입력칸 */
+  /** 아이디 입력칸 선택자. 안 적으면 화면의 첫 글자 입력칸
+   * @external .spec/local.json의 login을 login.ts가 통째로 읽어 ego-browser 로그인 지시문에 넘긴다 */
   idSelector?: string;
-  /** 비밀번호 입력칸 선택자. 안 적으면 type=password 칸 */
+  /** 비밀번호 입력칸 선택자. 안 적으면 type=password 칸
+   * @external .spec/local.json의 login을 login.ts가 통째로 읽어 ego-browser 로그인 지시문에 넘긴다 */
   passwordSelector?: string;
-  /** 로그인 단추 선택자. 안 적으면 제출 단추, 없으면 "로그인" 글자 단추, 그것도 없으면 엔터 */
+  /** 로그인 단추 선택자. 안 적으면 제출 단추, 없으면 "로그인" 글자 단추, 그것도 없으면 엔터
+   * @external .spec/local.json의 login을 login.ts가 통째로 읽어 ego-browser 로그인 지시문에 넘긴다 */
   submitSelector?: string;
 }
 
@@ -958,7 +962,7 @@ export interface ProjectConfig {
 export interface Decision {
   /** 결정 (예전 기록의 '의도한 것'·'무시'는 읽을 때 '그냥 둠'이 된다) */
   state: 'registered' | 'kept' | 'tool';
-  /** 요청으로 처리했다면 그 요청 번호 */
+  /** 요청으로 처리했다면 그 요청 번호. 도구 개선으로 전달했다면 dev-method 쪽에 접수된 개선 요청 번호 */
   request?: number;
   /** 그냥 둔 이유 한 줄(생략 가능) */
   reason?: string;
@@ -1064,6 +1068,10 @@ export interface ReportRow {
   stage: ReportStage;
   /** 에이전트 추천과 이유(추천이 없으면 pick이 없다) */
   recommend: { pick: Choice | null; why: string };
+  /** 에이전트가 추천을 아직 못 채워 정리 중인가(사용자 결정 목록에서 빠지고 '정리 중 N건'으로만 보인다) */
+  pending: boolean;
+  /** 도구 개선으로 전달해 dev-method 쪽에 접수된 개선 요청 번호(전달하지 않았으면 없다) */
+  toolRequest?: number;
 }
 
 /** 우리가 만든 용어 한 개 */

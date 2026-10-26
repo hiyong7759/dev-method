@@ -12,7 +12,7 @@ import { extractSpecs } from './extract.js';
 import { buildModel } from './model.js';
 import { specDir } from './project.js';
 import { screenHistory } from './history.js';
-import { decide, addNote } from './report.js';
+import { decide, addNote, sendToTool } from './report.js';
 import { addComment, replyComment, closeComment, commentToRequest, shotDir } from './comment.js';
 import { ensureTestServer } from './testdata.js';
 import { addRequest, startDesign, recordUntracked, approveDesign, rejectDesign, redesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
@@ -119,6 +119,11 @@ export function specHandler(scanRoot: string): SpecHandler {
             const screens = row.where.filter((w) => w.kind === 'screen').map((w) => w.name), infos = row.where.filter((w) => w.kind === 'info').map((w) => w.name);
             request = addRequest(scanRoot, { title: row.title, origin: row.detail, channel: row.origin === 'review' ? '확인 필요' : '리포트', screens, infos, source: 'report' }).id;
           }
+          if (state === 'tool') {
+            const row = buildModel(scanRoot).reports.find((r) => r.id === id);
+            if (!row) throw new Error('이 항목을 찾지 못했다');
+            request = sendToTool(scanRoot, [row])[id];
+          }
           return json(res, decide(scanRoot, id, { state, request, reason: b.reason ? String(b.reason) : undefined }));
         }
         // 코멘트: 사용자의 글만 여기서 받는다(에이전트의 답은 명령으로)
@@ -155,7 +160,14 @@ export function specHandler(scanRoot: string): SpecHandler {
             const names = (kind: string): string[] => [...new Set(rows.flatMap((r) => r.where.filter((w) => w.kind === kind).map((w) => w.name)))];
             request = addRequest(scanRoot, { title: String(b.title || rows[0].title), origin: rows.map((r) => `#${r.no} ${r.title}`).join('\n'), channel: rows.some((r) => r.origin === 'review') ? '확인 필요' : '리포트', screens: names('screen'), infos: names('info'), source: 'report' }).id;
           }
-          return json(res, ids.map((id) => decide(scanRoot, id, { state, request, reason: b.reason ? String(b.reason) : undefined })));
+          // 도구 개선으로 전달하면 dev-method 쪽에 개선 요청 후보를 접수하고, 건마다 그 번호를 결정에 남긴다
+          let toolRequests: Record<string, number> = {};
+          if (state === 'tool') {
+            const rows = buildModel(scanRoot).reports.filter((r) => ids.includes(r.id));
+            if (rows.length !== ids.length) throw new Error('이미 해소됐거나 찾지 못한 항목이 있다 — 화면을 새로 고쳐 다시 본다');
+            toolRequests = sendToTool(scanRoot, rows);
+          }
+          return json(res, ids.map((id) => decide(scanRoot, id, { state, request: state === 'tool' ? toolRequests[id] : request, reason: b.reason ? String(b.reason) : undefined })));
         }
         if (url === '/__spec/request/record') return json(res, recordUntracked(scanRoot, String(b.hash || ''), String(b.title || '')));
         // 결정이 저장되면 그 요청을 맡은 세션이 닫혀 있을 때만 깨운다(열린 세션은 inbox 훅이 알린다)

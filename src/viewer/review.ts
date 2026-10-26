@@ -31,7 +31,7 @@ export function decisionText(row: ReportRow): Kid {
   const d = row.decision;
   if (!d) return null;
   if (d.state === 'registered') return [chip('ag', `요청 #${d.request} 으로 처리`)];
-  if (d.state === 'tool') return [chip('dim', '도구 개선으로 전달')];
+  if (d.state === 'tool') return [chip('dim', '도구 개선으로 전달'), row.toolRequest ? chip('ag', `개선 요청 #${row.toolRequest}`) : null];
   return [chip('ok', '그냥 둠'), d.reason ? h('span', { class: 'hint' }, ` 이유: ${d.reason}`) : null];
 }
 

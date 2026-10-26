@@ -45,7 +45,7 @@ function card(r: ReportRow, hitNo: number, onChange: () => void): HTMLElement {
 /** 도구가 못 읽는 모양 한 줄: 프로젝트가 할 일은 없고, 모아서 도구 개선으로 전달한다 */
 function toolFold(rows: ReportRow[], onChange: () => void): HTMLElement {
   const send = async (): Promise<void> => {
-    try { await post('/__spec/report/decide-many', { ids: rows.map((r) => r.id), state: 'tool', title: `도구 개선으로 전달 ${rows.length}건` }); toast('도구 개선으로 전달했습니다'); onChange(); } catch (e) { toast(errorText(e)); }
+    try { await post('/__spec/report/decide-many', { ids: rows.map((r) => r.id), state: 'tool', title: `도구 개선으로 전달 ${rows.length}건` }); toast('도구 개선 요청으로 접수했습니다(처리함에서 요청 번호를 볼 수 있습니다)'); onChange(); } catch (e) { toast(errorText(e)); }
   };
   return h('details', { class: 'rdone tool' }, h('summary', null, rv('도구 몫'), h('b', null, '도구가 아직 못 읽는 모양'), h('span', { class: 'hint' }, `${rows.length}건 · 이 프로젝트가 할 일은 없습니다`)),
     h('div', { class: 'rlist', style: 'margin-top:10px' },
@@ -75,7 +75,8 @@ export function reportsView(root: HTMLElement, { model, onChange, no, from }: { 
   const all = model.reports;
   const done = all.filter((r) => r.decision);
   const tools = all.filter((r) => !r.decision && r.tool && r.stage !== '확인 중');
-  const live = all.filter((r) => !r.decision && !(r.tool && r.stage !== '확인 중'));
+  const pending = all.filter((r) => r.pending);
+  const live = all.filter((r) => !r.decision && !r.pending && !(r.tool && r.stage !== '확인 중'));
   const need = live.filter((r) => r.stage !== '확인 중'), waiting = live.filter((r) => r.stage === '확인 중');
   const count = (state: string): number => done.filter((r) => r.decision?.state === state).length;
   const hitNo = no ?? 0;
@@ -85,7 +86,7 @@ export function reportsView(root: HTMLElement, { model, onChange, no, from }: { 
     : h('div', { class: 'empty-note' }, '결정이 필요한 것이 없습니다.');
   root.append(h('div', { class: 'wrap' },
     pageHead({ title: '리포트', lead: '발견된 문제는 모두 여기로 올라옵니다. 에이전트가 미리 정리해 추천까지 붙여 두었으니, 요청으로 처리할지 · 그냥 둘지 · 더 분석할지 세 가지 중 하나만 고르면 됩니다. 결정하기 전에는 아무것도 고치지 않습니다.' }),
-    arrive, summary, live.map((r) => card(r, hitNo, onChange)),
+    arrive, summary, pending.length ? h('div', { class: 'hint pending-line', title: pending.map((r) => `#${r.no} ${r.title}`).join('\n') }, `에이전트 정리 중 ${pending.length}건 — 추천을 채우면 결정 대기로 올라옵니다`) : null, live.map((r) => card(r, hitNo, onChange)),
     tools.length ? toolFold(tools, onChange) : null,
     done.length ? h('details', { class: 'rdone' }, h('summary', null, buls([{ kind: 'fin', label: '처리함' }]), h('b', null, '처리함'), h('span', { class: 'hint' }, `요청으로 처리 ${count('registered')}건 · 그냥 둠 ${count('kept')}건 · 도구 개선으로 전달 ${count('tool')}건`)),
       h('div', { class: 'rlist', style: 'margin-top:10px' }, done.map((r) => doneRow(r)))) : null));

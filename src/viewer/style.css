@@ -599,6 +599,7 @@ a.tag{text-decoration:none}
 .frows{display:flex;flex-direction:column}
 .frow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.frow:first-child{border-top:0}
 .frow .fname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.frow.ext-open{flex-wrap:wrap}.frow .ext-note{flex-basis:100%}.frow button.ext{cursor:pointer;font:inherit}
 .frow.focus .fname{color:var(--accent);font-weight:700}.frow.mine .fname{font-weight:700}
 .froles{display:flex;gap:4px;align-items:center;flex:none}
 .tag.here{background:var(--accent-bg);border-color:var(--accent)}button.tag{cursor:pointer;font:inherit;font-size:11px}

@@ -13,6 +13,7 @@ import { parseArgs, errorText } from './cli.js';
 import { LAUNCHER } from './paths.js';
 import { readConfig } from './config.js';
 import { projectRoot } from './project.js';
+import { writeSamples } from './samples.js';
 import type { Request, ReviewFrame, SeedCase, SeedFile, TestDataConfig } from './types.js';
 
 const KINDS = ['normal', 'edge', 'error'] as const;
@@ -178,12 +179,18 @@ export async function main(argv: string[]): Promise<number | undefined> {
     } else if (pos[0] === 'sync') {
       if (!id) throw new Error('--id(요청 번호)가 필요하다');
       console.log(syncRequest(root, id) ? `요청 #${id}을 테스트 자리로 복사했다` : '복사하지 않았다(folder 종류가 아니거나 테스트 자리가 아직 없다. `testdata serve`로 한 번 띄운 뒤 쓴다)');
+    } else if (pos[0] === 'samples') {
+      // 화면 모양 확인용 견본 요청(결정 전달 정상·경계·오류, 함께 고친 것 0·1·여러 건)을 테스트 자리 .spec에만 쓴다
+      if (c.kind !== 'folder') throw new Error('이 명령은 folder 종류(저장소 밖 폴더) 프로젝트에서만 쓴다');
+      copyBase(root, dir, false);
+      const n = writeSamples(path.join(dir, '.spec'));
+      console.log(`견본 요청 ${n}건(#9001~#9003 결정 전달, #9011~#9013 함께 고친 것)을 테스트 자리 ${dir}/.spec에 썼다. 운영 .spec은 건드리지 않았다. 테스트용 서버(testdata serve)의 요청 목록에서 본다`);
     } else if (pos[0] === 'reset') {
       const target = id ? [seedFile(root, c, id)] : fs.existsSync(path.join(dir, 'seeds')) ? fs.readdirSync(path.join(dir, 'seeds')).map((n) => path.join(dir, 'seeds', n)) : [];
       for (const t of target) fs.rmSync(t, { force: true });
       console.log(`테스트 데이터 기록 ${target.length}건을 지웠다${c.kind === 'remote' ? '(서버의 [테스트-#번호] 표시 데이터는 프로젝트 시드 스크립트로 지운다)' : ''}`);
     } else {
-      console.log('사용: testdata path | serve [--port N] [--fresh true] | seed --id N [--scenario 시나리오 --kind normal|edge|error --label 이름 --shot 캡처 --how 방법] | reset [--id N]   (--src 소스 폴더)');
+      console.log('사용: testdata path | serve [--port N] [--fresh true] | seed --id N [--scenario 시나리오 --kind normal|edge|error --label 이름 --shot 캡처 --how 방법] | samples | reset [--id N]   (--src 소스 폴더)');
     }
   } catch (e) { console.error(`오류: ${errorText(e)}`); return 1; }
   return 0;
