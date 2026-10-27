@@ -17,6 +17,7 @@ import { projectRoot } from './project.js';
 import { extractSpecs } from './extract.js';
 import { readConfig } from './config.js';
 import { parseArgs } from './cli.js';
+import { cleanupLeftover, isTermUrl, reapTtyd, stopAllTtyd, termUpgrade } from './ttyd.js';
 
 /** 중계할 때 그대로 넘기지 않는 연결 관리용 머리글 */
 const HOP = new Set(['connection', 'keep-alive', 'transfer-encoding', 'upgrade', 'proxy-connection', 'te', 'trailer']);
@@ -70,6 +71,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
   const server = http.createServer((req, res) => { void spec(req, res, () => { if (!toViewer(req, res)) proxy(req, res); }); });
   // 개발 서버의 실시간 갱신(웹소켓)도 그대로 통과시킨다
   server.on('upgrade', (req: IncomingMessage, socket: net.Socket, head: Buffer) => {
+    // 화면 아래 터미널(ttyd) 연결은 앱으로 넘기지 않고 우리가 검사해서 이어 준다
+    if (isTermUrl((req.url || '').split('?')[0])) { termUpgrade(scanRoot, req, socket, head); return; }
     if (!app) { socket.destroy(); return; }
     const t = net.connect(Number(app.port || 80), app.hostname, () => {
       const h = { ...req.headers, host: app.host };
@@ -87,7 +90,13 @@ export async function main(argv: string[]): Promise<number | undefined> {
   setAfterEnqueue(() => { ensureMessenger(scanRoot); });
   ensureMessenger(scanRoot);
   // 담당의 사건(시작·설계 제출·질문·막힘·테스트 올림·담당 종료)이 생기면 그 요청의 담당 세션 창을 iTerm2에 연다(5초마다. 요청마다 창 하나, 닫기는 사용자가). 테스트 서버에서는 열지 않는다
-  if (!process.env.SPEC_TEST_DIR) setInterval(() => { try { for (const p of openWindowsForNotices(scanRoot)) fs.appendFileSync(path.join(root, '.spec', 'wake.log'), `${new Date().toISOString()} 터미널 창 ${p}\n`); } catch { /* 알림이 서버를 멈추지 않게 */ } }, 5_000).unref();
+  // 터미널 영역(terminalDock)이 켜져 있으면 창은 열지 않는다. itermAutoOpen을 직접 적으면 그 값을 따른다
+  cleanupLeftover(scanRoot);
+  for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { stopAllTtyd(); process.exit(0); });
+  process.on('exit', stopAllTtyd);
+  setInterval(() => { try { reapTtyd(scanRoot); } catch { /* 정리 실패가 서버를 멈추지 않게 */ } }, 5_000).unref();
+  const itermOn = (): boolean => { const c = readConfig(project); return c.itermAutoOpen ?? c.terminalDock === false; };
+  if (!process.env.SPEC_TEST_DIR) setInterval(() => { try { for (const p of openWindowsForNotices(scanRoot, itermOn())) fs.appendFileSync(path.join(root, '.spec', 'wake.log'), `${new Date().toISOString()} 터미널 창 ${p}\n`); } catch { /* 알림이 서버를 멈추지 않게 */ } }, 5_000).unref();
   setInterval(() => {
     ensureMessenger(scanRoot);
     if (!staleServer()) return;

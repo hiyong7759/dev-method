@@ -102,14 +102,15 @@ export function takeNotices(scanRoot: string, consumer: string): Notice[] {
 }
 
 /** 서버가 한 번 돌리는 일: 새 사건마다 그 요청의 담당 세션 창을 연다(요청마다 창 하나) */
-export function openWindowsForNotices(scanRoot: string): string[] {
+export function openWindowsForNotices(scanRoot: string, open = true): string[] {
   const root = projectRoot(scanRoot);
   const seen = new Set<number>();
   const problems: string[] = [];
   for (const n of takeNotices(scanRoot, 'terminal')) {
     if (seen.has(n.id)) continue;
     seen.add(n.id);
-    const why = openSessionWindow(root, n.id, n.name);
+    // 화면 아래 터미널 영역이 담당을 보여 주는 동안은 창을 열지 않는다(같은 세션에 두 곳이 붙어 입력을 가로채지 않게). 알림 줄은 그대로 넘겨 나중에 몰려 열리지 않게 한다
+    const why = open ? openSessionWindow(root, n.id, n.name) : '';
     if (why) problems.push(`#${n.id}: ${why}`);
   }
   return problems;

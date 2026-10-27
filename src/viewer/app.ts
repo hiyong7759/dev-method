@@ -24,10 +24,13 @@ import { markTerms } from './terms.js';
 import { snapshot, restore } from './keep-ui.js';
 import { commentTool } from './comment.js';
 import type { CommentTool } from './comment.js';
+import { dockButton, mountDock } from './terminal-dock.js';
 import type { Brand, Model } from '../types.js';
 
 /** 설계서 보기 틀의 전부가 그려지는 자리 */
 const root = document.getElementById('app') as HTMLElement;
+// 화면 아래 터미널 영역: 화면을 다시 그려도 연결이 끊기지 않게 #app 밖에 한 번만 붙인다
+mountDock(root);
 let commentUi: CommentTool | null = null;
 /** 서버가 잠깐 응답하지 않는 중인지, 처음 받은 서버의 코드 표(바뀌면 서버가 새로 떴다는 뜻) */
 let down = false, loaded = false, seenStamp: string | undefined;
@@ -104,7 +107,7 @@ function topbar(m: Model, r: Route): HTMLElement {
   const b = brandOf(m);
   document.title = `${b.name} · 설계서 보기${m.testEnv ? ` (${m.testEnv})` : ''}`;
   setFavicon(b);
-  return h('header', { class: 'top', style: `--brand:${b.color}` }, h('span', { class: 'dev mono' }, 'DEV'), m.testEnv ? h('span', { class: 'testenv', title: '운영 요청·리포트가 아닌 저장소 밖 테스트 데이터로 띄운 화면입니다' }, m.testEnv) : null, h('span', { class: 'ttl' }, h('span', { class: 'brand-icon' }, b.icon), ' ', b.name), seg, nav2, h('span', { class: 'grow' }), mine, themeButton());
+  return h('header', { class: 'top', style: `--brand:${b.color}` }, h('span', { class: 'dev mono' }, 'DEV'), m.testEnv ? h('span', { class: 'testenv', title: '운영 요청·리포트가 아닌 저장소 밖 테스트 데이터로 띄운 화면입니다' }, m.testEnv) : null, h('span', { class: 'ttl' }, h('span', { class: 'brand-icon' }, b.icon), ' ', b.name), seg, nav2, h('span', { class: 'grow' }), mine, dockButton(), themeButton());
 }
 
 /** 주소에 맞는 화면을 그린다 */
