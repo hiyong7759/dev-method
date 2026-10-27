@@ -401,7 +401,7 @@ export interface RequestOverlap {
   components: string[];
 }
 
-/** 결정이 담당 세션에 어디까지 갔나: 반영됨, 읽음(반영 전), 전달 중(읽기 전), 훅 대기(보내는 장치가 꺼짐), 전달 안 됨(재전송 끝), 멈춘 듯함(반영했는데 다음 단계 없이 한 번 더 보내도 그대로) */
+/** 결정이 담당 세션에 어디까지 갔나: 반영됨, 읽음(반영 전, 받은 세션이 ack한 것), 전달 중(보냈고 읽기 전), 대기(메신저가 아직 안 보냄), 전달 안 됨(메신저가 못 보냈다고 이유를 남김), 멈춘 듯함(반영했는데 다음 단계 없이 오래 멈춤) */
 export type DeliveryState = 'applied' | 'read' | 'sending' | 'hook-wait' | 'failed' | 'stalled';
 
 /** 가장 최근 결정의 전달 상태(눌림→보냄→읽음→반영). 시각이 없는 칸은 null */
@@ -418,22 +418,24 @@ export interface Delivery {
   read: string | null;
   /** 결정 뒤 에이전트가 처음 요청 기록을 남긴 시각(반영) */
   applied: string | null;
-  /** 지금까지 자동·수동으로 다시 보낸 횟수 */
+  /** 사용자가 다시 보내기를 누른 횟수 */
   resent: number;
-  /** 자동 재전송 최대 횟수 */
-  maxResend: number;
   /** 화면이 이름표·카드 색을 고르는 기준(어디까지 갔나) */
   state: DeliveryState;
   /** 마지막으로 보낸 때부터 지난 분 */
   waitMin: number;
-  /** 다음 자동 재전송 시각(더 보낼 게 없으면 null) */
-  nextResendAt: string | null;
+  /** 보낸 길(열린 창에 보냄 / 닫힌 담당을 이어 띄움 / 새 담당을 만듦) */
+  via?: 'send' | 'bg-resume' | 'bg-new';
+  /** 전달 안 됨일 때 메신저가 남긴 이유 */
+  reason?: string;
 }
 
 /** 화면에 보여 줄 요청: 이름표, 누구 차례인지, 겹치는 요청을 붙인 것 */
 export interface RequestView extends Request {
   /** 가장 최근 결정의 전달 상태(전달 기록이 없는 옛 결정은 없음) */
   delivery?: Delivery;
+  /** 담당 세션이 지금 일하는 중인지와 마지막 활동 시각(세션 기록이 없으면 없음) */
+  activity?: { working: boolean; lastActiveAt: string };
   /** 단계의 화면용 이름 */
   stageLabel: string;
   /** 상태의 화면용 이름 */

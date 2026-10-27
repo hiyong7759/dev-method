@@ -1,5 +1,5 @@
 /**
- * @why 요청 #82의 약속을 지킨다: 결정을 반영하고 멈춘 담당 세션을 알아채 한 번만 다시 보내고 그래도 안 되면 '멈춘 듯함'을 보이는지, 막힘·질문을 요청 상태에 남기고 풀리는지, 설계에 건드릴 파일이 있어야 하고 승인된 파일 밖 커밋을 막는지, 비밀 파일을 명령으로 읽는 길을 훅이 막는지.
+ * @why 요청 #82의 약속을 지킨다: 결정을 반영하고 멈춘 담당 세션을 알아채 '멈춘 듯함'을 보이는지(요청 #87부터 서버가 다시 보내지는 않는다), 막힘·질문을 요청 상태에 남기고 풀리는지, 설계에 건드릴 파일이 있어야 하고 승인된 파일 밖 커밋을 막는지, 비밀 파일을 명령으로 읽는 길을 훅이 막는지.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,7 +8,7 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { main as commitMsg } from '../src/commit-msg.js';
 import { addAlsoFixed, addRequest, approveDesign, describeRequests, loadRequests, noteAsking, noteBlocked, noteImpl, requestTest, submitDesign, testProblem } from '../src/request.js';
-import { deliveryOf, dueForStall, markRead, markSent, markStallSent, openDelivery, STALL_AFTER_MIN } from '../src/delivery.js';
+import { deliveryOf, markDelivered, markRead, openDelivery, STALL_AFTER_MIN } from '../src/delivery.js';
 import { tempProject } from './helpers.js';
 
 const min = 60_000;
@@ -21,39 +21,36 @@ function applied(): { root: string; src: string } {
   submitDesign(p.src, 1, { understanding: 'u', files, none: true });
   approveDesign(p.src, 1);
   const req = loadRequests(p.src)[0];
-  openDelivery(p.src, req); markSent(p.src, 1, 'wake'); markRead(p.src, 1);
+  openDelivery(p.src, req); markDelivered(p.src, 1, 'send'); markRead(p.src, 1);
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5); // 같은 밀리초에 찍히면 결정 '뒤' 기록으로 세지 못한다
   noteImpl(p.src, 1, '');
   return p;
 }
 const req = (src: string) => loadRequests(src)[0];
 const lastAt = (src: string): number => Date.parse(req(src).events[req(src).events.length - 1].at);
 
-test('결정을 반영하고 20분 넘게 다음 단계가 없으면 한 번 더 보낼 대상이고, 보낸 뒤 20분 더 지나도 그대로면 멈춘 듯함이다', () => {
+/** 그 시각의 멈춤 여부(서버가 다시 보내지 않으므로 화면이 계산해 보여 줄 뿐이다) */
+const stalledAt = (src: string, at: number): boolean => deliveryOf(src, req(src), at)!.state === 'stalled';
+
+test('결정을 반영하고 20분 넘게 다음 단계가 없으면 멈춘 듯함이다', () => {
   const { src } = applied();
   const t0 = lastAt(src);
-  assert.deepEqual(dueForStall(src, loadRequests(src), t0 + (STALL_AFTER_MIN - 1) * min), [], '20분 전에는 아니다');
-  assert.deepEqual(dueForStall(src, loadRequests(src), t0 + (STALL_AFTER_MIN + 1) * min), [1]);
-  assert.equal(deliveryOf(src, req(src), t0 + (STALL_AFTER_MIN + 1) * min)!.state, 'applied', '한 번 더 보내기 전에는 멈춘 듯함으로 바꾸지 않는다');
-  markStallSent(src, 1);
-  assert.deepEqual(dueForStall(src, loadRequests(src), t0 + 60 * min), [], '결정마다 한 번만 보낸다');
-  const sentAt = Date.now();
-  assert.equal(deliveryOf(src, req(src), sentAt + 5 * min)!.state, 'applied', '보낸 직후에는 기다린다');
-  const late = deliveryOf(src, req(src), sentAt + (STALL_AFTER_MIN + 1) * min)!;
-  assert.equal(late.state, 'stalled');
-  const view = describeRequests(loadRequests(src), () => [], (r) => deliveryOf(src, r, sentAt + (STALL_AFTER_MIN + 1) * min))[0];
+  assert.equal(stalledAt(src, t0 + (STALL_AFTER_MIN - 1) * min), false, '20분 전에는 아니다');
+  assert.equal(stalledAt(src, t0 + (STALL_AFTER_MIN + 1) * min), true);
+  const view = describeRequests(loadRequests(src), () => [], (r) => deliveryOf(src, r, t0 + (STALL_AFTER_MIN + 1) * min))[0];
   assert.match(view.stepLabel, /멈춘 듯함/);
 });
 
 test('테스트를 올렸거나 막힘·질문을 남겼으면 멈춘 것으로 보지 않는다', () => {
   const a = applied();
   noteBlocked(a.src, 1, 'npx tsc 막힘');
-  assert.deepEqual(dueForStall(a.src, loadRequests(a.src), lastAt(a.src) + 30 * min), [], '막힘을 남겼으면 사용자가 아는 상태다');
+  assert.equal(stalledAt(a.src, lastAt(a.src) + 30 * min), false, '막힘을 남겼으면 사용자가 아는 상태다');
   const b = applied();
   noteAsking(b.src, 1, '허용해도 되나요?');
-  assert.deepEqual(dueForStall(b.src, loadRequests(b.src), lastAt(b.src) + 30 * min), [], '질문 중이면 사용자 차례다');
+  assert.equal(stalledAt(b.src, lastAt(b.src) + 30 * min), false, '질문 중이면 사용자 차례다');
   const c = applied();
   requestTest(c.src, 1);
-  assert.deepEqual(dueForStall(c.src, loadRequests(c.src), lastAt(c.src) + 30 * min), [], '테스트 요청은 사용자 차례다');
+  assert.equal(stalledAt(c.src, lastAt(c.src) + 30 * min), false, '테스트 요청은 사용자 차례다');
 });
 
 test('막힘은 다음 에이전트 기록이 생기면 풀리고, 질문은 사용자의 다음 기록이 생기면 사라진다', () => {

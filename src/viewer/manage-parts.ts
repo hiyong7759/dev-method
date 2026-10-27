@@ -43,9 +43,9 @@ export const unread = (r: RequestView): boolean => !!r.delivery && ['sending', '
 export function deliveryReason(r: RequestView): string {
   const v = r.delivery;
   if (!v) return '';
-  if (v.kind === 'started') return v.state === 'failed' ? `시작 글을 자동으로 ${v.resent}번 다시 보냈지만 ${v.waitMin}분째 안 읽음` : v.state === 'hook-wait' ? '담당 세션이 자동으로 만들어지지 않습니다' : `시작 글 읽기 대기 ${v.waitMin}분`;
+  if (v.kind === 'started') return v.state === 'failed' ? `전달 안 됨(시작 안 됨) · ${v.reason ?? '이유 없음'}` : v.state === 'hook-wait' ? '시작 글을 메신저가 아직 안 보냄' : `시작 글 읽기 대기 ${v.waitMin}분`;
   const what = r.stage === 'design' ? '설계 다시 쓰기 전' : '결정 반영 전';
-  return v.state === 'failed' ? `${what} · 자동으로 ${v.resent}번 다시 보냈지만 ${v.waitMin}분째 안 읽음` : v.state === 'hook-wait' ? `${what} · 담당 세션이 움직일 때 전달됨` : `${what} · 읽기 대기 ${v.waitMin}분`;
+  return v.state === 'failed' ? `전달 안 됨 · ${v.reason ?? '이유 없음'}` : v.state === 'hook-wait' ? `${what} · 메신저가 아직 안 보냄` : `${what} · 읽기 대기 ${v.waitMin}분`;
 }
 
 /**
@@ -57,20 +57,19 @@ export function deliveryCard(r: RequestView, resend: () => void): HTMLElement | 
   if (!v) return null;
   const hm = (iso: string): string => fmt(iso).slice(6);
   const start = v.kind === 'started';
-  if (v.state === 'stalled') return h('div', { class: 'card dlv bad' }, h('h3', null, '담당 세션이 멈춘 듯합니다', h('small', null, v.decision)), h('div', { class: 'hint' }, start ? '시작 글을 읽은 뒤 설계가 올라오지 않아 한 번 더 보냈지만 그대로입니다.' : '결정을 반영한 뒤 다음 단계(테스트 요청 등)가 없어 한 번 더 보냈지만 그대로입니다. 세션을 열어 보거나 다시 보내세요.'), h('div', { class: 'sp-foot' }, h('button', { class: 'btn pri', onclick: resend }, '지금 다시 보내기')));
+  if (v.state === 'stalled') return h('div', { class: 'card dlv bad' }, h('h3', null, '담당 세션이 멈춘 듯합니다', h('small', null, v.decision)), h('div', { class: 'hint' }, start ? '시작 글을 읽은 뒤 설계가 올라오지 않은 채 오래 멈춰 있습니다. 다시 보내세요.' : '결정을 반영한 뒤 다음 단계(테스트 요청 등)가 없는 채 오래 멈춰 있습니다. 다시 보내세요.'), h('div', { class: 'sp-foot' }, h('button', { class: 'btn pri', onclick: resend }, '지금 다시 보내기')));
   if (v.state === 'applied') return h('div', { class: 'hint dlv-done' }, `${v.decision} · ${hm(v.applied!)} ${start ? '설계 제출됨' : '반영됨'}`);
   const failed = v.state === 'failed';
   const cells: { label: string; at: string | null; bad: boolean }[] = [
-    { label: start ? '시작 누름' : '눌림', at: v.pressed, bad: false }, { label: start ? '글 보냄' : '보냄', at: v.sent, bad: false }, { label: start ? '글 읽음' : '읽음', at: v.read, bad: failed }, { label: start ? '설계 제출' : '반영', at: v.applied, bad: false },
+    { label: start ? '시작 누름' : '눌림', at: v.pressed, bad: false }, { label: start ? '글 보냄' : '보냄', at: v.sent, bad: failed }, { label: start ? '글 읽음' : '읽음', at: v.read, bad: false }, { label: start ? '설계 제출' : '반영', at: v.applied, bad: false },
   ];
-  const next = v.nextResendAt ? ` · 다음 자동 재전송 ${hm(v.nextResendAt)}` : '';
-  const sub = failed ? `${v.waitMin}분째 안 읽음 · 자동 재전송 ${v.resent}/${v.maxResend}번 끝남`
-    : v.state === 'hook-wait' ? (start ? '담당 세션이 자동으로 만들어지지 않습니다 — 담당 세션을 직접 열어 이 요청을 맡겨야 합니다' : '자동으로 깨우는 장치가 꺼져 있어, 담당 세션이 움직일 때 전달됩니다')
-    : v.state === 'read' ? (start ? '시작 글을 읽었고 설계를 쓰는 중입니다' : '읽었고 곧 반영합니다') : `${v.waitMin}분째 안 읽음 · 자동 재전송 ${v.resent}/${v.maxResend}번${next}`;
+  const sub = failed ? `이유: ${v.reason ?? '이유 없음'} · 아래 "다시 보내기"를 누르면 메신저가 같은 글을 다시 보냅니다${v.resent ? ` (지금까지 ${v.resent}번 다시 보냄)` : ''}`
+    : v.state === 'hook-wait' ? '보낼 글을 상자에 넣었고 메신저가 가져가기를 기다립니다(담당 세션이 움직이면 훅이 먼저 알릴 수도 있습니다)'
+    : v.state === 'read' ? (start ? '시작 글을 읽었고 설계를 쓰는 중입니다' : '읽었고 곧 반영합니다') : `보냈고 ${v.waitMin}분째 읽음 응답을 기다립니다`;
   return h('div', { class: `card dlv${failed ? ' bad' : ''}` },
-    h('h3', null, failed ? (start ? '시작이 전달되지 않았습니다' : '내 결정이 전달되지 않았습니다') : (start ? '시작이 전달됐나' : '내 결정이 전달됐나'), h('small', null, v.decision)),
+    h('h3', null, failed ? (start ? '전달 안 됨 · 시작이 전달되지 않았습니다' : '전달 안 됨 · 내 결정이 전달되지 않았습니다') : (start ? '시작이 전달됐나' : '내 결정이 전달됐나'), h('small', null, v.decision)),
     h('div', { class: 'dlv-steps' }, cells.map((c, i) => h('div', { class: `dlv-c${c.at ? ' on' : ''}${c.bad ? ' bad' : ''}` },
-      h('i', null, c.bad ? '!' : c.at ? '✓' : String(i + 1)), h('b', null, c.label), h('small', null, c.at ? hm(c.at) : c.bad ? '안 읽음' : '대기')))),
+      h('i', null, c.bad ? '!' : c.at ? '✓' : String(i + 1)), h('b', null, c.label), h('small', null, c.at ? hm(c.at) : c.bad ? '못 보냄' : '대기')))),
     h('div', { class: 'hint' }, sub),
     v.state === 'read' ? null : h('div', { class: 'sp-foot' }, h('button', { class: `btn${failed ? ' pri' : ''}`, onclick: resend }, '지금 다시 보내기')));
 }

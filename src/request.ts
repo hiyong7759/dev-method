@@ -574,23 +574,37 @@ export async function main(argv: string[]): Promise<number | undefined> {
     } else if (pos[0] === 'list') {
       for (const r of describeRequests(loadRequests(scanRoot))) console.log(`#${r.id} [${r.stageLabel} · ${r.stepLabel}] ${r.title}`);
     } else if (pos[0] === 'start') {
-      const { request: r, session: sid } = (await import('./wake.js')).startRequest(scanRoot, id);
-      console.log(`요청 #${r.id}: 설계를 시작한다${sid ? ` · 담당 세션을 새로 만들었다(${sid.slice(0, 8)}, 진행은 .spec/wake.log)` : ''}`);
+      const { request: r, row } = (await import('./wake.js')).startRequest(scanRoot, id);
+      console.log(`요청 #${r.id}: 설계를 시작한다${row ? ` · 시작 글을 상자에 적었다(줄 ${row.seq}, 메신저 세션이 담당에게 보낸다)` : ''}`);
     } else if (pos[0] === 'design') {
       const input = opts.file ? JSON.parse(fs.readFileSync(opts.file, 'utf8')) as DesignInput : {};
       const brief = parseBrief(input.brief ?? opts.brief, '설계');
       const r = submitDesign(scanRoot, id, { ...input, brief, none: input.none || opts.none === 'true', ...(opts.files ? { files: csv(opts.files).map((p) => ({ path: p })) } : {}) });
       console.log(`요청 #${r.id}: 설계를 올렸다. 사용자가 승인하거나 반려할 때까지 구현하지 않는다`);
     } else if (pos[0] === 'session') {
-      // 시작은 했는데 담당 세션이 안 만들어진 요청(옛 기록 등)에 담당 세션을 다시 만든다
+      // 시작은 했는데 담당 세션이 안 만들어진 요청(옛 기록 등)의 시작 글을 상자에 다시 적는다(프로세스는 띄우지 않는다. 메신저가 만든다)
       const r = loadRequests(scanRoot).find((x) => x.id === id);
       if (!r) throw new Error(`요청 #${id}을 찾지 못했다`);
-      const sid = (await import('./session.js')).startOwner(scanRoot, id, 'start');
-      console.log(sid ? `요청 #${id}: 담당 세션을 새로 만들었다(${sid.slice(0, 8)}, 진행은 .spec/wake.log)` : `요청 #${id}: 담당 세션을 만들지 않았다(설정 wake가 꺼져 있거나 담당이 이미 있다. 이유는 .spec/wake.log)`);
+      const row = (await import('./outbox.js')).requeueOutbox(scanRoot, id) ?? (await import('./outbox.js')).enqueueOutbox(scanRoot, id, 'start');
+      console.log(row ? `요청 #${id}: 시작 글을 상자에 다시 적었다(줄 ${row.seq}, 메신저가 담당 세션을 만들어 보낸다)` : `요청 #${id}: 적지 않았다(설정 wake가 꺼져 있거나 담당이 이미 일하는 중이다. 이유는 .spec/wake.log)`);
     } else if (pos[0] === 'wake') {
-      // 사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정을 다시 보낸다(열려 있는 것으로 보이는 세션도 깨운다)
-      const woken = (await import('./wake.js')).wakeOwner(scanRoot, id, true);
-      console.log(woken.length ? `요청 #${id}: 담당 세션에 마지막 결정을 다시 보냈다(${woken.map((w) => w.slice(0, 8)).join(', ')}, 진행은 .spec/wake.log)` : `요청 #${id}: 보내지 못했다(설정 wake가 꺼져 있다. 이유는 .spec/wake.log)`);
+      // 사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정 줄을 대기로 되돌린다(프로세스는 띄우지 않는다)
+      const row = (await import('./outbox.js')).requeueOutbox(scanRoot, id);
+      console.log(row ? `요청 #${id}: 마지막 결정을 다시 보내도록 상자 줄 ${row.seq}을 대기로 돌렸다(메신저가 보낸다)` : `요청 #${id}: 되돌릴 줄이 없다(설정 wake가 꺼져 있다)`);
+    } else if (pos[0] === 'ack') {
+      // 담당 세션이 결정·시작 글을 받았다고 응답한다. 사용자 화면의 "읽음"은 이 명령으로만 찍힌다
+      (await import('./delivery.js')).markRead(scanRoot, id);
+      console.log(`요청 #${id}: 받았음을 남겼다(화면에 읽음으로 보인다)`);
+    } else if (pos[0] === 'outbox') {
+      // 메신저 세션이 쓴다: wait(대기 줄이 생길 때까지 토큰 없이 기다림) / list / show --row N / done --row N --via send|bg-resume|bg-new / fail --row N --reason "이유"
+      const ob = await import('./outbox.js');
+      const sub = pos[1], seq = Number(opts.row);
+      if (sub === 'wait') { const s = await ob.waitPending(scanRoot, Number(opts.timeout || 600) * 1000); console.log(s.length ? `대기 줄: ${s.join(', ')}` : '대기 줄 없음'); }
+      else if (sub === 'list') { for (const r of ob.loadOutbox(scanRoot).slice(-20)) console.log(`줄 ${r.seq} #${r.request} ${r.kind === 'start' ? '시작' : '결정'} ${r.state}${r.reason ? ` · ${r.reason}` : ''}`); }
+      else if (sub === 'show') console.log(JSON.stringify(ob.showRow(scanRoot, seq), null, 2));
+      else if (sub === 'done') { const r = ob.doneRow(scanRoot, seq, opts.via as 'send' | 'bg-resume' | 'bg-new'); console.log(`줄 ${r.seq}: 보냄(${r.via})`); }
+      else if (sub === 'fail') { const r = ob.failRow(scanRoot, seq, opts.reason ?? '이유 없음'); console.log(`줄 ${r.seq}: 못 보냄(${r.reason}) — 화면에 전달 안 됨으로 보인다`); }
+      else throw new Error('사용: request outbox wait|list|show --row N|done --row N --via 길|fail --row N --reason 이유');
     } else if (pos[0] === 'shot') {
       const { captureLive } = await import('./shot.js');
       const r = await captureLive(scanRoot, id, opts.screen, { url: opts.url, selector: opts.selector });
@@ -623,8 +637,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
         : pos[0] === 'approve-test' ? approveTest(scanRoot, id, opts.none === 'true', quote)
         : pos[0] === 'reject-design' ? rejectDesign(scanRoot, id, opts.note ?? '', quote)
         : testProblem(scanRoot, id, opts.note ?? '', quote);
-      const woken = (await import('./wake.js')).wakeOwner(scanRoot, id);
-      console.log(`요청 #${r.id}: ${r.events[r.events.length - 1].note}을(를) 인용과 함께 기록했다 → ${r.stage}${woken.length ? ` (담당 세션에 전달: ${woken.map((w) => w.slice(0, 8)).join(', ')})` : ''}`);
+      const row = (await import('./outbox.js')).enqueueOutbox(scanRoot, id);
+      console.log(`요청 #${r.id}: ${r.events[r.events.length - 1].note}을(를) 인용과 함께 기록했다 → ${r.stage}${row ? ` (담당 세션에 보낼 글을 상자에 적었다: 줄 ${row.seq})` : ''}`);
     } else if (pos[0] === 'agent') {
       const r = setAgent(scanRoot, id, opts.name); console.log(`요청 #${r.id}: 맡은 에이전트 ${r.agent.name}`);
     } else {
@@ -633,8 +647,10 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  similar [--screens …] [--infos …] [--scenarios …] [--all true]   (새 요청을 등록하기 전에 합칠 후보를 본다. 보이기만 한다)',
         '  merge --into 남는번호 (--text "새 요구" | --from 없어질번호) --quote "사용자가 한 말"   (접수·설계 작성 중인 요청끼리만. 인용이 없으면 못 한다)',
         '  start --id N                     (시작 전 요청의 설계를 시작. 할 일을 정할 때 우선순위를 정한 뒤에만)',
-        '  wake --id N                      (사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정을 다시 보낸다)',
-        '  session --id N                   (시작은 했는데 담당 세션이 안 만들어진 요청에 담당 세션을 다시 만든다. 설정 wake가 켜져 있어야 한다)',
+        '  wake --id N                      (사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정 줄을 상자에서 대기로 되돌린다. 보내는 것은 메신저)',
+        '  session --id N                   (시작은 했는데 담당 세션이 안 만들어진 요청의 시작 글을 상자에 다시 적는다. 설정 wake가 켜져 있어야 한다)',
+        '  ack --id N                       (담당 세션이 결정·시작 글을 받았다고 응답한다. 사용자 화면의 "읽음"은 이 명령으로만 찍힌다)',
+        '  outbox wait|list|show --row N|done --row N --via send|bg-resume|bg-new|fail --row N --reason "이유"   (메신저 세션 전용: 상자의 글을 담당 세션에 보내고 결과를 남긴다)',
         '  shot --id N --screen 화면이름 --url 주소 [--selector css]   (바꾸기 전 운영 화면을 손대지 않고 그대로 찍어 현행 그림으로 저장. 설계를 올릴 때 이 그림이 현행으로 붙는다)',
         '  design --id N --file 설계.json [--files 경로1,경로2]   (설계 JSON에 files: [{path, why}]로 건드릴 파일을 적는다(필수). 또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',

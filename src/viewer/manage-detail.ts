@@ -323,7 +323,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   const implEvents = r.events.filter((e) => e.kind === 'impl' || e.kind === 'test-requested');
   const comps = [...new Set((r.scope.scenarios ?? []).flatMap((n) => model.scenarios.find((s) => s.name === n)?.steps.map((st) => st.owner) ?? []))];
   const cards: HTMLElement[] = [
-    fold('agent', '맡은 에이전트', idx === 0 || !!r.agent.name, r.agent.name ? [chip('ag', r.agent.name), ` 마지막 기록 ${fmt(r.events[r.events.length - 1].at)}`, r.cost && (r.cost.start || r.cost.wake) ? ` · 비용 약 $${r.cost.usd.toFixed(2)}` : ''] : '아직 정해지지 않았습니다',
+    fold('agent', '맡은 에이전트', idx === 0 || !!r.agent.name, r.agent.name ? [chip('ag', r.agent.name), r.activity ? ` ${r.activity.working ? '일하는 중' : '쉬는 중'} · 마지막 활동 ${Math.max(0, Math.floor((Date.now() - Date.parse(r.activity.lastActiveAt)) / 60000))}분 전` : '', ` · 마지막 기록 ${fmt(r.events[r.events.length - 1].at)}`, r.cost && (r.cost.start || r.cost.wake) ? ` · 비용 약 $${r.cost.usd.toFixed(2)}` : ''] : '아직 정해지지 않았습니다',
       [r.agent.name ? conversationBox(r.id) : null,
       r.agent.name ? h('div', { class: 'rm' }, h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, `claude attach ${r.agent.name}`), h('button', { class: 'btn sm', onclick: () => { void copyText(`claude attach ${r.agent.name}`).then(() => toast('복사했습니다')); } }, '복사'), h('span', { class: 'hint' }, `일하는 중에 들어가면 일이 멈출 수 있습니다. 지난 일은 위 "대화 보기"로 보세요. VS Code는 세션 목록에서 "${r.agent.name}"`))
         : h('div', { class: 'hint' }, '이 요청만 알고 일하는 에이전트입니다. 맡으면 이름이 여기에 나옵니다.'),
@@ -346,14 +346,14 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   ];
   const designSide = r.stage === 'design' && r.step === 'submitted' ? designApproval(r, onChange, !!model.testEnv)
     : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : r.step === 'queued' ? '접수' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : r.step === 'queued' ? '우선순위를 정했으면 시작합니다. 누르면 이 요청을 맡을 담당 세션이 새로 만들어지고, 설계를 작성해 승인을 기다립니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.'),
-      r.step === 'queued' ? h('button', { class: 'btn pri', style: 'margin-top:10px', onclick: () => act('start', { id: r.id }, `요청 #${r.id}을 시작했습니다. 담당 세션이 설계를 쓰는 중입니다`, onChange) }, '시작') : null,
+      r.step === 'queued' ? h('button', { class: 'btn pri', style: 'margin-top:10px', onclick: () => act('start', { id: r.id }, `요청 #${r.id}을 시작했습니다. 시작 글을 메신저가 담당 세션에 보냅니다`, onChange) }, '시작') : null,
       // 반려하면 사유가 패널에서 사라져 무엇을 고치는 중인지 알 수 없었다 → 다시 쓰는 동안 가장 최근 반려 사유만 보인다
       r.step === 'revise' ? lastRejection(r) : null)
     : r.stage === 'impl' ? h('div', { class: 'card' }, h('h3', null, '구현 중'), h('div', { class: 'hint' }, '에이전트가 구현하고 있습니다. 끝내고 테스트를 올리면 여기서 확인합니다.'))
     : r.stage === 'done' ? h('div', { class: 'card' }, h('h3', null, '끝난 요청'), h('div', { class: 'hint' }, '모든 칸은 펼쳐서 볼 수 있습니다.')) : null;
   const testing = r.stage === 'test';
   // 결정을 누른 뒤에는 결정 카드 대신 전달 카드가 그 자리를 차지한다(읽기 전까지)
-  const dlv = deliveryCard(r, () => act('resend', { id: r.id }, '담당 세션에 결정을 다시 보냈습니다', onChange));
+  const dlv = deliveryCard(r, () => act('resend', { id: r.id }, '메신저가 다시 보내도록 대기로 돌렸습니다', onChange));
   const tools = h('div', { class: 'tools' }, h('span', { class: 'hint' }, '칸 제목을 누르면 접고 폅니다'),
     h('button', { class: 'btn sm', onclick: () => { for (const c of cards) if (!c.classList.contains('later')) { FOLD.set(`${r.id}:${c.dataset.fold}`, true); c.classList.remove('shut'); c.querySelector('.tg')!.textContent = '접기'; } } }, '모두 펼치기'),
     h('button', { class: 'btn sm', onclick: () => { for (const k of [...FOLD.keys()]) if (k.startsWith(`${r.id}:`)) FOLD.delete(k); root.replaceChildren(); manageDetail(root, { model, id, sub, onChange }); } }, '단계 기본으로'));

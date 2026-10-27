@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { writeSamples } from '../src/samples.js';
-import { deliveryOf, markSent, openDelivery } from '../src/delivery.js';
+import { deliveryOf, markUndelivered, openDelivery } from '../src/delivery.js';
 import { addAlsoFixed, addRequest, approveDesign, describeRequests, loadRequests, noteImpl, submitDesign } from '../src/request.js';
 import { tempProject } from './helpers.js';
 
@@ -68,9 +68,9 @@ test('훅 입력이 없어 읽음이 안 적혀도, 결정 뒤 에이전트가 �
   addRequest(src, { title: 'a' });
   submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], understanding: 'u', screens: [] });
   approveDesign(src, 1);
-  openDelivery(src, loadRequests(src)[0]); markSent(src, 1, 'wake'); markSent(src, 1, 'wake', true); markSent(src, 1, 'wake', true);
-  const later = Date.now() + 30 * 60_000;
-  assert.equal(deliveryOf(src, loadRequests(src)[0], later)?.state, 'failed', '기록이 없으면 전달 안 됨');
+  openDelivery(src, loadRequests(src)[0]); markUndelivered(src, 1, '시험: 보내지 못함');
+  const later = Date.now() + 5 * 60_000;
+  assert.equal(deliveryOf(src, loadRequests(src)[0], later)?.state, 'failed', '메신저가 못 보냈다고 하면 전달 안 됨');
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5); // 결정 '뒤'로 세지게
   noteImpl(src, 1, '');
   const v = deliveryOf(src, loadRequests(src)[0], later);

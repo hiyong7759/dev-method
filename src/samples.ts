@@ -8,7 +8,7 @@ import path from 'node:path';
 import type { AlsoFixed, Request } from './types.js';
 
 /** 견본 전달 기록 한 건(delivery.ts의 저장 모양과 같다) */
-interface SampleDelivery { decidedAt: string; sentAt?: string; readAt?: string; lastSentAt?: string; resent: number; via?: 'wake' | 'hook' }
+interface SampleDelivery { decidedAt: string; sentAt?: string; readAt?: string; resent: number; via?: 'send' | 'bg-resume' | 'bg-new'; failedAt?: string; reason?: string }
 
 /** 견본 한 벌: 요청들과 전달 기록 */
 export interface SampleSet {
@@ -39,8 +39,8 @@ const also = (now: number, n: number): AlsoFixed[] => Array.from({ length: n }, 
 /** 견본 한 벌을 만든다 */
 export function buildSamples(now = Date.now()): SampleSet {
   const normal = implRequest(9001, '[견본] 결정 전달 — 정상(보냈고 아직 읽기 전)', now, 1);
-  const edge = implRequest(9002, '[견본] 결정 전달 — 경계(두 번 다시 보냈는데도 안 읽힘 = 전달 안 됨)', now, 30);
-  const error = implRequest(9003, '[견본] 결정 전달 — 오류(깨우는 장치가 꺼져 보냄 기록이 없음)', now, 3);
+  const edge = implRequest(9002, '[견본] 결정 전달 — 경계(메신저가 못 보냈다고 이유를 남김 = 전달 안 됨)', now, 30);
+  const error = implRequest(9003, '[견본] 결정 전달 — 오류(메신저가 아직 안 가져가 보냄 기록이 없음)', now, 3);
   const none = implRequest(9011, '[견본] 함께 고친 것 0건', now, 20);
   const one = { ...implRequest(9012, '[견본] 함께 고친 것 1건', now, 20), alsoFixed: also(now, 1) };
   const many = { ...implRequest(9013, '[견본] 함께 고친 것 여러 건(테스트 요청 카드에도 같은 목록이 보임)', now, 40), alsoFixed: also(now, 3), stage: 'test' as const, step: 'requested', test: { checks: {}, found: [], none: true } };
@@ -48,8 +48,8 @@ export function buildSamples(now = Date.now()): SampleSet {
   return {
     requests: [normal, edge, error, none, one, many],
     deliveries: {
-      9001: { decidedAt: iso(now, 1), sentAt: iso(now, 1), lastSentAt: iso(now, 1), resent: 0, via: 'wake' },
-      9002: { decidedAt: iso(now, 30), sentAt: iso(now, 29), lastSentAt: iso(now, 12), resent: 2, via: 'wake' },
+      9001: { decidedAt: iso(now, 1), sentAt: iso(now, 1), resent: 0, via: 'send' },
+      9002: { decidedAt: iso(now, 30), failedAt: iso(now, 29), resent: 1, reason: '담당 세션이 닫혀 있고 claude --bg --resume이 실패함(견본)' },
       9003: { decidedAt: iso(now, 3), resent: 0 },
     },
   };

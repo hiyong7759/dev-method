@@ -1,14 +1,13 @@
 /**
  * @spec inbox-hook 담당 세션에 사용자 결정 전달
  * @why 설계 승인·반려, 테스트 승인·반려, 순서 정하기는 사용자가 설계서 보기에서 하는데, 그 요청을 맡은 에이전트 세션이 모르면 일이 멈춘다. 감시기를 따로 돌리지 않고, 세션이 다음에 움직일 때(사용자가 말을 걸 때, 도구를 쓴 뒤) 훅이 새 결정을 읽어 알려 준다.
- * @contract Claude Code 훅(PostToolUse·UserPromptSubmit)이 표준입력으로 훅 JSON을 넘긴다. 세션이 `request agent --id N`을 실행하면(요청을 접수만 한 `request add`는 담당이 아니다) 그 세션을 요청 N의 담당으로 .spec/sessions.json에 적고(커밋하지 않는다), 이후 그 요청 파일에 사용자가 남긴 새 기록만 additionalContext로 돌려준다. 담당이 아닌 세션과 설계서 보기를 쓰지 않는 프로젝트에서는 아무것도 하지 않는다. 훅은 어떤 경우에도 세션을 막지 않는다(항상 종료 코드 0).
+ * @contract 열린 세션에 결정을 넣어 주는 보조 길이다(헤드리스가 아니다. 메인 길은 outbox.ts의 메신저). 읽음은 여기서 찍지 않고 받은 세션의 `request ack`만 찍는다. Claude Code 훅(PostToolUse·UserPromptSubmit)이 표준입력으로 훅 JSON을 넘긴다. 세션이 `request agent --id N`을 실행하면(요청을 접수만 한 `request add`는 담당이 아니다) 그 세션을 요청 N의 담당으로 .spec/sessions.json에 적고(커밋하지 않는다), 이후 그 요청 파일에 사용자가 남긴 새 기록만 additionalContext로 돌려준다. 담당이 아닌 세션과 설계서 보기를 쓰지 않는 프로젝트에서는 아무것도 하지 않는다. 훅은 어떤 경우에도 세션을 막지 않는다(항상 종료 코드 0).
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { configFile } from './config.js';
 import { kst } from './kst.js';
 import { loadRequests } from './request.js';
-import { markRead, markStartRead } from './delivery.js';
 
 /** 훅이 넘기는 JSON 중 쓰는 것 */
 interface HookInput {
@@ -65,17 +64,14 @@ export async function main(): Promise<number> {
       // 요청을 접수(add)만 한 세션은 담당이 아니다. 접수한 세션이 담당으로 적히면 요청을 시작할 때 "담당이 이미 있다"고 보아 담당 세션이 만들어지지 않는다
       const bound = cmd.match(/spec\.mjs\s+request\s+agent\b[^\n]*?--id[ =](\d+)/)?.[1];
       const req = bound ? requests.find((r) => r.id === Number(bound)) : undefined;
-      if (req) { sessions[sid] = { request: req.id, seen: req.events[req.events.length - 1]?.at ?? new Date().toISOString() }; save(); markStartRead(root, req); return 0; }
+      if (req) { sessions[sid] = { request: req.id, seen: req.events[req.events.length - 1]?.at ?? new Date().toISOString() }; save(); return 0; }
     }
     const mine = sessions[sid];
     const req = mine ? requests.find((r) => r.id === mine.request) : undefined;
     if (!mine || !req) return 0;
-    // 깨움 글('[spec-view] 요청 #N')이 이 세션의 입력으로 들어왔으면 결정을 읽은 것이다
-    // 새 담당 글('[프로젝트 요청 #N 담당]', 시작 글)이 들어왔을 때도 같다
-    if (input.prompt?.includes(`[spec-view] 요청 #${req.id} `) || input.prompt?.includes(`요청 #${req.id} 담당]`)) markRead(root, req.id);
+    // 읽음은 여기서 찍지 않는다: 받은 세션이 `request ack`로 응답할 때만 찍힌다(글이 들어왔거나 훅이 넣어 줬다는 것은 읽었다는 뜻이 아니다)
     const news = req.events.filter((e) => e.by === 'user' && e.at > mine.seen && NEXT[e.kind]);
     if (!news.length) return 0;
-    markRead(root, req.id);
     mine.seen = req.events[req.events.length - 1].at;
     save();
     const lines = news.map((e) => `- ${e.note} (${kst(e.at)}): ${NEXT[e.kind](req.id, e.note)}`);

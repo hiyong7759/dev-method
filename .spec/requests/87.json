@@ -25,8 +25,8 @@
     "mode": "design",
     "reason": "전달 방식과 화면 표시가 바뀌는 새 기능이라 설계 승인이 필요하다"
   },
-  "stage": "design",
-  "step": "submitted",
+  "stage": "impl",
+  "step": "working",
   "events": [
     {
       "at": "2026-10-27T08:31:49.472Z",
@@ -76,10 +76,89 @@
       "by": "agent",
       "kind": "design-submitted",
       "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-27T08:52:07.211Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-27T08:57:20.010Z",
+      "by": "user",
+      "kind": "design-rejected",
+      "note": "설계 반려: 범위 보완: 에이전트에게 글을 보내거나 전달 여부를 정하는 코드 전체가 변경 대상이어야 한다. 건드릴 파일에 다음을 더한다. (1) src/middleware.ts: 승인·반려·설계 변경·테스트 승인·테스트 문제·순서·다시 보내기를 누를 때 wakeOwner를 부르는 곳(약 7군데, :146, :183~:191). 새 방식으로 연결한다. (2) src/inbox.ts와 훅 설정(.claude/settings.json): 열린 세션이 움직일 때 결정을 넣어 주고 읽음(markRead)을 찍는 곳. '읽음은 받은 세션의 응답이 있을 때만'이라는 설계와 부딪치지 않게 맞춘다. (3) src/request.ts의 start 경로(startOwner, :588)와 rules/request.md: 새 담당 세션 만들기도 claude -p(헤드리스)이므로, '어떤 경우도 헤드리스로 전달하지 않는다'는 새 담당 세션 만들기에도 적용해 어떻게 할지 정한다. 위 목록은 claude -p, --resume, resumeOwner, startOwner, resendStart, nudgeStalled, markSent, launch( 문자열로 찾은 결과이므로, 이 밖에 에이전트에게 글을 보내는 경로가 더 있는지 코드 전체에서 다시 찾아 빠짐없이 적는다. 이전 반려의 '사용자에게 열도록 알림'은 사용자가 시킨 적 없으므로 설계에 넣지 않는다. (대화에서 한 반려를 인용해 기록함)",
+      "quote": "현재 에이전트에게 메시지전송하는 전체 소스가 변경대상 맞나? 87번 / 다시보내"
+    },
+    {
+      "at": "2026-10-27T08:59:19.051Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-27T09:00:34.985Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 없음 승인"
+    },
+    {
+      "at": "2026-10-27T09:10:05.598Z",
+      "by": "agent",
+      "kind": "blocked",
+      "note": "막힘: 구현 뒤 첫 시험인 claude --bg --session-id(새 담당 만들기)와 claude --bg --resume(닫힌 담당 이어 띄우기) 실행이 허용 목록 밖이라 막혀 실제로 시험하지 못함. 코드·가짜 claude 시험(서버가 claude를 부르지 않음, 명령 모양)까지만 확인함. 사용자가 이 두 명령을 허용하거나 직접 한 번 돌려 결과를 알려야 함"
+    },
+    {
+      "at": "2026-10-27T09:10:18.957Z",
+      "by": "agent",
+      "kind": "also-fixed",
+      "note": "함께 고침: 전달 카드(전달 안 됨·이유·다시 보내기)와 목록 이유 글이 manage-views.ts가 아니라 이 파일에 있어 여기서 고침"
+    },
+    {
+      "at": "2026-10-27T09:10:19.979Z",
+      "by": "agent",
+      "kind": "also-fixed",
+      "note": "함께 고침: 요청 상세 맡은 에이전트 칸의 일하는 중·마지막 활동 N분 전과 다시 보내기·시작 안내 글이 이 파일에 있어 여기서 고침"
+    },
+    {
+      "at": "2026-10-27T09:10:20.775Z",
+      "by": "agent",
+      "kind": "also-fixed",
+      "note": "함께 고침: 견본 전달 기록이 지워진 자동 재전송 칸을 쓰고 있어 새 저장 모양에 맞춤"
+    },
+    {
+      "at": "2026-10-27T09:10:21.672Z",
+      "by": "agent",
+      "kind": "also-fixed",
+      "note": "함께 고침: 지워진 헤드리스 깨움·자동 재전송 동작을 시험하던 테스트를 새 방식(outbox·ack·전달 안 됨 이유)에 맞게 바꿈"
+    },
+    {
+      "at": "2026-10-27T09:10:22.515Z",
+      "by": "agent",
+      "kind": "also-fixed",
+      "note": "함께 고침: 자동 재전송·재깨움 시험을 새 전달 기록에 맞춤"
+    },
+    {
+      "at": "2026-10-27T09:10:23.337Z",
+      "by": "agent",
+      "kind": "also-fixed",
+      "note": "함께 고침: 멈춘 듯함 시험에서 지워진 재깨움 함수를 빼고 같은 밀리초 흔들림을 막음"
+    },
+    {
+      "at": "2026-10-27T09:10:23.977Z",
+      "by": "agent",
+      "kind": "also-fixed",
+      "note": "함께 고침: 지워진 끊긴 깨움 이어 보내기 시험을 뺌"
+    },
+    {
+      "at": "2026-10-27T09:10:24.682Z",
+      "by": "agent",
+      "kind": "also-fixed",
+      "note": "함께 고침: 견본 전달 안 됨 시험을 메신저 실패 기록 방식에 맞춤"
     }
   ],
   "design": {
-    "understanding": "결정은 SendMessage로만 열린 창에 보내고, 못 보내면 헤드리스 대신 '전달 안 됨'과 사용자가 할 일을 화면에 보인다",
+    "understanding": "에이전트에게 글을 보내는 모든 길(결정 7·코멘트·시작·재전송·멈춤 깨움·훅)을 outbox와 메신저의 SendMessage로 모으고, 헤드리스는 어디에도 남기지 않는다. 못 보내면 '전달 안 됨'과 이유를 보인다",
     "points": [
       {
         "area": "시험 결과",
@@ -89,12 +168,12 @@
       {
         "area": "시험 결과",
         "title": "닫힌 세션에 SendMessage: 안 됨",
-        "text": "sessions.json에 있는 옛 담당 세션 번호로 보냈더니 'No agent named ... is reachable'로 실패했다. 열려 있지 않으면 SendMessage는 닿지 않는다. 그래서 닫힌 담당은 다른 길이 필요하다."
+        "text": "sessions.json에 있는 옛 담당 세션 번호로 보냈더니 'No agent named ... is reachable'로 실패했다. 열려 있지 않으면 SendMessage는 닿지 않는다. 그래서 닫힌 담당은 먼저 띄워야 한다."
       },
       {
         "area": "시험 결과",
-        "title": "닫힌 세션을 백그라운드로 이어 띄우기: 시험 못 함(막힘)",
-        "text": "claude --help에 --bg --resume <세션번호>가 있다. 같은 번호로 백그라운드 세션을 이어 띄우고 claude agents에 보이게 한다는 설명이다(claude -p와 달리 대화형 세션이라 attach로 열 수 있다). 다만 이 명령이 허용 목록 밖이라 실행하지 못했고, 막힘으로 기록해 두었다. 되는지·SendMessage가 닿는지·메시지를 사용자 결정처럼 따르는지는 모른다."
+        "title": "백그라운드로 이어 띄우기·새로 만들기: 시험 못 함(막힘)",
+        "text": "claude --help에 --bg --resume <세션번호>가 있다. 같은 번호로 백그라운드 세션을 이어 띄우고 claude agents에 보이게 한다는 설명이다(claude -p와 달리 대화형 세션이라 attach로 열 수 있다). 새 담당을 만드는 claude --bg도 같은 계열이다. 다만 이 명령이 허용 목록 밖이라 실행하지 못했고 막힘으로 기록해 두었다. 되는지·SendMessage가 닿는지·메시지를 사용자 결정처럼 따르는지는 모른다."
       },
       {
         "area": "시험 결과",
@@ -102,74 +181,102 @@
         "text": "메시지는 '다른 세션이 보낸 글'로 감싸여 온다. 그래서 글에 요청 번호·결정 종류·인용·요청 파일 위치를 넣어 받은 쪽이 요청 파일에서 직접 확인하게 한다. 실제 담당 창에 보내 따르는지는 구현 뒤 시험한다."
       },
       {
+        "area": "변경 대상 전체",
+        "title": "코드 전체를 다시 찾은 결과: 보내는 길 9곳",
+        "text": "(1) middleware.ts 결정 저장 직후 wakeOwner 호출 7곳: 설계 승인·반려·설계 변경·테스트 승인·테스트 문제·순서·다시 보내기(:183~:191). (2) middleware.ts:146 코멘트 묶음 보내기 뒤 wakeOwner. (3) middleware.ts:184 화면의 '시작'(startRequest). (4) request.ts:626 대화 결정(approve-design 등)의 wakeOwner. (5) request.ts:588 request session(startOwner)과 :592 request wake(wakeOwner). (6) request.ts start(startRequest). (7) serve.ts:88 1분 점검의 resendUnread·nudgeStalled. (8) inbox.ts 훅의 결정 주입과 markRead·markStartRead(:69,:75,:78). (9) session.ts·wake.ts·delivery.ts 안의 실행·기록. claude를 실행하는 곳은 session.ts의 launch(claude -p)와 `claude agents --json`(읽기 전용 상태 조회)뿐이고, 나머지 spawn은 git·서버 재시작·브라우저라 에이전트에게 글을 보내지 않는다."
+      },
+      {
+        "area": "변경 대상 전체",
+        "title": "middleware.ts: 모든 호출을 outbox 적기로",
+        "text": "wakeOwner를 부르던 9곳(결정 7·코멘트 1·다시 보내기 1)을 enqueueOutbox(요청 번호, 종류)로 바꾼다. 결정을 저장하는 일과 outbox에 적는 일은 같은 요청 안에서 끝나고, 적기가 실패해도 결정 자체는 실패시키지 않는다. 다시 보내기(/request/resend)는 마지막 결정의 outbox 줄을 다시 대기로 돌릴 뿐이다. 순서 변경도 이번에 outbox를 거치게 한다."
+      },
+      {
+        "area": "변경 대상 전체",
+        "title": "inbox.ts·훅 설정: 결정은 넣어 주되 읽음은 안 찍는다",
+        "text": "열린 세션이 움직일 때 결정을 additionalContext로 넣어 주는 훅은 헤드리스가 아니고 메신저가 못 닿을 때의 보조 길이라 남긴다. 다만 이 훅이 markRead를 찍는 두 곳(:75 깨움 글 들어옴, :78 결정 주입)을 없앤다. 읽음은 받은 세션이 request ack를 부를 때만 찍는다(담당이 request agent로 스스로 담당을 정할 때 찍는 시작 읽음은 세션 자신의 응답이라 남긴다). 훅 설정(.claude/settings.json)은 inbox 명령 연결 그대로라 바꾸지 않는다. 같은 결정이 메신저와 훅 양쪽으로 가도 ack는 한 번만 의미가 있게 글에 결정 시각을 넣는다."
+      },
+      {
+        "area": "변경 대상 전체",
+        "title": "새 담당 세션 만들기도 헤드리스 안 씀",
+        "text": "'시작'(화면·request start)과 request session은 담당이 없을 때 outbox에 '시작' 줄을 적고, 메신저가 claude --bg --session-id <새 번호> --name <담당 이름>에 시작 글을 붙여 대화형 백그라운드 세션을 만든 뒤 sessions.json에 요청 번호와 함께 적는다(claude -p 아님). 요청에 담당이 이미 있으면 새로 만들지 않는 규칙은 그대로다. claude --bg가 막히거나 실패하면 '시작 안 됨 · 이유'와 다시 보내기 단추를 보이고 헤드리스로 만들지 않는다. 이 길도 시험이 막혀 있어 구현 뒤 첫 시험이다."
+      },
+      {
+        "area": "변경 대상 전체",
+        "title": "request wake·session 명령과 rules",
+        "text": "request wake는 '마지막 결정 outbox 줄을 다시 대기로', request session은 '시작 줄을 다시 대기로'로 뜻을 바꾼다(프로세스를 띄우지 않는다). rules/request.md의 '시작하면 담당 세션을 만든다'와 approval.md의 '서버가 만들고 깨운다·wake 설정' 설명을 메신저·ack 방식으로 고쳐 쓴다. 설정 wake: true는 '메신저를 쓴다'는 뜻으로 읽는다."
+      },
+      {
         "area": "전달 길",
         "title": "헤드리스 완전 제거",
-        "text": "wake.ts의 resumeOwner·startOwner·resendStart 호출과 session.ts의 claude -p --resume 실행, 재전송·멈춤 때 다시 깨우기(resendUnread·nudgeStalled)를 모두 없앤다. 서버는 결정을 outbox에 적을 뿐 어떤 프로세스도 띄우지 않는다."
+        "text": "session.ts의 claude -p 실행(launch)과 --resume·--session-id 호출(resumeOwner·startOwner·resendStart), wake.ts의 재전송·멈춤 재깨움(resendUnread·nudgeStalled)과 시작 재전송, /compact 먼저 보내기를 모두 없앤다. 서버는 글을 outbox에 적을 뿐 어떤 프로세스도 띄우지 않는다. 담당 세션에 걸던 허용·금지 도구와 읽기 금지 훅 설정은 새 세션을 만들 때(claude --bg) 그대로 붙인다. 담당 세션 비용 기록(session-costs.json)은 claude -p의 JSON 결과에서 읽던 것이라 이 방식에서는 얻지 못해 없앤다."
       },
       {
         "area": "전달 길",
-        "title": "열린 창은 메신저가 SendMessage로",
-        "text": "서버는 결정마다 .spec/outbox.json에 한 줄(받을 담당 세션, 글, 만든 시각, 보냄 시각)을 더한다. 메신저는 작은 모델(Haiku) 세션이고 Monitor로 이 파일만 지켜보다 새 줄이 생길 때만 깨어 ListAgents로 담당 창을 찾아 SendMessage로 보낸 뒤 보냄 시각을 적고 컨텍스트를 압축한다. 기다리는 동안 토큰이 들지 않는다."
+        "title": "메신저가 SendMessage로 전달",
+        "text": "서버는 보낼 글마다 .spec/outbox.json에 한 줄(종류·받을 담당 세션, 글, 만든 시각, 보냄 시각, 실패 이유)을 더한다. 메신저는 작은 모델(Haiku) 세션이고 Monitor로 이 파일만 지켜보다 새 줄이 생길 때만 깨어 ListAgents로 담당 세션을 찾아 SendMessage로 보낸 뒤 보냄 시각을 적고 컨텍스트를 압축한다. 기다리는 동안 토큰이 들지 않는다."
       },
       {
         "area": "전달 길",
-        "title": "닫힌 창은 먼저 사용자에게 알림",
-        "text": "메신저가 담당 창을 못 찾으면 outbox 줄에 '창 없음'을 적는다. 요청 화면은 '전달 안 됨 · 담당 창이 닫혀 있음'과 할 일('이 요청의 담당 세션을 열어 주세요. 열리면 자동으로 전달됩니다')을 보인다. 담당 창이 다시 열려 ListAgents에 보이면 메신저가 밀린 줄을 그때 보낸다."
+        "title": "닫힌 담당은 백그라운드 세션으로 이어 띄움",
+        "text": "ListAgents에 담당이 없으면 메신저가 claude --bg --resume <담당 세션>으로 같은 번호의 담당을 띄우고(헤드리스가 아닌 대화형 백그라운드 세션), 보이게 되면 SendMessage로 보낸다. 사용자에게 창을 열라고 시키지 않는다. 구현 뒤 가장 먼저 이 길을 실제 닫힌 담당으로 시험해 결과를 테스트 요청에 올린다."
       },
       {
         "area": "전달 길",
-        "title": "두 번째 단계: 닫힌 담당을 백그라운드로 이어 띄우기",
-        "text": "메신저(또는 사용자가 누르는 단추)가 claude --bg --resume <담당 세션>으로 같은 번호의 담당을 띄우고 SendMessage로 보내는 안이다. 시험이 막혀 있어 처음에는 끄고 시험이 되면 켠다. 안 되면 이 항목은 빼고 사용자가 여는 방식만 남긴다."
+        "title": "못 보내면 '전달 안 됨'과 이유",
+        "text": "백그라운드로 띄우지 못하거나 메신저가 꺼져 있으면 outbox 줄에 실패 이유를 적고, 요청 화면은 헤드리스로 넘어가지 않은 채 '전달 안 됨 · 이유'와 '다시 보내기' 단추(outbox 줄을 다시 대기로 돌릴 뿐 프로세스를 띄우지 않음)를 보인다."
       },
       {
         "area": "읽음",
         "title": "받은 세션의 응답이 있을 때만 읽음",
-        "text": "글 안에 '확인했으면 request ack --id N을 실행하라'를 넣고, 이 명령이 요청 파일에 응답 기록을 남길 때 읽음을 찍는다. 보냄(메신저가 SendMessage 성공)과 읽음(창의 응답)이 따로 보인다."
+        "text": "글 안에 '확인했으면 request ack --id N을 실행하라'를 넣고, 이 명령이 요청 파일에 응답 기록을 남길 때 읽음을 찍는다. 보냄(메신저가 SendMessage 성공)과 읽음(세션의 응답)이 따로 보인다."
       },
       {
         "area": "화면",
         "title": "요청 상세: 전달 안 됨과 담당 활동",
-        "text": "전달 카드가 눌림·보냄·읽음·반영에 더해 '전달 안 됨'(창 없음·메신저 꺼짐)과 사용자가 할 일을 보인다. 담당 이름 옆에는 '일하는 중 · 마지막 활동 N분 전' 또는 '쉬는 중 · N분 전'이 보인다(활동 시각은 담당 대화 기록 파일의 마지막 수정 시각, 일함/쉼은 agents 상태)."
-      },
-      {
-        "area": "대비",
-        "title": "컨텍스트 압축",
-        "text": "원문의 '깨울 때 컨텍스트 압축'은 헤드리스 깨움과 함께 없어진다. 열린 창은 사용자가 관리하고, 메신저 세션만 건마다 압축한다."
+        "text": "전달 카드가 눌림·보냄·읽음·반영에 더해 '전달 안 됨'(이유)과 다시 보내기 단추를 보인다. 담당 이름 옆에는 '일하는 중 · 마지막 활동 N분 전' 또는 '쉬는 중 · N분 전'이 보인다(활동 시각은 담당 대화 기록 파일의 마지막 수정 시각, 일함/쉼은 agents 상태)."
       }
     ],
     "approach": "",
     "changes": [],
     "screens": [],
     "none": true,
-    "rejected": 1,
+    "rejected": 2,
     "files": [
       {
         "path": "src/wake.ts",
-        "why": "헤드리스 깨움·재전송·멈춤 재깨움을 없애고 결정을 outbox에 적기만 하게 바꾼다"
+        "why": "헤드리스 깨움·재전송·멈춤 재깨움·시작 재전송을 없애고 결정·시작을 outbox에 적기만 하게 바꾼다"
       },
       {
         "path": "src/outbox.ts",
-        "why": "보낼 글 목록(.spec/outbox.json)을 쓰고 읽는 새 파일. 글에 요청 번호·결정·인용·요청 파일 위치·ack 방법을 넣는다"
+        "why": "보낼 글 목록(.spec/outbox.json)을 쓰고 읽는 새 파일. 글에 요청 번호·결정·인용·요청 파일 위치·ack 방법을 넣고 실패 이유·다시 대기를 다룬다"
       },
       {
         "path": "src/delivery.ts",
-        "why": "읽음을 받은 세션의 응답(ack)이 있을 때만 찍고, '전달 안 됨'과 사용자가 할 일을 계산한다"
+        "why": "읽음을 받은 세션의 응답(ack)이 있을 때만 찍고, '전달 안 됨'과 이유를 계산한다"
       },
       {
         "path": "src/session.ts",
-        "why": "claude -p --resume 실행을 없애고, 담당 세션의 일함/쉼·마지막 활동 시각을 읽는 함수를 둔다"
+        "why": "claude -p 실행을 없애고, 담당 세션의 일함/쉼·마지막 활동 시각을 읽는 함수를 둔다"
       },
       {
         "path": "src/request.ts",
-        "why": "request ack 명령과 응답 기록 종류를 더한다"
+        "why": "request ack를 더하고, 시작·request session·request wake·대화 결정의 wakeOwner/startOwner 호출을 outbox 적기로 바꾼다"
       },
       {
         "path": "src/cli.ts",
-        "why": "request ack와 outbox 명령을 연결한다"
+        "why": "request ack와 outbox 명령(메신저가 쓴다)을 연결한다"
       },
       {
         "path": "src/serve.ts",
-        "why": "1분 점검의 재전송·멈춤 깨움 호출을 없앤다"
+        "why": "1분 점검의 resendUnread·nudgeStalled 호출을 없앤다"
+      },
+      {
+        "path": "src/middleware.ts",
+        "why": "결정·코멘트·시작·순서·다시 보내기의 wakeOwner/startRequest 호출 9곳을 outbox 적기로 바꾸고 다시 보내기 요청을 받는다"
+      },
+      {
+        "path": "src/inbox.ts",
+        "why": "훅의 markRead 두 곳을 없애 읽음이 ack로만 찍히게 하고, 결정 글 만들기를 outbox와 함께 쓰도록 맞춘다"
       },
       {
         "path": "src/model.ts",
@@ -181,17 +288,129 @@
       },
       {
         "path": "src/viewer/manage-views.ts",
-        "why": "요청 상세에 '전달 안 됨'과 할 일, '일하는 중 · 마지막 활동 N분 전'을 보인다"
+        "why": "요청 상세에 '전달 안 됨'·이유·다시 보내기, '일하는 중 · 마지막 활동 N분 전'을 보인다"
       },
       {
         "path": "skills/spec-view/rules/approval.md",
-        "why": "전달 방식(메신저·ack, 헤드리스 금지)을 규칙에 적는다"
+        "why": "전달 방식(메신저·ack, 헤드리스 금지, 닫힌 담당은 백그라운드로 이어 띄움)을 규칙에 적는다"
+      },
+      {
+        "path": "skills/spec-view/rules/request.md",
+        "why": "시작 때 담당 세션을 만드는 방식을 메신저(claude --bg)로 고쳐 적는다"
       }
     ],
     "brief": [
-      "어떤 경우에도 결정을 헤드리스(claude -p --resume)로 보내지 않는다. 서버는 결정을 .spec/outbox.json에 적기만 하고, 작은 모델의 메신저 세션이 SendMessage로 열린 담당 창에 보낸다.",
-      "창이 없는 세션은 깨우지 않는다. 요청 화면에 '전달 안 됨 · 담당 창이 닫혀 있음'과 사용자가 할 일(담당 창을 열기, 또는 새 담당 창 열기)을 보인다. 메신저가 담당을 백그라운드 세션(claude --bg --resume)으로 이어 띄워 보내는 방식은 시험이 막혀 있어 두 번째 단계로 두고, 시험되면 켠다.",
-      "'읽음'은 받은 창이 request ack로 응답 기록을 남길 때만 찍는다. 기존 재전송·헤드리스 깨움은 모두 없앤다. 요청 상세에는 담당이 '일하는 중 · 마지막 활동 N분 전'인지 보인다."
+      "어떤 경우에도 결정·새 담당 시작·코멘트를 헤드리스(claude -p, --resume)로 보내지 않는다. 서버는 보낼 글을 .spec/outbox.json에 적기만 하고, 작은 모델의 메신저 세션이 SendMessage로 보낸다. 코드 전체를 다시 찾아 에이전트에게 글을 보내는 길 9곳을 모두 바꾼다(아래 '변경 대상 전체').",
+      "창이 없는 담당은 사용자에게 열라고 시키지 않고 메신저가 claude --bg --resume으로 이어 띄워 보내고, 담당이 아직 없는 새 요청은 메신저가 claude --bg로 새 대화형 백그라운드 세션을 만든다. 둘 다 시험이 막혀 있어 구현 뒤 첫 시험이고, 안 되면 헤드리스로 넘어가지 않고 '전달 안 됨(시작 안 됨) · 이유'와 다시 보내기 단추를 보인다.",
+      "'읽음'은 받은 세션이 request ack로 응답을 남길 때만 찍는다. 열린 세션에 결정을 넣어 주는 inbox 훅은 남기되 읽음은 찍지 않는다. 요청 상세에는 담당이 '일하는 중 · 마지막 활동 N분 전'인지 보인다."
     ]
-  }
+  },
+  "files": [
+    {
+      "path": "src/wake.ts",
+      "why": "헤드리스 깨움·재전송·멈춤 재깨움·시작 재전송을 없애고 결정·시작을 outbox에 적기만 하게 바꾼다"
+    },
+    {
+      "path": "src/outbox.ts",
+      "why": "보낼 글 목록(.spec/outbox.json)을 쓰고 읽는 새 파일. 글에 요청 번호·결정·인용·요청 파일 위치·ack 방법을 넣고 실패 이유·다시 대기를 다룬다"
+    },
+    {
+      "path": "src/delivery.ts",
+      "why": "읽음을 받은 세션의 응답(ack)이 있을 때만 찍고, '전달 안 됨'과 이유를 계산한다"
+    },
+    {
+      "path": "src/session.ts",
+      "why": "claude -p 실행을 없애고, 담당 세션의 일함/쉼·마지막 활동 시각을 읽는 함수를 둔다"
+    },
+    {
+      "path": "src/request.ts",
+      "why": "request ack를 더하고, 시작·request session·request wake·대화 결정의 wakeOwner/startOwner 호출을 outbox 적기로 바꾼다"
+    },
+    {
+      "path": "src/cli.ts",
+      "why": "request ack와 outbox 명령(메신저가 쓴다)을 연결한다"
+    },
+    {
+      "path": "src/serve.ts",
+      "why": "1분 점검의 resendUnread·nudgeStalled 호출을 없앤다"
+    },
+    {
+      "path": "src/middleware.ts",
+      "why": "결정·코멘트·시작·순서·다시 보내기의 wakeOwner/startRequest 호출 9곳을 outbox 적기로 바꾸고 다시 보내기 요청을 받는다"
+    },
+    {
+      "path": "src/inbox.ts",
+      "why": "훅의 markRead 두 곳을 없애 읽음이 ack로만 찍히게 하고, 결정 글 만들기를 outbox와 함께 쓰도록 맞춘다"
+    },
+    {
+      "path": "src/model.ts",
+      "why": "요청 상세가 전달 안 됨·담당 활동 상태를 받게 한다"
+    },
+    {
+      "path": "src/types.ts",
+      "why": "전달 기록·활동 상태의 모양을 바꾼다"
+    },
+    {
+      "path": "src/viewer/manage-views.ts",
+      "why": "요청 상세에 '전달 안 됨'·이유·다시 보내기, '일하는 중 · 마지막 활동 N분 전'을 보인다"
+    },
+    {
+      "path": "skills/spec-view/rules/approval.md",
+      "why": "전달 방식(메신저·ack, 헤드리스 금지, 닫힌 담당은 백그라운드로 이어 띄움)을 규칙에 적는다"
+    },
+    {
+      "path": "skills/spec-view/rules/request.md",
+      "why": "시작 때 담당 세션을 만드는 방식을 메신저(claude --bg)로 고쳐 적는다"
+    }
+  ],
+  "alsoFixed": [
+    {
+      "at": "2026-10-27T09:10:18.957Z",
+      "text": "전달 카드(전달 안 됨·이유·다시 보내기)와 목록 이유 글이 manage-views.ts가 아니라 이 파일에 있어 여기서 고침",
+      "where": "src/viewer/manage-parts.ts",
+      "commit": ""
+    },
+    {
+      "at": "2026-10-27T09:10:19.979Z",
+      "text": "요청 상세 맡은 에이전트 칸의 일하는 중·마지막 활동 N분 전과 다시 보내기·시작 안내 글이 이 파일에 있어 여기서 고침",
+      "where": "src/viewer/manage-detail.ts",
+      "commit": ""
+    },
+    {
+      "at": "2026-10-27T09:10:20.775Z",
+      "text": "견본 전달 기록이 지워진 자동 재전송 칸을 쓰고 있어 새 저장 모양에 맞춤",
+      "where": "src/samples.ts",
+      "commit": ""
+    },
+    {
+      "at": "2026-10-27T09:10:21.671Z",
+      "text": "지워진 헤드리스 깨움·자동 재전송 동작을 시험하던 테스트를 새 방식(outbox·ack·전달 안 됨 이유)에 맞게 바꿈",
+      "where": "test/wake.test.ts",
+      "commit": ""
+    },
+    {
+      "at": "2026-10-27T09:10:22.515Z",
+      "text": "자동 재전송·재깨움 시험을 새 전달 기록에 맞춤",
+      "where": "test/delivery.test.ts",
+      "commit": ""
+    },
+    {
+      "at": "2026-10-27T09:10:23.337Z",
+      "text": "멈춘 듯함 시험에서 지워진 재깨움 함수를 빼고 같은 밀리초 흔들림을 막음",
+      "where": "test/stall-notes.test.ts",
+      "commit": ""
+    },
+    {
+      "at": "2026-10-27T09:10:23.976Z",
+      "text": "지워진 끊긴 깨움 이어 보내기 시험을 뺌",
+      "where": "test/stale.test.ts",
+      "commit": ""
+    },
+    {
+      "at": "2026-10-27T09:10:24.681Z",
+      "text": "견본 전달 안 됨 시험을 메신저 실패 기록 방식에 맞춤",
+      "where": "test/samples.test.ts",
+      "commit": ""
+    }
+  ]
 }

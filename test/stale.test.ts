@@ -1,5 +1,5 @@
 /**
- * @why 요청 #82의 약속을 지킨다: 서버가 뜬 뒤 도구 소스가 바뀌면 옛 코드로 알아보고, 새 코드로 응답하는지 코드 표로 가리며, 서버를 갈아 띄우다 끊긴 깨움을 같은 글로 이어 보낸다.
+ * @why 요청 #82의 약속을 지킨다: 서버가 뜬 뒤 도구 소스가 바뀌면 옛 코드로 알아보고, 새 코드로 응답하는지 코드 표로 가리며, 테스트를 올리기 전 서버를 새 코드로 다시 띄운다(요청 #87부터 서버는 담당 세션을 깨우지 않으므로 끊긴 깨움 이어 보내기는 없다).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +11,6 @@ import { execFileSync } from 'node:child_process';
 import { LAUNCHER } from '../src/paths.js';
 import { restartForTest } from '../src/testdata.js';
 import { newCodeProblem, serverStamp, srcStamp, staleServer } from '../src/stale.js';
-import { resumeBrokenJobs, runningJobs } from '../src/session.js';
 import { tempProject } from './helpers.js';
 
 test('서버가 뜬 뒤 도구 소스가 바뀌면 옛 코드로 알아본다', () => {
@@ -42,32 +41,6 @@ test('테스트를 올리기 전 확인은 코드 표가 지금 소스와 같은
     } finally { s.close(); }
   }
   assert.match(await newCodeProblem('http://localhost:1'), /응답하지 않는다/);
-});
-
-test('끊긴 깨움은 같은 글로 이어 보내고, 끝났거나 아직 도는 깨움은 건드리지 않는다', async () => {
-  const p = tempProject({ wake: true });
-  const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-claude-'));
-  const out = path.join(bin, 'out.txt');
-  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\necho "$@" >> "${out}"\necho '{}'\n`, { mode: 0o755 });
-  const oldPath = process.env.PATH;
-  process.env.PATH = `${bin}:${oldPath}`;
-  try {
-    const step = { args: '--resume abc', prompt: '"$MSG"', kind: 'wake' };
-    const done = path.join(bin, 'done');
-    fs.writeFileSync(done, '');
-    const job = (request: number, pid: number, doneFile: string) => ({ request, session: `s${request}`, sentAt: new Date().toISOString(), pid, doneFile, msg: `글${request}`, steps: [step] });
-    fs.writeFileSync(path.join(p.root, '.spec', 'wake-jobs.json'), JSON.stringify([job(1, 999999, path.join(bin, 'none')), job(2, 999999, done), job(3, process.pid, path.join(bin, 'none3'))]));
-    assert.deepEqual(runningJobs(p.root).map((j) => j.request), [3], '프로세스가 살아 있고 끝나지 않은 것만 진행 중');
-    assert.deepEqual(resumeBrokenJobs(p.src), [1], '끊긴 1번만 이어 보낸다');
-    for (let i = 0; i < 40 && !fs.existsSync(out); i++) await new Promise((r) => setTimeout(r, 100));
-    assert.match(fs.readFileSync(out, 'utf8'), /--resume abc/);
-  } finally { process.env.PATH = oldPath; }
-});
-
-test('깨우는 장치(wake)가 꺼진 프로젝트는 끊긴 깨움을 이어 보내지 않는다', () => {
-  const p = tempProject();
-  fs.writeFileSync(path.join(p.root, '.spec', 'wake-jobs.json'), JSON.stringify([{ request: 1, session: 's', sentAt: '', pid: 999999, doneFile: '/nonexistent', msg: 'm', steps: [] }]));
-  assert.deepEqual(resumeBrokenJobs(p.src), []);
 });
 
 test('테스트를 올리기 전 절차는 새 코드로 떠 있어도 늘 서버를 끄고 다시 띄우고, 새 코드로 응답함을 확인한다', async () => {

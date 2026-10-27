@@ -10,7 +10,7 @@ import { extractSpecs } from './extract.js';
 import { analyzeTs } from './analyze-ts.js';
 import { projectRoot } from './project.js';
 import { loadRequests, describeRequests } from './request.js';
-import { costOf } from './session.js';
+import { activityOf, costOf } from './session.js';
 import { deliveryOf } from './delivery.js';
 import { untrackedCommits } from './history.js';
 import { designViews } from './design.js';
@@ -233,7 +233,7 @@ export function buildModel(scanRoot: string): Model {
   for (const i of infos) for (const p of i.props) p.evidence = p.evidence.slice(0, 12);
   const componentsOf = (r: Request): string[] => [...new Set(out.scenarios.filter((sc) => (r.scope.scenarios ?? []).includes(sc.name)).flatMap((sc) => sc.steps.map((st) => st.owner)))];
   const rawRequests = loadRequests(scanRoot);
-  const requests = describeRequests(rawRequests, componentsOf, (r) => deliveryOf(scanRoot, r)).map((r) => ({ ...r, cost: costOf(scanRoot, r.id) }));
+  const requests = describeRequests(rawRequests, componentsOf, (r) => deliveryOf(scanRoot, r)).map((r) => { const activity = activityOf(root, r.id); return { ...r, cost: costOf(scanRoot, r.id), ...(activity ? { activity } : {}) }; });
   return {
     project: brandOf(root).name, projectDir: path.resolve(root), brand: brandOf(root), ...(process.env.SPEC_TEST_DIR ? { testEnv: '테스트 데이터' } : {}), serverStamp, ...(staleServer() ? { serverStale: { restarting: true } } : {}), generatedAt: new Date().toISOString(),
     screens, specs: out.specs, infos, relations, reports: rows, glossary: loadGlossary(scanRoot), names: loadNames(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
