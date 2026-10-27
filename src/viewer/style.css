@@ -839,3 +839,5 @@ a.open.td{border-color:var(--amber-deep);color:var(--amber)}
 .mg-req.brief .brief-todo div{padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mg-req.brief .brief-main{min-width:0}
 .mg-req.brief .brief-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.fresh{position:fixed;right:20px;bottom:20px;z-index:60;background:var(--accent-bg);border-color:var(--accent);color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.35)}
