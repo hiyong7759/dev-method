@@ -3,7 +3,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBrief, redesign, checkTest, addRequest, startDesign, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, setScope, loadRequests, describeRequests } from '../src/request.js';
+import { cancelRequest, parseBrief, redesign, checkTest, addRequest, startDesign, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, setScope, loadRequests, describeRequests } from '../src/request.js';
 import { tempProject } from './helpers.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -244,4 +244,17 @@ test('설계 변경 뒤 테스트를 다시 올리면 내용이 바뀐 단계의
   const checks = loadRequests(src)[0].test?.checks ?? {};
   assert.equal(checks['시나리오X#1'], true);
   assert.equal(checks['시나리오X#2'], undefined);
+});
+
+test('취소는 사용자가 한 말과 이유가 있어야 하고, 끝나거나 취소된 요청은 다시 취소하지 못한다', () => {
+  const { src } = tempProject();
+  addRequest(src, { title: '시험용' });
+  assert.throws(() => cancelRequest(src, 1, '시험용이라', ''), /--quote/);
+  assert.throws(() => cancelRequest(src, 1, '', '지워'), /취소 이유/);
+  const r = cancelRequest(src, 1, '시험용이라', '지워');
+  assert.equal(r.stage, 'cancelled');
+  assert.equal(r.events[r.events.length - 1].kind, 'cancelled');
+  assert.equal(r.events[r.events.length - 1].quote, '지워');
+  assert.throws(() => cancelRequest(src, 1, '또', '지워'), /이미 취소/);
+  assert.equal(loadRequests(src).find((x) => x.id === 1)?.stage, 'cancelled', '요청 파일은 이력으로 남는다');
 });

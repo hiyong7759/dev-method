@@ -2,7 +2,7 @@
  * @spec requests 변경 요청 저장
  * @why 현재를 바꾸는 모든 일을 "요청" 하나의 흐름(설계 → 구현 → 테스트 → 완료)으로 모아, 언제 왜 어떻게 바뀌었는지 한곳에서 따라가게 한다. 요청 하나가 파일 하나(.spec/requests/<번호>.json)라서 여러 PC에서 git으로 나눠 써도 서로 다른 요청은 부딪치지 않는다.
  * @basis 모든 변경이 같은 요청 흐름을 거친다 (사용자 결정)
- * @contract 새 요청은 접수 절차(rules/intake.md)를 거쳐 합칠 요청을 먼저 찾는다: `similar`는 후보를 보이기만 하고, `merge`는 사용자 말 인용이 있어야 접수·설계 작성 중인 요청끼리 합친다. 요청 파일의 모양(types.ts의 Request)을 바꾸면 model.ts의 요청 목록과 viewer/manage-*.ts의 관리 화면도 함께 고친다. 설계는 건드릴 파일(files)이 있어야 올라가고, 승인되면 그 목록이 요청에 남아 commit-msg가 범위 밖 커밋을 막는다. 담당 세션은 막히면 blocked, 사용자에게 물을 때 ask로 그 사실을 요청 상태에 남기고(막힘은 다음 에이전트 기록이, 질문은 사용자의 다음 기록이 풀어 준다) 화면이 요청 목록·상세·내 차례에 띄운다. 에이전트는 이 모듈의 명령(add, design, impl, test, fixed, found, also, blocked, ask, agent, list)으로만 요청을 움직이고, 승인·반려·순서 정하기는 사용자 화면(middleware.ts)이 하고, 대화로 결정했을 때는 사용자 말 인용을 붙인 approve-*·reject-design·test-problem이 같은 기록과 담당 세션 전달을 한다.
+ * @contract 새 요청은 접수 절차(rules/intake.md)를 거쳐 합칠 요청을 먼저 찾는다: `similar`는 후보를 보이기만 하고, `merge`는 사용자 말 인용이 있어야 접수·설계 작성 중인 요청끼리 합친다. 요청 파일의 모양(types.ts의 Request)을 바꾸면 model.ts의 요청 목록과 viewer/manage-*.ts의 관리 화면도 함께 고친다. 설계는 건드릴 파일(files)이 있어야 올라가고, 승인되면 그 목록이 요청에 남아 commit-msg가 범위 밖 커밋을 막는다. 담당 세션은 막히면 blocked, 사용자에게 물을 때 ask로 그 사실을 요청 상태에 남기고(막힘은 다음 에이전트 기록이, 질문은 사용자의 다음 기록이 풀어 준다) 화면이 요청 목록·상세·내 차례에 띄운다. 에이전트는 이 모듈의 명령(add, design, impl, test, fixed, found, also, blocked, ask, agent, list)으로만 요청을 움직이고, 승인·반려·순서 정하기는 사용자 화면(middleware.ts)이 하고, 대화로 결정했을 때는 사용자 말 인용을 붙인 approve-*·reject-design·test-problem이 같은 기록과 담당 세션 전달을 하고, 요청을 없앨 때는 인용을 붙인 cancel이 취소로 끝낸다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -541,6 +541,17 @@ export function mergeRequests(scanRoot: string, into: number, o: { text?: string
   return record(scanRoot, r, 'user', 'merged', from ? `요청 #${from.id}을 이 요청에 합침` : '새 요구를 이 요청에 합침', quote);
 }
 
+/** 사용자가 대화에서 요청을 없애자고 했을 때: 끝나거나 이미 취소된 요청이 아니면 취소 상태로 보낸다(요청 파일은 이력으로 남긴다). 인용 없이 에이전트가 마음대로 취소하지 못하게 사용자가 한 말을 받는다 */
+export function cancelRequest(scanRoot: string, id: number, reason: string, quote: string): Request {
+  const r = loadOne(scanRoot, id);
+  if (r.stage === 'done' || r.stage === 'cancelled') throw new Error(`요청 #${id}은 이미 ${STAGE_LABEL[r.stage]} 상태라 취소할 수 없다`);
+  if (!reason?.trim()) throw new Error('취소 이유를 한 줄 적어야 한다');
+  if ((quote ?? '').trim().length < 2) throw new Error('--quote에 사용자가 취소를 요구하며 대화에서 한 말을 그대로 적어야 한다(사용자가 요구하지 않았다면 취소하지 않는다)');
+  const from = STAGE_LABEL[r.stage];
+  move(r, 'cancelled', 'cancelled');
+  return record(scanRoot, r, 'user', 'cancelled', `취소(${from} 중): ${reason.trim()} (대화에서 한 말을 인용해 기록함)`, quote.trim());
+}
+
 /** 겹치는 두 요청의 순서: first를 먼저 끝내고 other는 그 뒤에 시작한다 */
 export function setOrder(scanRoot: string, first: number, other: number): Request {
   loadOne(scanRoot, first);
@@ -640,6 +651,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
         : testProblem(scanRoot, id, opts.note ?? '', quote);
       const row = (await import('./outbox.js')).enqueueOutbox(scanRoot, id);
       console.log(`요청 #${r.id}: ${r.events[r.events.length - 1].note}을(를) 인용과 함께 기록했다 → ${r.stage}${row ? ` (담당 세션에 보낼 글을 상자에 적었다: 줄 ${row.seq})` : ''}`);
+    } else if (pos[0] === 'cancel') {
+      const r = cancelRequest(scanRoot, id, opts.reason ?? '', opts.quote ?? ''); console.log(`요청 #${r.id}: 취소로 끝냈다(요청 파일은 이력으로 남는다)`);
     } else if (pos[0] === 'agent') {
       const r = setAgent(scanRoot, id, opts.name); console.log(`요청 #${r.id}: 맡은 에이전트 ${r.agent.name}`);
     } else {
@@ -666,6 +679,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  approve-test --id N --quote "사용자가 한 말" [--none true]   (사용자가 대화에서 테스트를 승인했을 때만)',
         '  reject-design --id N --note "반려 이유" --quote "사용자가 한 말"   (사용자가 대화에서 설계를 반려했을 때만)',
         '  test-problem --id N --note "문제" --quote "사용자가 한 말"   (사용자가 대화에서 테스트 문제를 알렸을 때만)',
+        '  cancel --id N --reason "취소 이유" --quote "사용자가 한 말"   (사용자가 대화에서 요청을 없애자고 했을 때만. 완료·취소 전 어느 단계든 취소로 끝낸다. 인용이 없으면 못 한다)',
         '  agent --id N --name 세션이름',
         '  list'].join('\n'));
       return 1;

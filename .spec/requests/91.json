@@ -1,0 +1,51 @@
+{
+  "id": 91,
+  "title": "사용자가 대화에서 요청을 취소(삭제)하면 그 요청을 취소 상태로 끝내는 명령(request cancel)을 둔다",
+  "source": "user",
+  "origin": {
+    "text": "그러면은 새로 삭제하는 기능을 만들어 바로 네가 작업해. (시험용으로 만든 #89 같은 요청을 닫을 방법이 없다는 얘기에서)",
+    "channel": "대화",
+    "at": "2026-10-27T11:38:47.816Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "noTest": "화면은 안 바뀌고 요청 상태 명령 하나를 더하는 일이라 사용자 화면 테스트가 없다",
+  "detail": {
+    "text": "request cancel --id N --reason 이유 --quote 사용자가 한 말. 완료·취소가 아닌 모든 단계의 요청을 취소 상태로 보내고 기록을 남긴다. 인용이 없으면 못 한다. 요청 파일은 지우지 않는다(이력 보존). 화면 단추는 이번에 만들지 않는다.",
+    "confirmedAt": "2026-10-27T11:38:47.816Z",
+    "mode": "direct",
+    "reason": "화면·정보가 안 바뀌는 명령 추가"
+  },
+  "stage": "impl",
+  "step": "working",
+  "events": [
+    {
+      "at": "2026-10-27T11:38:47.816Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-27T11:38:47.816Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "바로 작업으로 등록(설계 없음 승인으로 봄)"
+    }
+  ],
+  "design": {
+    "understanding": "",
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0
+  }
+}
