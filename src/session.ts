@@ -9,6 +9,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { brandOf } from './brand.js';
+import { readConfig } from './config.js';
 import { kst } from './kst.js';
 import { loadRequests, noteSessionStarted, STAGE_LABEL, STEP } from './request.js';
 import { projectRoot, specDir } from './project.js';
@@ -139,10 +140,13 @@ export function rebindOwner(root: string, oldSid: string, newSid: string): void 
 /** 담당 세션의 명령에 비밀 파일 이름이 들어 있으면 막는 훅 */
 const SECRET_HOOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'hooks', 'claude-block-secret-read.sh');
 
-/** 메신저가 `claude --bg`로 세션을 만들거나 이어 띄울 때 붙이는 인자(글은 뺀 것). 허용·금지 도구와 비밀 읽기 차단 훅을 그대로 건다 */
-export function launchArgs(): string[] {
+/** 메신저가 `claude --bg`로 세션을 만들거나 이어 띄울 때 붙이는 인자(글은 뺀 것). 허용·금지 도구와 비밀 읽기 차단 훅을 그대로 걸고, 설정에 autoCompact가 있으면 세션이 스스로 압축하게 한다(메시지로 보낸 /compact는 실행되지 않고 헤드리스는 쓰지 않으므로, 컨텍스트가 커지는 것은 세션 안의 자동 압축으로 막는다) */
+export function launchArgs(root?: string): string[] {
   const hookCfg = JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: `bash ${SECRET_HOOK}` }] }] } });
-  return ['--model', MODEL, '--allowedTools', ...ALLOWED, '--disallowedTools', ...READ_BANNED, '--settings', hookCfg];
+  const ac = root ? readConfig(root).autoCompact : undefined;
+  // claude는 10만~100만 토큰만 받는다. 범위 밖이면 옵션을 빼서 세션이 뜨지 않는 일이 없게 한다
+  const compact = ac && ac >= 100_000 && ac <= 1_000_000 ? ['--autocompact', String(Math.round(ac))] : [];
+  return ['--model', MODEL, ...compact, '--allowedTools', ...ALLOWED, '--disallowedTools', ...READ_BANNED, '--settings', hookCfg];
 }
 
 /** 요청 내용을 글에 직접 넣는다. 세션이 요청 파일을 읽느라 쓰는 턴(턴마다 기본 맥락을 다시 읽어 비용이 든다)을 없앤다 */

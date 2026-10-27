@@ -984,6 +984,8 @@ export interface ProjectConfig {
   designCanvas?: string;
   /** true면 요청을 시작할 때 담당 세션을 새로 만들고, 사용자가 결정했을 때 닫혀 있는 담당 세션을 서버가 깨운다(비용이 들어 기본은 꺼짐) */
   wake?: boolean;
+  /** 담당 세션이 스스로 압축을 시작하는 컨텍스트 크기(토큰, 10만~100만). 담당을 claude --bg로 새로 띄울 때 --autocompact로 건다. 안 적으면 걸지 않는다(모델 한도까지 커진다) */
+  autoCompact?: number;
   /** 테스트 환경: 테스트 데이터를 어디서 얻는지. 없으면 이 검사의 대상이 아니다 */
   testData?: TestDataConfig;
   /** 화면 이동을 읽는 방법: 라우트 표의 이름과 이동 도우미 함수들 */

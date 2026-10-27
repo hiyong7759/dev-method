@@ -142,7 +142,7 @@ export function showRow(scanRoot: string, seq: number): { row: OutboxRow; textFi
   let exists = false;
   try { fs.statSync(transcriptOf(root, row.session)); exists = true; } catch { /* 대화가 아직 없음 */ }
   const base = exists ? `claude --bg --resume ${row.session}` : `claude --bg --session-id ${row.session} --name ${q(ownerName(root, row.request))}`;
-  const bgCommand = `${base} ${launchArgs().map(q).join(' ')} "$(cat ${q(tf)})"`;
+  const bgCommand = `${base} ${launchArgs(root).map(q).join(' ')} "$(cat ${q(tf)})"`;
   return { row, textFile: tf, conversationExists: exists, sendTo: openNameOf(row.session), bgCommand, bgVia: exists ? 'bg-resume' : 'bg-new' };
 }
 
@@ -154,7 +154,7 @@ export function launchRow(scanRoot: string, seq: number): OutboxRow {
   // 백그라운드로 만든 세션(~/.claude/jobs에 기록이 있음)은 허용 도구 등 옵션을 이미 저장하고 있다. `--resume`에 옵션을 또 붙이면 이어받지 않고 복사본이 생기므로 옵션 없이 부른다. 그 밖의 세션(열어 두었다 닫은 세션)과 새 세션에는 옵션을 건다
   const savedJob = conversationExists && fs.existsSync(path.join(os.homedir(), '.claude', 'jobs', row.session.slice(0, 8)));
   const startedAt = Date.now();
-  const run = spawnSync('claude', [...head, ...(savedJob ? [] : launchArgs()), fs.readFileSync(tf, 'utf8')], { cwd: root, encoding: 'utf8', timeout: 60_000 });
+  const run = spawnSync('claude', [...head, ...(savedJob ? [] : launchArgs(root)), fs.readFileSync(tf, 'utf8')], { cwd: root, encoding: 'utf8', timeout: 60_000 });
   fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${row.request} ${row.session} claude --bg ${conversationExists ? '--resume' : '--session-id'} 종료코드=${run.status}\n`);
   // claude --bg는 미리 정한 번호를 쓰지 않고 자기 번호를 붙인다. 출력의 짧은 번호로 실제 번호를 찾아 담당 기록과 줄을 맞춘다
   const short = /backgrounded\s*·\s*([0-9a-f]+)/.exec(`${run.stdout ?? ''}\n${run.stderr ?? ''}`)?.[1];
