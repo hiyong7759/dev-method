@@ -224,9 +224,12 @@ export async function restartForTest(scanRoot: string): Promise<string> {
   const root = projectRoot(scanRoot);
   if (!fs.existsSync(configFile(root)) || process.env.SPEC_TEST_DIR) return '';
   const port = readConfig(root).port || 5290;
-  if (await openServers([root, '--no-open', '--restart'])) return `운영 서버(포트 ${port})를 새 코드로 다시 띄우지 못했다`;
-  const prod = await newCodeProblem(`http://localhost:${port}`);
-  if (prod) return `운영 서버(포트 ${port}): ${prod}`;
+  // 요청 워크트리 안에서 돌 때는 운영 서버를 건드리지 않는다(운영은 main 코드이고, 이 코드는 테스트 승인 뒤에야 main에 들어간다). 테스트 서버만 이 워크트리 코드로 띄워 확인한다
+  if (path.resolve(testCodeDir(scanRoot) ?? '') !== ROOT_DIR) {
+    if (await openServers([root, '--no-open', '--restart'])) return `운영 서버(포트 ${port})를 새 코드로 다시 띄우지 못했다`;
+    const prod = await newCodeProblem(`http://localhost:${port}`);
+    if (prod) return `운영 서버(포트 ${port}): ${prod}`;
+  }
   const c = testDataConfig(root);
   if (c?.kind === 'folder' && !dataProblem(root, c)) {
     let tport = defaultPort(root, c);
