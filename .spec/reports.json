@@ -97,6 +97,7 @@
     "review:Model.names": 56,
     "review:RequestDesign.brief": 57,
     "review:RequestTest.brief": 58,
-    "review:DesignInput.brief": 59
+    "review:DesignInput.brief": 59,
+    "review:ProjectConfig.autoCompact": 60
   }
 }
