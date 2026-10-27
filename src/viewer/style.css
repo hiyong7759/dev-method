@@ -290,6 +290,7 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .erd-wrap{flex:1;display:flex;min-height:0}
 .erd{flex:1;overflow:auto;position:relative}
 .erd svg{position:absolute;left:0;top:0;pointer-events:none}
+.erd-layer{position:absolute;left:2px;width:28px;text-align:center;font-size:12px;font-weight:700;color:var(--dim)}
 .inode{position:absolute;width:212px;border:1px solid var(--line);border-radius:12px;background:var(--card);cursor:pointer;overflow:hidden}
 .inode.sel{border:2px solid var(--accent);background:var(--accent-bg)}
 .inode.dim{opacity:.45}

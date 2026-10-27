@@ -50,9 +50,11 @@ export function buildErd(model: Model, o: ErdOptions): HTMLElement {
   infos.forEach((i) => (byLevel[level[i.name] ?? 0] = byLevel[level[i.name] ?? 0] || []).push(i));
   const degree = (n: string): number => model.relations.filter((r) => r.from === n || r.to === n).length;
   const rowsList: ModelInfo[][] = [];
+  /** 줄마다 몇 층인지(층의 첫 줄에만 표시한다) */
+  const rowLayer: { layer: number; first: boolean }[] = [];
   Object.keys(byLevel).map(Number).sort((a, b) => a - b).forEach((l) => {
     const list = byLevel[l].slice().sort((x, y) => degree(y.name) - degree(x.name));
-    for (let k = 0; k < list.length; k += cols) rowsList.push(list.slice(k, k + cols));
+    for (let k = 0; k < list.length; k += cols) { rowsList.push(list.slice(k, k + cols)); rowLayer.push({ layer: l + 1, first: k === 0 }); }
   });
   const makeNode = (i: ModelInfo): HTMLElement => {
     const deco = o.decorate?.(i) ?? null;
@@ -79,7 +81,9 @@ export function buildErd(model: Model, o: ErdOptions): HTMLElement {
   let maxX = 0, y = 30;
   const widest = Math.max(0, ...rowsList.map((r) => r.length));
   const innerW = widest * (W + GAPX) - GAPX;
-  rowsList.forEach((row) => {
+  const layerMarks: { layer: number; y: number }[] = [];
+  rowsList.forEach((row, ri) => {
+    if (rowLayer[ri].first) layerMarks.push({ layer: rowLayer[ri].layer, y });
     const off = (innerW - (row.length * (W + GAPX) - GAPX)) / 2;
     const rowH = Math.max(...row.map((i) => natural[i.name]));
     row.forEach((i, k) => { pos[i.name] = { x: 30 + off + k * (W + GAPX), y, h: rowH }; });
@@ -99,6 +103,7 @@ export function buildErd(model: Model, o: ErdOptions): HTMLElement {
     svg.append(p);
   };
   const text = (x: number, t: string, yy: number, hl: boolean, color = ''): void => {
+    if (!hl && !color) return; // 시안처럼 선 위 글(1·N·이어주는 필드)은 정보를 골라 그 관계를 볼 때만 보인다
     const e = document.createElementNS(svgNS, 'text');
     e.setAttribute('x', String(x)); e.setAttribute('y', String(yy)); e.style.fill = color || (hl ? 'var(--accent)' : 'var(--text2)'); e.setAttribute('font-size', '12'); e.setAttribute('font-family', 'ui-monospace,Menlo,monospace');
     if (selected && !hl && !color) e.setAttribute('opacity', '.15');
@@ -138,6 +143,7 @@ export function buildErd(model: Model, o: ErdOptions): HTMLElement {
     node.style.left = `${p.x}px`; node.style.top = `${p.y}px`; node.style.height = `${p.h}px`;
     erd.append(node);
   }
+  if (o.bullets) for (const m of layerMarks) erd.append(h('span', { class: 'erd-layer', style: `top:${m.y + 8}px`, title: m.layer === 1 ? '1층: 다른 정보를 가리키지 않는 맨 위 정보' : `${m.layer}층: ${m.layer - 1}층 이상의 정보를 가리키는 정보(가리킨 사슬이 ${m.layer - 1}번 이어짐)` }, `${m.layer}층`));
   erd.append(h('div', { style: `width:${canvasW}px;height:${canvasH}px` }));
   if (!infos.length) erd.append(h('div', { class: 'empty-note' }, '정보를 찾지 못했다', h('br'), model.analysisError || '타입을 export한 정의가 있고 쓰이는 곳이 있어야 보인다'));
   return erd;
