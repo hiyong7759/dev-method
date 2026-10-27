@@ -18,7 +18,8 @@ function fakeEnv(): { calls: string; home: string; restore: () => void } {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-outbox-'));
   const bin = path.join(base, 'bin'); fs.mkdirSync(bin);
   const calls = path.join(base, 'calls.txt');
-  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\necho "$*" >> "${calls}"\n`, { mode: 0o755 });
+  // `claude agents --json`은 읽기만 하는 조회라 기록하지 않고 열린 세션 S1(이름 열린창)을 돌려준다
+  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\nif [ "$1" = "agents" ]; then echo '[{"sessionId":"S1","name":"열린창"}]'; exit 0; fi\necho "$*" >> "${calls}"\n`, { mode: 0o755 });
   const old = { PATH: process.env.PATH, HOME: process.env.HOME };
   process.env.PATH = `${bin}:${old.PATH}`; process.env.HOME = base;
   return { calls, home: base, restore: () => { process.env.PATH = old.PATH; process.env.HOME = old.HOME; } };
@@ -59,7 +60,7 @@ test('담당이 이미 있으면 그 세션 앞으로 결정 글을 적고, 같�
     const { root, src } = tempProject({ wake: true }); approved(src); own(root, 'S1', 1); setAgent(src, 1, '담당이름');
     const a = enqueueOutbox(src, 1)!;
     assert.equal(a.session, 'S1');
-    assert.equal(a.to, '담당이름', '열린 창에는 담당 이름으로 보낸다');
+    assert.equal(showRow(src, a.seq).sendTo, '열린창', '열린 창에는 세션 번호로 찾은 지금 이름으로 보낸다(담당 이름이 아니다)');
     assert.match(fs.readFileSync(showRow(src, a.seq).textFile, 'utf8'), /사용자가 결정했습니다/);
     const b = enqueueOutbox(src, 1)!;
     assert.deepEqual(pendingRows(src).map((r) => r.seq), [b.seq], '대기 줄은 하나만 남는다');
@@ -83,11 +84,15 @@ test('보낼 길을 알려 준다: 대화가 없으면 claude --bg --session-id,
     const row = enqueueOutbox(src, 1)!;
     const fresh = showRow(src, row.seq);
     assert.equal(fresh.conversationExists, false);
+    own(root, 'S9', 1); // 열려 있지 않은 세션은 보낼 이름이 없다(곧바로 claude --bg)
+    assert.equal(showRow(src, enqueueOutbox(src, 1)!.seq).sendTo, null);
+    own(root, 'S1', 1);
+    const row2 = enqueueOutbox(src, 1)!;
     assert.match(fresh.bgCommand, /^claude --bg --session-id S1 --name /);
     assert.equal(fresh.bgVia, 'bg-new');
     fs.mkdirSync(path.dirname(transcriptOf(root, 'S1')), { recursive: true });
     fs.writeFileSync(transcriptOf(root, 'S1'), '');
-    const resumed = showRow(src, row.seq);
+    const resumed = showRow(src, row2.seq);
     assert.match(resumed.bgCommand, /^claude --bg --resume S1 /);
     assert.equal(resumed.bgVia, 'bg-resume');
     for (const want of ['--allowedTools', '--disallowedTools', '--settings', 'claude-block-secret-read.sh', '--model']) assert.ok(resumed.bgCommand.includes(want), want);
@@ -121,7 +126,8 @@ test('서버 소스 어디에도 claude를 실행해 글을 보내는 길(헤드
   for (const f of all) {
     const text = fs.readFileSync(path.join(dir, f), 'utf8');
     assert.ok(!/claude -p /.test(text), `${f}에 claude -p 실행이 있다`);
-    assert.ok(!/spawn(Sync)?\(\s*'claude'/.test(text), `${f}가 claude를 실행한다`);
+    // 열린 세션 이름을 찾는 읽기 전용 조회(claude agents)만 예외다
+    assert.ok(!/spawn(Sync)?\(\s*'claude',\s*\[\s*'(?!agents')/.test(text), `${f}가 claude를 실행한다`);
     assert.ok(!/execFile(Sync)?\(\s*'claude'/.test(text), `${f}가 claude를 실행한다`);
   }
 });

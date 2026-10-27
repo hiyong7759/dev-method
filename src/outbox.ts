@@ -5,6 +5,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { readConfig } from './config.js';
 import { isStart, lastDecision, markDelivered, markRequeued, markUndelivered, openDelivery } from './delivery.js';
 import type { Via } from './delivery.js';
@@ -23,7 +24,7 @@ export interface OutboxRow {
   kind: 'start' | 'decision';
   /** 받을 담당 세션 번호 */
   session: string;
-  /** 열린 창에 SendMessage로 보낼 때 쓰는 이름 */
+  /** 담당 이름(참고용). 열린 창의 이름은 세션마다 따로 붙으므로 보낼 때 세션 번호로 다시 찾는다(openNameOf) */
   to: string;
   /** 적은 시각 */
   at: string;
@@ -114,8 +115,17 @@ export function failRow(scanRoot: string, seq: number, reason: string): OutboxRo
 /** 셸에 그대로 쓸 수 있게 작은따옴표로 싼다 */
 const q = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
 
-/** 메신저가 한 줄을 보낼 때 필요한 것: 받을 이름, 글 파일, 열린 창이 안 될 때 쓸 `claude --bg` 명령(대화가 있으면 이어 띄우고 없으면 새로 만든다) */
-export function showRow(scanRoot: string, seq: number): { row: OutboxRow; textFile: string; conversationExists: boolean; sendTo: string; bgCommand: string; bgVia: Via } {
+/** 이 세션이 지금 열려 있다면 SendMessage가 알아듣는 이름(`claude agents --json`은 읽기만 하는 조회다). 열려 있지 않거나 알 수 없으면 null */
+export function openNameOf(sid: string): string | null {
+  try {
+    const run = spawnSync('claude', ['agents', '--json'], { encoding: 'utf8', timeout: 15000 });
+    if (run.status !== 0) return null;
+    return (JSON.parse(run.stdout) as { sessionId?: string; name?: string }[]).find((a) => a.sessionId === sid)?.name ?? null;
+  } catch { return null; }
+}
+
+/** 메신저가 한 줄을 보낼 때 필요한 것: 받을 이름(열린 창이면 그 이름, 아니면 null), 글 파일, 열린 창이 안 될 때 쓸 `claude --bg` 명령(대화가 있으면 이어 띄우고 없으면 새로 만든다) */
+export function showRow(scanRoot: string, seq: number): { row: OutboxRow; textFile: string; conversationExists: boolean; sendTo: string | null; bgCommand: string; bgVia: Via } {
   const row = loadOutbox(scanRoot).find((r) => r.seq === seq);
   if (!row) throw new Error(`상자에 줄 ${seq}이 없다`);
   const root = projectRoot(scanRoot);
@@ -124,7 +134,7 @@ export function showRow(scanRoot: string, seq: number): { row: OutboxRow; textFi
   try { fs.statSync(transcriptOf(root, row.session)); exists = true; } catch { /* 대화가 아직 없음 */ }
   const base = exists ? `claude --bg --resume ${row.session}` : `claude --bg --session-id ${row.session} --name ${q(ownerName(root, row.request))}`;
   const bgCommand = `${base} ${launchArgs().map(q).join(' ')} "$(cat ${q(tf)})"`;
-  return { row, textFile: tf, conversationExists: exists, sendTo: row.to, bgCommand, bgVia: exists ? 'bg-resume' : 'bg-new' };
+  return { row, textFile: tf, conversationExists: exists, sendTo: openNameOf(row.session), bgCommand, bgVia: exists ? 'bg-resume' : 'bg-new' };
 }
 
 /** 대기 줄이 생길 때까지(최대 timeoutMs) 기다렸다가 대기 줄 번호들을 돌려준다. 기다리는 동안 토큰을 쓰지 않는다(메신저가 Monitor로 부른다) */
