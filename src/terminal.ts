@@ -6,9 +6,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { ownersOf } from './session.js';
 
-/** 담당 세션에 들어가는 명령. 이름에 공백·#이 있어 따옴표로 감싼다 */
-export const attachCommand = (name: string): string => `claude attach '${name.replace(/'/g, `'\\''`)}'`;
+/** 담당 세션에 들어가는 명령. claude attach는 이름이 아니라 짧은 세션 번호(전체 번호의 앞 8자리)만 받는다 */
+export const attachCommand = (shortId: string): string => `claude attach ${shortId}`;
+
+/** 요청의 담당 세션 짧은 번호(가장 나중에 담당이 된 세션). 담당 기록이 없으면 빈 글 */
+export const shortIdOf = (root: string, id: number): string => (ownersOf(root, id).slice(-1)[0] ?? '').slice(0, 8);
 
 const windowsFile = (root: string): string => path.join(root, '.spec', 'terminal-windows.json');
 
@@ -32,9 +36,10 @@ export function openScript(command: string, existing?: number): string {
 /** 요청의 담당 세션 창을 연다(이미 열린 창이면 앞으로). 열지 않은 이유나 실패는 문자열로 돌려주고, 열었으면 빈 문자열 */
 export function openSessionWindow(root: string, id: number, name: string): string {
   if (process.env.SPEC_TEST_DIR || process.env.SPEC_NO_TERMINAL) return '열지 않음(테스트 환경)';
-  if (!name) return '담당 이름이 아직 없다';
+  const sid = shortIdOf(root, id);
+  if (!name || !sid) return '담당 세션 번호가 아직 없다';
   const wins = loadWindows(root);
-  const run = spawnSync('osascript', ['-e', openScript(attachCommand(name), wins[String(id)])], { encoding: 'utf8', timeout: 15000 });
+  const run = spawnSync('osascript', ['-e', openScript(attachCommand(sid), wins[String(id)])], { encoding: 'utf8', timeout: 15000 });
   if (run.status !== 0) return `iTerm2 창을 열지 못했다: ${(run.stderr || run.error?.message || '').trim().slice(0, 120)}`;
   const win = Number(run.stdout.trim());
   if (win) { wins[String(id)] = win; fs.mkdirSync(path.dirname(windowsFile(root)), { recursive: true }); fs.writeFileSync(windowsFile(root), JSON.stringify(wins, null, 2) + '\n'); }

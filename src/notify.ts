@@ -9,7 +9,7 @@ import { loadRequests } from './request.js';
 import { ownersOf } from './session.js';
 import { agentsList } from './outbox.js';
 import { projectRoot } from './project.js';
-import { attachCommand, openSessionWindow } from './terminal.js';
+import { attachCommand, openSessionWindow, shortIdOf } from './terminal.js';
 import { kst } from './kst.js';
 
 /** 알릴 사건 기록 종류와 사용자가 할 일 */
@@ -44,7 +44,7 @@ const readJson = <T>(file: string, fallback: T): T => { try { return JSON.parse(
 const writeJson = (file: string, v: unknown): void => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(v, null, 2) + '\n'); };
 
 /** 한 줄 알림 글 */
-const lineOf = (id: number, kind: string, extra: string, name: string): string => `요청 #${id} ${KINDS[kind]?.label ?? '담당 종료'} — ${extra} · 들어가기: ${name ? attachCommand(name) : '(담당 이름 없음)'}`;
+const lineOf = (id: number, kind: string, extra: string, sid: string): string => `요청 #${id} ${KINDS[kind]?.label ?? '담당 종료'} — ${extra} · 들어가기: ${sid ? attachCommand(sid) : '(담당 세션 없음)'}`;
 
 /** 담당 세션이 사라졌는지 살펴, 새로 사라진 요청 번호를 돌려준다(상태는 notify-alive.json) */
 function endedSessions(root: string, openIds: number[]): number[] {
@@ -81,7 +81,7 @@ export function takeNotices(scanRoot: string, consumer: string): Notice[] {
     for (const e of r.events) {
       if (e.at > mine[r.id] && KINDS[e.kind]) {
         const k = KINDS[e.kind];
-        out.push({ id: r.id, at: e.at, kind: e.kind, name: r.agent.name, text: lineOf(r.id, e.kind, `${k.todo} (${kst(e.at)})`, r.agent.name) });
+        out.push({ id: r.id, at: e.at, kind: e.kind, name: r.agent.name, text: lineOf(r.id, e.kind, `${k.todo} (${kst(e.at)})`, shortIdOf(root, r.id)) });
       }
     }
     mine[r.id] = last;
@@ -92,7 +92,7 @@ export function takeNotices(scanRoot: string, consumer: string): Notice[] {
   for (const id of gone) for (const c of ['terminal', 'watch']) shared[c] = [...new Set([...(shared[c] ?? []), id])];
   for (const id of shared[consumer] ?? []) {
     const r = open.find((x) => x.id === id);
-    if (r) out.push({ id, at: now, kind: 'session-ended', name: r.agent.name, text: lineOf(id, 'session-ended', '담당 세션이 끝났습니다(이어 일하려면 요청 상세에서 다시 보내기)', r.agent.name) });
+    if (r) out.push({ id, at: now, kind: 'session-ended', name: r.agent.name, text: lineOf(id, 'session-ended', '담당 세션이 끝났습니다(이어 일하려면 요청 상세에서 다시 보내기)', shortIdOf(root, r.id)) });
   }
   shared[consumer] = [];
   writeJson(path.join(root, '.spec', 'notify-ended.json'), shared);

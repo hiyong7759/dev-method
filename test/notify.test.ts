@@ -11,9 +11,8 @@ import { tempProject } from './helpers.js';
 
 const design = (f: string) => ({ understanding: '이해', approach: '방법', files: [{ path: f, why: '시험' }] });
 
-test('attach 명령은 이름의 공백·#·작은따옴표를 따옴표로 감싸고, 창 열기 글은 있으면 앞으로 보이고 없으면 만든다', () => {
-  assert.equal(attachCommand('dev-method #92 담당'), `claude attach 'dev-method #92 담당'`);
-  assert.match(attachCommand("a'b"), /'a'\\''b'/);
+test('attach 명령은 이름이 아니라 짧은 세션 번호를 쓰고, 창 열기 글은 있으면 앞으로 보이고 없으면 만든다', () => {
+  assert.equal(attachCommand('201b45a4'), 'claude attach 201b45a4');
   assert.match(openScript('claude attach x'), /create window with default profile command "claude attach x"/);
   assert.match(openScript('claude attach x', 7), /windows whose id is 7/);
 });

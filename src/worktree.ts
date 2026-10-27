@@ -38,6 +38,7 @@ export function worktreeOf(root: string, id: number): WorktreeInfo | null {
     const base = baseBranch(root);
     const ahead = Number(git(root, ['rev-list', '--count', `${base}..${ref.branch}`]).trim()) || 0;
     const dirty = exists ? git(ref.path, ['status', '--porcelain']).split('\n').filter(Boolean).length : 0;
+    // 합침 판정은 "main에 더 얹은 것이 없고 끝이 다르다"라서, 빠른 합치기(fast-forward)로 합치면 끝이 같아 아직으로 보인다. 합치기는 land(--no-ff)로만 한다
     const merged = ahead === 0 && git(root, ['rev-parse', ref.branch]).trim() !== git(root, ['rev-parse', base]).trim();
     return { path: ref.path, branch: ref.branch, ahead, dirty, merged, exists };
   } catch { return { ...ref, ahead: 0, dirty: 0, merged: false, exists }; }
