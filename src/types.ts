@@ -890,12 +890,14 @@ export interface Model {
   project: string;
   /** 이 프로젝트 폴더의 전체 경로. 띄우는 도구가 응답한 서버가 이 프로젝트 것인지 비교한다 */
   projectDir: string;
-  /** 화면이 쓰는 프로젝트 이름·색·아이콘 */
-  brand: Brand;
+  /** 화면이 쓰는 프로젝트 이름·색·아이콘. 옛 코드 서버의 모델에는 없을 수 있어 화면은 없으면 기본값으로 연다 */
+  brand?: Brand;
   /** 테스트용 서버로 띄웠을 때만 있다. 화면 위쪽에 이 글을 표시해 운영 데이터와 헷갈리지 않게 한다 */
   testEnv?: string;
-  /** 서버가 옛 코드로 떠 있을 때만: 다시 띄우는 명령(화면 맨 위에 붉게 알린다) */
-  serverStale?: { command: string };
+  /** 이 서버가 뜰 때의 도구 소스 표. 화면이 값이 바뀐 것을 보면 서버가 새 코드로 다시 떴다고 보고 저절로 새로고침하고, 테스트를 올리기 전 확인이 새 코드로 떴는지 비교한다 */
+  serverStamp?: string;
+  /** 서버가 옛 코드로 떠 있어 도구가 새 코드로 다시 띄우는 중일 때만 있다(화면 맨 위에 안내 색 띠로 알린다) */
+  serverStale?: { restarting: boolean };
   /** 요청 상세가 테스트 서버로 보낼 때 쓰는 것. 프로젝트에 testData.reviewUrl이 있고 운영 설계서 보기일 때만 있다 */
   reviewFrame?: ReviewFrame;
   /** 모델을 만든 시각 */

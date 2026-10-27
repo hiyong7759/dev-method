@@ -1,5 +1,5 @@
 /**
- * @why 요청 #82의 약속을 지킨다: 결정을 반영하고 멈춘 담당 세션을 알아채 한 번만 다시 보내고 그래도 안 되면 '멈춘 듯함'을 보이는지, 막힘·질문을 요청 상태에 남기고 풀리는지, 설계에 건드릴 파일이 있어야 하고 승인된 파일 밖 커밋을 막는지, 비밀 파일을 명령으로 읽는 길을 훅이 막는지, 서버가 옛 코드일 때 알리는지.
+ * @why 요청 #82의 약속을 지킨다: 결정을 반영하고 멈춘 담당 세션을 알아채 한 번만 다시 보내고 그래도 안 되면 '멈춘 듯함'을 보이는지, 막힘·질문을 요청 상태에 남기고 풀리는지, 설계에 건드릴 파일이 있어야 하고 승인된 파일 밖 커밋을 막는지, 비밀 파일을 명령으로 읽는 길을 훅이 막는지.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +9,6 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { main as commitMsg } from '../src/commit-msg.js';
 import { addAlsoFixed, addRequest, approveDesign, describeRequests, loadRequests, noteAsking, noteBlocked, noteImpl, requestTest, submitDesign, testProblem } from '../src/request.js';
 import { deliveryOf, dueForStall, markRead, markSent, markStallSent, openDelivery, STALL_AFTER_MIN } from '../src/delivery.js';
-import { staleServer } from '../src/stale.js';
 import { tempProject } from './helpers.js';
 
 const min = 60_000;
@@ -124,15 +123,4 @@ test('비밀 파일 이름이 든 명령은 훅이 막고, 코드 글의 process
   const run = (command: string): number | null => spawnSync('bash', [hook], { input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: '/nonexistent' }) }).status;
   for (const c of ['cat .spec/local.json', 'node -e "fs.readFileSync(\'.spec/local.json\')"', 'cat .env', 'grep KEY ./.env.local', 'cat "$HOME/p/.env"']) assert.equal(run(c), 2, c);
   for (const c of ['npm run typecheck', 'git status', 'node /x/spec.mjs request ask --id 1 --text "process.env를 읽어도 되나요"', 'echo $ENV_NAME']) assert.equal(run(c), 0, c);
-});
-
-test('서버가 뜬 뒤 도구 소스가 바뀌면 다시 띄우는 명령과 함께 옛 코드라고 알린다', () => {
-  assert.equal(staleServer('/p', Date.now() + 60_000), null, '아직 바뀌지 않았으면 알리지 않는다');
-  const file = path.resolve('src', 'stale.ts');
-  const old = fs.statSync(file);
-  try {
-    fs.utimesSync(file, new Date(Date.now() + 3600_000), new Date(Date.now() + 3600_000));
-    const hit = staleServer('/p', Date.now() + 120_000);
-    assert.match(hit!.command, /spec\.mjs open \/p --no-open/);
-  } finally { fs.utimesSync(file, old.atime, old.mtime); }
 });

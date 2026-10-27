@@ -24,11 +24,13 @@ import { markTerms } from './terms.js';
 import { snapshot, restore } from './keep-ui.js';
 import { commentTool } from './comment.js';
 import type { CommentTool } from './comment.js';
-import type { Model } from '../types.js';
+import type { Brand, Model } from '../types.js';
 
 /** 설계서 보기 틀의 전부가 그려지는 자리 */
 const root = document.getElementById('app') as HTMLElement;
 let commentUi: CommentTool | null = null;
+/** 서버가 잠깐 응답하지 않는 중인지, 처음 받은 서버의 코드 표(바뀌면 서버가 새로 떴다는 뜻) */
+let down = false, loaded = false, seenStamp: string | undefined;
 let model: Model | null = null, active: (ScreenViewHandle & { name: string; tr: string }) | null = null, key = '', topEl: HTMLElement | null = null, menu: HTMLElement | null = null;
 
 /** 주소(#)를 읽은 결과: 어느 화면(view), 그 안의 대상(arg), 그 아래 쪽(sub), 쿼리(params) */
@@ -74,8 +76,13 @@ function screenMenuItems(m: Model, cur: string): Kid[] {
 /** 정보 ▾ 메뉴의 목록 */
 const infoMenuItems = (m: Model, cur: string): Kid[] => (m.infos.length ? m.infos.map((i) => h('button', { class: `mitem${i.name === cur ? ' cur' : ''}`, onclick: () => nav(hash('info', i.name)) }, h('span', { class: 'mono' }, i.name), i.kind === 'internal' ? tag('', '내부') : null)) : [h('div', { class: 'mgroup' }, '정보가 없다')]);
 
+const STALE_TEXT = '서버가 옛 코드라 새 코드로 다시 띄우는 중입니다 — 잠시 뒤 저절로 새 화면으로 바뀝니다';
+
+/** 모델에 brand가 없는 옛 서버로도 화면이 열리게, 없으면 프로젝트 이름·기본 색·기본 아이콘으로 대신한다 */
+const brandOf = (m: Model): Brand => m.brand ?? { name: m.project || '설계서 보기', color: '#7c83ff', icon: '◆' };
+
 /** 탭 아이콘을 프로젝트 색 바탕에 아이콘을 얹은 그림으로 바꾼다 */
-function setFavicon(b: Model['brand']): void {
+function setFavicon(b: Brand): void {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="${b.color}"/><text x="16" y="23" font-size="19" text-anchor="middle">${b.icon}</text></svg>`;
   let l = document.querySelector<HTMLLinkElement>('link[rel=icon]');
   if (!l) { l = document.createElement('link'); l.rel = 'icon'; document.head.append(l); }
@@ -87,14 +94,14 @@ function topbar(m: Model, r: Route): HTMLElement {
   const s = m.summary;
   const manage = ['manage', 'reports', 'glossary', 'designs'].includes(r.view);
   const seg = h('div', { class: 'seg' }, h('button', { class: manage ? '' : 'on', onclick: () => nav(hash('flow')) }, '현행'), h('button', { class: manage ? 'on' : '', onclick: () => nav(hash('manage')) }, '관리'));
-  const mine = s.requestsMine ? h('span', { class: 'pill' }, '내 차례 ', h('b', null, s.requestsMine)) : null;
+  const mine = s.requestsMine ? h('a', { class: 'pill go', href: hash('manage'), title: '요청 목록에서 내 차례인 요청을 봅니다' }, '내 차례 ', h('b', null, s.requestsMine)) : null;
   const item = (label: Kid, on: boolean, to: string): HTMLElement => h('button', { class: on ? 'sel' : '', onclick: () => nav(to) }, label);
   const menuBtn = (label: string, key: string, on: boolean, items: () => Kid[]): HTMLElement => h('button', { class: `nav-dd${on ? ' sel' : ''}`, dataset: { k: key }, onclick: (e) => openMenu(e.currentTarget as HTMLElement, items()) }, label, h('span', { class: 'caret' }, '▾'));
   const nav2 = manage
     ? h('div', { class: 'tabs-top' }, item('요청', r.view === 'manage', hash('manage')), item(['리포트', s.reportsOpen ? h('b', { class: 'cnt' }, s.reportsOpen) : null], r.view === 'reports', hash('manage', 'reports')), item('용어집', r.view === 'glossary', hash('manage', 'glossary')), item('시안 현황', r.view === 'designs', hash('manage', 'designs')))
     : h('div', { class: 'tabs-top' }, item('사용 흐름', r.view === 'flow', hash('flow')), item('정보 흐름', r.view === 'info' && !r.arg, hash('info')),
       menuBtn('화면', 'screens', r.view === 'screen', () => screenMenuItems(m, r.view === 'screen' ? r.arg : '')), menuBtn('정보', 'infos', r.view === 'info' && !!r.arg, () => infoMenuItems(m, r.view === 'info' ? r.arg : '')));
-  const b = m.brand;
+  const b = brandOf(m);
   document.title = `${b.name} · 설계서 보기${m.testEnv ? ` (${m.testEnv})` : ''}`;
   setFavicon(b);
   return h('header', { class: 'top', style: `--brand:${b.color}` }, h('span', { class: 'dev mono' }, 'DEV'), m.testEnv ? h('span', { class: 'testenv', title: '운영 요청·리포트가 아닌 저장소 밖 테스트 데이터로 띄운 화면입니다' }, m.testEnv) : null, h('span', { class: 'ttl' }, h('span', { class: 'brand-icon' }, b.icon), ' ', b.name), seg, nav2, h('span', { class: 'grow' }), mine, themeButton());
@@ -104,6 +111,8 @@ function topbar(m: Model, r: Route): HTMLElement {
 function render(): void {
   const r = parse();
   closeMenu();
+  // 요청 목록의 거르기·보기를 기억해 두면, 요청 상세에서 "요청"으로 돌아올 때 보던 그대로 열린다
+  if (r.view === 'manage' && !r.arg) { try { sessionStorage.setItem('mg-last', location.hash || '#/manage'); } catch { /* 못 기억해도 목록은 열린다 */ } }
   if (active && model && r.view === 'screen' && active.name === r.arg && active.tr === (r.params.get('tr') ?? '')) { active.setScreen(r.arg, r.params.get('tab')); topEl?.replaceWith(topEl = topbar(model, r)); return; }
   if (active) { active.destroy(); active = null; }
   root.replaceChildren();
@@ -111,8 +120,8 @@ function render(): void {
   if (!model) return;
   const m = model;
   topEl = topbar(m, r);
-  // 서버가 옛 코드로 떠 있으면 맨 위 줄 위에 알린다(화면 코드는 새것이라 새 모델 항목을 못 읽고 안 열릴 수 있다)
-  if (m.serverStale) root.append(h('div', { class: 'srv-stale' }, '서버가 옛 코드로 떠 있습니다 — 다시 띄워야 합니다', h('span', { class: 'code mono' }, m.serverStale.command)));
+  // 서버가 옛 코드라 도구가 다시 띄우는 중이면 맨 위 줄 위에 안내한다(명령은 보이지 않는다. 새로 뜨면 저절로 새로고침한다)
+  if (m.serverStale || down) root.append(h('div', { class: 'srv-stale' }, STALE_TEXT));
   root.append(topEl);
   const body = h('div', { class: r.view === 'screen' ? 'split' : 'map-col', style: r.view === 'screen' ? '' : 'flex:1;display:flex;flex-direction:column;min-height:0;overflow:auto' });
   root.append(body);
@@ -147,6 +156,10 @@ function render(): void {
 /** 서버에서 모델을 받아 달라졌을 때만 다시 그린다 */
 async function load(initial: boolean): Promise<void> {
   const m = await get<Model>('/__spec/model.json');
+  // 서버가 새 코드로 다시 떴으면(코드 표가 달라짐) 새 화면 코드로 바꾸려고 저절로 새로고침한다
+  if (loaded && m.serverStamp !== seenStamp) { location.reload(); return; }
+  loaded = true; seenStamp = m.serverStamp; down = false;
+  if (!m.serverStale) root.querySelector('.srv-stale')?.remove();
   if (model && m.generatedAt < model.generatedAt) return;
   const k = JSON.stringify({ ...m, generatedAt: 0, comments: 0 });
   // 화면 설계서의 '실제 화면' 안(iframe)에서는 바깥 창의 코멘트 도구가 이미 있어, 안쪽에 하나 더 띄우면 겹쳐 보인다
@@ -172,4 +185,4 @@ termWatch.observe(root, { childList: true, subtree: true });
 // 정보 흐름은 창 폭에 맞춰 상자를 줄바꿈해 놓으므로, 창 크기가 바뀌면(폭이 달라졌을 때만) 다시 배치한다
 let lastW = window.innerWidth, resizeT = 0;
 window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = window.setTimeout(() => { if (window.innerWidth !== lastW) { lastW = window.innerWidth; if (parse().view === 'info') render(); } }, 150); });
-load(true).then(() => { render(); setInterval(() => { load(false).catch(() => {}); }, 2500); }).catch((e: unknown) => { root.append(h('div', { class: 'empty-note' }, `모델을 읽지 못했다: ${errorText(e)}`)); });
+load(true).then(() => { render(); setInterval(() => { load(false).catch(() => { if (!model) return; down = true; if (!root.querySelector('.srv-stale')) root.prepend(h('div', { class: 'srv-stale' }, STALE_TEXT)); }); }, 2500); }).catch((e: unknown) => { root.append(h('div', { class: 'empty-note' }, `모델을 읽지 못했다: ${errorText(e)}`)); });

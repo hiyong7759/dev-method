@@ -11,7 +11,9 @@ import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { specHandler } from './middleware.js';
 import { nudgeStalled, resendUnread } from './wake.js';
-import { retryStalledStarts } from './session.js';
+import { resumeBrokenJobs, retryStalledStarts, runningJobs } from './session.js';
+import { handOver, staleServer } from './stale.js';
+import { projectRoot } from './project.js';
 import { extractSpecs } from './extract.js';
 import { readConfig } from './config.js';
 import { parseArgs } from './cli.js';
@@ -80,7 +82,19 @@ export async function main(argv: string[]): Promise<number | undefined> {
   });
   // 1분마다 읽히지 않은 결정을 찾아 다시 보낸다(설정 wake가 켜진 프로젝트만 실제로 보낸다)
   // 같은 점검에서 시작이 끝나지 않은 담당 세션도 찾아 다시 시작하고, 결정을 반영한 뒤 멈춘 담당 세션은 한 번 더 깨운다
-  setInterval(() => { resendUnread(scanRoot); retryStalledStarts(scanRoot); nudgeStalled(scanRoot); }, 60_000).unref();
+  // 또 소스가 서버가 뜬 뒤 바뀌었으면(옛 코드) 같은 설정의 새 서버를 띄우고 자기는 물러난다. 진행 중인 깨움이 있으면 끊기지 않게 다음 점검으로 미룬다(10분 넘게 미뤄지면 갈아 띄운다. 끊긴 깨움은 새 서버가 이어 보낸다)
+  const root = projectRoot(scanRoot);
+  let staleSince = 0;
+  setInterval(() => {
+    resendUnread(scanRoot); retryStalledStarts(scanRoot); nudgeStalled(scanRoot);
+    if (!staleServer()) { staleSince = 0; return; }
+    staleSince = staleSince || Date.now();
+    if (!process.env.SPEC_TEST_DIR && runningJobs(root).length &&Date.now() - staleSince < 10 * 60_000) return;
+    handOver(root);
+    setTimeout(() => process.exit(0), 300);
+  }, 60_000).unref();
+  // 서버가 (다시) 뜰 때: 끊긴 깨움을 이어 보낸다(테스트용 서버는 담당 세션을 깨우지 않는다)
+  if (!process.env.SPEC_TEST_DIR) resumeBrokenJobs(scanRoot);
   server.listen(port, () => console.log(`설계서 보기: http://localhost:${port}/\n앱 중계: ${app ? `${app.origin} (설계서 안에 끼워 넣어 보인다)` : '없음'}\n소스: ${scanRoot}`));
   return undefined;
 }

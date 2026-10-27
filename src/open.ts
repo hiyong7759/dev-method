@@ -2,13 +2,13 @@
  * @spec open 설계서 보기 한 번에 띄우기
  * @why 프로젝트 이름만 대면 서버 둘을 따로 띄우지 않아도 설계서 보기가 열리게 한다. 사용자도 에이전트도 같은 한 줄이다. 앱 개발 서버(꺼져 있으면 시작) → 설계서 보기 서버(serve) → 브라우저 순서로 띄운다.
  * @basis 프로젝트 이름은 install.sh spec으로 등록된 프로젝트의 폴더 이름(spec-projects.txt)이고, 설정은 <프로젝트>/.spec/config.json이다. 앱 개발 서버가 없는 프로젝트는 설정의 app을 null로 둔다. 그 포트에서 응답한 설계서 보기가 다른 프로젝트 것이면(model.json의 projectDir 비교) 알리고 멈춘다.
- * @contract 옵션: --no-open은 ego-browser를 열지 않는다(에이전트가 끝낼 때 확인용으로 띄울 때), --stop은 이 도구가 띄운 서버를 끈다. 띄운 서버의 번호는 <프로젝트>/.spec/pids.json에 적는다.
+ * @contract 옵션: --no-open은 ego-browser를 열지 않는다(에이전트가 끝낼 때 확인용으로 띄울 때), --stop은 이 도구가 띄운 서버를 끄고, --restart는 떠 있는 서버를 옛 코드인지 따지지 않고 끄고 새로 띄운다(서버가 스스로 갈아 띄울 때, 테스트를 올리기 전). 띄운 서버의 번호는 <프로젝트>/.spec/pids.json에 적는다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { ROOT_DIR, LAUNCHER } from './paths.js';
-import { srcMtime } from './stale.js';
+import { srcStamp } from './stale.js';
 import { configFile, readConfig } from './config.js';
 import { parseArgs } from './cli.js';
 
@@ -45,19 +45,17 @@ const waitUp = async (url: string, ms: number, check: (u: string) => Promise<boo
   return false;
 };
 
-/** 도구 소스에서 가장 나중에 고친 시각 — 서버가 옛 코드로 돌고 있는지 알아보는 표(계산은 stale.ts) */
-const srcStamp = (): string => String(Math.floor(srcMtime()));
-/** 포트를 듣고 있는 프로세스들을 끈다(pids.json에 없는 떠돌이 서버용). 끈 번호들을 돌려준다 */
-function killPort(port: number, signal: NodeJS.Signals = 'SIGTERM'): number[] {
+/** 포트를 듣고 있는 프로세스들을 끈다(pids.json에 없는 떠돌이 서버용, 테스트 서버도 이걸로 끈다). 끈 번호들을 돌려준다 */
+export function killPort(port: number, signal: NodeJS.Signals = 'SIGTERM'): number[] {
   const r = spawnSync('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
   const ids = (r.stdout || '').split('\n').map((x) => Number(x.trim())).filter(Boolean);
   for (const pid of ids) { try { process.kill(pid, signal); } catch { /* 이미 없음 */ } }
   return ids;
 }
 
-/** 명령: open [프로젝트 이름 또는 폴더, 기본 현재 폴더] [--no-open] [--stop] */
+/** 명령: open [프로젝트 이름 또는 폴더, 기본 현재 폴더] [--no-open] [--stop] [--restart] */
 export async function main(argv: string[]): Promise<number | undefined> {
-  const { pos, flags } = parseArgs(argv, ['no-open', 'stop']);
+  const { pos, flags } = parseArgs(argv, ['no-open', 'stop', 'restart']);
   const project = resolveProject(pos[0] || '.');
   if (!project) return 1;
   if (!fs.existsSync(configFile(project))) { console.error(`${configFile(project)} 이 없다. 먼저: <dev-method>/install.sh spec ${project} <소스폴더> <앱주소>`); return 1; }
@@ -109,12 +107,12 @@ export async function main(argv: string[]): Promise<number | undefined> {
   }
   const stamp = srcStamp();
   let running = await isSpec(`${base}/__spec/model.json`);
-  // 도구를 고친 뒤인데 서버가 옛 코드로 돌고 있으면 껐다 다시 띄운다
-  if (running && fs.existsSync(stampFile) && fs.readFileSync(stampFile, 'utf8') !== stamp) {
-    killPort(port); try { process.kill(-(pids.serve ?? 0)); } catch { /* 이미 없음 */ }
+  // 도구를 고친 뒤인데 서버가 옛 코드로 돌고 있으면 껐다 다시 띄운다. --restart는 옛 코드인지 따지지 않고 늘 갈아 띄운다(테스트를 올리기 전 절차)
+  if (running && (flags.has('restart') || (fs.existsSync(stampFile) && fs.readFileSync(stampFile, 'utf8') !== stamp))) {
+    killPort(port); if (pids.serve) try { process.kill(-pids.serve); } catch { /* 이미 없음 */ }
     for (let i = 0; i < 10 && await up(base); i++) await new Promise((r) => setTimeout(r, 300));
     if (await up(base)) { killPort(port, 'SIGKILL'); await new Promise((r) => setTimeout(r, 500)); }
-    running = false; console.log('설계서 보기 서버가 옛 코드로 돌고 있어 다시 띄운다');
+    running = false; console.log('설계서 보기 서버를 새 코드로 다시 띄운다');
   }
   if (running) console.log(`설계서 보기 서버 이미 떠 있음: ${base}`);
   else {

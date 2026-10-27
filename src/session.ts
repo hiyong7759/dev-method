@@ -170,10 +170,64 @@ function launch(root: string, scanRoot: string, id: number, sid: string, msg: st
     `got=; while [ -z "$got" ]; do n=0; while [ $n -lt ${WAKE_SLOTS} ]; do if mkdir "$D/slot$n" 2>/dev/null; then got=$n; break; fi; stale "$D/slot$n"; n=$((n+1)); done; if [ -z "$got" ]; then sleep 1; fi; done`,
     `trap 'rmdir "$SL" "$D/slot$got" 2>/dev/null' EXIT`,
   ].join('; ');
-  spawn('sh', ['-c', `${lock ? `${lock}; ` : ''}${lines.join('; ')}`], {
+  // 모든 단계가 끝나면 끝남 표시 파일을 만든다(서버를 갈아 띄우기 전에 끝나지 않은 깨움을 알아보는 근거)
+  const child = spawn('sh', ['-c', `${lock ? `${lock}; ` : ''}${lines.join('; ')}; : > "${base}.done"`], {
     cwd: root, detached: true, stdio: 'ignore',
     env: { ...process.env, MSG: msg, SPEC: SPEC_MJS, SRC: src, LOG: logFile(root), ROOT: root },
-  }).unref();
+  });
+  child.unref();
+  addJob(root, { request: id, session: sid, sentAt: new Date().toISOString(), pid: child.pid ?? 0, doneFile: `${base}.done`, msg, steps });
+}
+
+/** 끝나지 않은 깨움 기록(.spec/wake-jobs.json) 한 건: 어느 요청·세션에 어떤 글을 보냈고, 그 일이 끝났는지는 끝남 표시 파일이 있는지로 안다 */
+export interface WakeJob {
+  /** 어느 요청의 일인지(끊긴 깨움을 이어 보낼 때 같은 요청으로 보낸다) */
+  request: number;
+  /** 글을 받은 담당 세션 번호 */
+  session: string;
+  /** 보낸 시각 */
+  sentAt: string;
+  /** 글을 보내는 셸의 프로세스 번호. 끝남 표시가 없는데 이 프로세스도 없으면 끊긴 것이다 */
+  pid: number;
+  /** 모든 단계가 끝나면 셸이 만드는 표시 파일. 있으면 끝난 깨움이다 */
+  doneFile: string;
+  /** 보낸 글. 끊겼을 때 같은 글로 다시 보낸다 */
+  msg: string;
+  /** 부른 claude 단계들(압축 → 지시). 끊겼을 때 같은 단계로 다시 한다 */
+  steps: Step[];
+}
+const jobsFile = (root: string): string => path.join(root, '.spec', 'wake-jobs.json');
+function readJobs(root: string): WakeJob[] {
+  try { return JSON.parse(fs.readFileSync(jobsFile(root), 'utf8')) as WakeJob[]; } catch { return []; }
+}
+/** 기록에 한 건을 더한다. 이미 끝난 것과 같은 요청·세션의 옛 기록은 걷어 낸다 */
+function addJob(root: string, job: WakeJob): void {
+  try {
+    const keep = readJobs(root).filter((j) => !fs.existsSync(j.doneFile) && !(j.request === job.request && j.session === job.session));
+    fs.writeFileSync(jobsFile(root), JSON.stringify([...keep, job], null, 2) + '\n');
+  } catch { /* 기록 실패가 깨움을 막지 않는다 */ }
+}
+/** 그 번호의 프로세스가 아직 있나 */
+const alive = (pid: number): boolean => { try { process.kill(pid, 0); return pid > 0; } catch { return false; } };
+/** 지금 진행 중인 깨움(끝남 표시가 없고 프로세스가 살아 있는 것) */
+export function runningJobs(root: string): WakeJob[] { return readJobs(root).filter((j) => !fs.existsSync(j.doneFile) && alive(j.pid)); }
+/** 서버를 갈아 띄우다 끊긴 깨움(끝남 표시가 없는데 프로세스가 없는 것)을 같은 글로 다시 보낸다. 다시 보낸 요청 번호들을 돌려준다 */
+export function resumeBrokenJobs(scanRoot: string): number[] {
+  const done: number[] = [];
+  try {
+    const root = projectRoot(scanRoot);
+    for (const j of readJobs(root)) {
+      if (fs.existsSync(j.doneFile) || alive(j.pid)) continue;
+      // 이미 대화가 만들어졌다면 --session-id가 아니라 --resume으로 이어 쓴다
+      let exists = false;
+      try { fs.statSync(transcriptOf(root, j.session)); exists = true; } catch { /* 대화가 아직 없음 */ }
+      const steps = j.steps.map((st) => ({ ...st, args: exists ? st.args.replace('--session-id', '--resume') : st.args }));
+      fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${j.request} ${j.session} 서버를 다시 띄우다 끊긴 깨움을 같은 글로 이어 보냄\n`);
+      launch(root, scanRoot, j.request, j.session, j.msg, steps);
+      done.push(j.request);
+    }
+  } catch { /* 점검이 실패해도 서버는 계속 돈다 */ }
+  return done;
 }
 
 /** 요청 내용을 글에 직접 넣는다. 세션이 요청 파일을 읽느라 쓰는 턴(턴마다 기본 맥락을 다시 읽어 비용이 든다)을 없앤다 */

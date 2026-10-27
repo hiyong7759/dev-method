@@ -2,7 +2,7 @@
  * @spec testdata-command 테스트 데이터 자리·시나리오별 데이터 기록 명령
  * @why 테스트하려면 데이터를 넣어야 하는데 운영 데이터에 그대로 넣기 애매하고, 사용자가 정상 경우조차 못 보고 테스트를 승인하는 일이 많았다. 소스는 하나로 두고 데이터만 테스트용으로 나누되, 그 자리를 저장소 밖에 두어 커밋될 수 없게 하고, 시나리오마다 어떤 데이터로 어떤 경우를 보는지 남겨 테스트를 올릴 때 확인한다.
  * @basis 프로젝트마다 .spec/config.json의 testData에 테스트 환경을 적는다. kind는 folder(저장소 밖 폴더: dev-method), remote(회사 공용 테스트 서버: 접속 주소와 운영 주소 표시), local-db(내 컴퓨터 테스트 DB)다. 설정이 없는 프로젝트는 이 검사의 대상이 아니다. 운영 환경 칸과 배포 절차는 이번 범위 밖이다.
- * @contract `testdata path`는 테스트 데이터 자리를 확인해 보이고(folder면 없을 때 만든다) 저장소 안이거나 운영을 가리키면 오류로 거부한다. `testdata seed --id N --scenario 시나리오 --kind normal|edge|error --label 이름 [--shot 캡처] [--how 만든 방법]`은 시나리오 하나의 경우 하나를 자리 안 seeds/N.json에 적는다(같은 시나리오·이름은 덮어쓴다). `testdata seed --id N`만 주면 지금 기록을 보인다. `testdata serve [--port N] [--fresh true]`는 folder 프로젝트의 테스트용 설계서 서버를 운영과 다른 포트(기본: 설정 포트+100)에 띄운다: 처음에 운영 .spec의 요청·리포트를 자리 안 .spec으로 복사하고(담당 세션 기록·로그·계정은 빼고, --fresh true면 다시 복사), 서버는 환경변수 SPEC_TEST_DIR로 그 .spec만 읽고 쓰며 담당 세션을 깨우지 않고 화면 위쪽에 "테스트 데이터" 표시를 단다. `testdata sync --id N`은 요청 하나를 테스트 자리 .spec으로 다시 복사하고(`request test`가 올릴 때 자동으로 한다), `testdata reset [--id N]`은 기록을 지운다(remote는 [테스트-#번호] 표시 데이터를 프로젝트 시드 스크립트가 지우므로 기록만 지운다). 원격 서버의 남의 데이터는 읽기만 한다.
+ * @contract `restartForTest`는 `request test`가 올리기 전에 늘 거치는 절차로, 운영·테스트 서버를 끄고 새 코드로 다시 띄워 확인한다(옛 코드 판정은 stale.ts). `testdata path`는 테스트 데이터 자리를 확인해 보이고(folder면 없을 때 만든다) 저장소 안이거나 운영을 가리키면 오류로 거부한다. `testdata seed --id N --scenario 시나리오 --kind normal|edge|error --label 이름 [--shot 캡처] [--how 만든 방법]`은 시나리오 하나의 경우 하나를 자리 안 seeds/N.json에 적는다(같은 시나리오·이름은 덮어쓴다). `testdata seed --id N`만 주면 지금 기록을 보인다. `testdata serve [--port N] [--fresh true]`는 folder 프로젝트의 테스트용 설계서 서버를 운영과 다른 포트(기본: 설정 포트+100)에 띄운다: 처음에 운영 .spec의 요청·리포트를 자리 안 .spec으로 복사하고(담당 세션 기록·로그·계정은 빼고, --fresh true면 다시 복사), 서버는 환경변수 SPEC_TEST_DIR로 그 .spec만 읽고 쓰며 담당 세션을 깨우지 않고 화면 위쪽에 "테스트 데이터" 표시를 단다. `testdata sync --id N`은 요청 하나를 테스트 자리 .spec으로 다시 복사하고(`request test`가 올릴 때 자동으로 한다), `testdata reset [--id N]`은 기록을 지운다(remote는 [테스트-#번호] 표시 데이터를 프로젝트 시드 스크립트가 지우므로 기록만 지운다). 원격 서버의 남의 데이터는 읽기만 한다.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -11,7 +11,9 @@ import net from 'node:net';
 import { spawn } from 'node:child_process';
 import { parseArgs, errorText } from './cli.js';
 import { LAUNCHER } from './paths.js';
-import { readConfig } from './config.js';
+import { configFile, readConfig } from './config.js';
+import { main as openServers, killPort } from './open.js';
+import { newCodeProblem } from './stale.js';
 import { projectRoot } from './project.js';
 import { writeSamples } from './samples.js';
 import type { Request, ReviewFrame, SeedCase, SeedFile, TestDataConfig } from './types.js';
@@ -128,17 +130,55 @@ const listening = (port: number): Promise<boolean> => new Promise((resolve) => {
   s.setTimeout(800, () => { s.destroy(); resolve(false); });
 });
 
-/** 화면의 "테스트 데이터로 첫 화면 열기"가 부른다: 테스트 서버가 꺼져 있으면 켜고(복사본이 없으면 만들어) 열릴 때까지 기다린다. 켜져 있으면 아무것도 안 한다 */
-export async function ensureTestServer(scanRoot: string): Promise<{ started: boolean; port: number }> {
+/** 테스트 서버가 떠 있는 주소의 포트가 비도록 끈다(끄고 5초 안에 안 비면 강제로 끈다) */
+async function stopOn(port: number): Promise<void> {
+  killPort(port);
+  for (let i = 0; i < 20 && await listening(port); i++) await new Promise((r) => setTimeout(r, 250));
+  if (await listening(port)) { killPort(port, 'SIGKILL'); await new Promise((r) => setTimeout(r, 500)); }
+}
+
+/** 화면의 "테스트 데이터로 첫 화면 열기"와 테스트를 올리기 전 절차가 부른다: 테스트 서버가 꺼져 있으면 켜고(복사본이 없으면 만들어) 열릴 때까지 기다린다. 켜져 있어도 옛 코드로 떠 있거나 restart면 끄고 새 코드로 다시 띄운다(옛 서버에는 스스로 물러나는 기능이 없어 포트로 찾아 끈다). 설계서 보기 서버가 아닌 것이 그 포트를 쓰고 있으면 끄지 않고 오류를 던진다 */
+export async function ensureTestServer(scanRoot: string, restart = false): Promise<{ started: boolean; port: number }> {
   const root = projectRoot(scanRoot);
   const c = testDataConfig(root);
   if (!c || c.kind !== 'folder' || dataProblem(root, c) || process.env.SPEC_TEST_DIR) return { started: false, port: 0 };
   const port = defaultPort(root, c);
-  if (await listening(port)) return { started: false, port };
+  if (await listening(port)) {
+    const bad = await newCodeProblem(`http://localhost:${port}`);
+    if (bad && !bad.startsWith('옛 코드')) throw new Error(`테스트 서버 자리(포트 ${port})를 설계서 보기 서버가 아닌 것이 쓰고 있어 끄지 않았다: ${bad}`);
+    if (!bad && !restart) return { started: false, port };
+    await stopOn(port);
+  }
   copyBase(root, dataDir(root, c), false);
   startServer(root, scanRoot, dataDir(root, c), port);
   for (let i = 0; i < 40; i++) { await new Promise((r) => setTimeout(r, 250)); if (await listening(port)) return { started: true, port }; }
   throw new Error(`테스트 서버(포트 ${port})가 10초 안에 켜지지 않았다. ${dataDir(root, c)}/serve.log를 본다`);
+}
+
+/** 테스트 서버가 이미 떠 있을 때만 옛 코드이면 새 코드로 다시 띄운다(꺼져 있으면 켜지 않는다: finish가 쓴다). 떠 있는 서버의 포트를, 없으면 0을 돌려준다 */
+export async function refreshTestServer(scanRoot: string): Promise<{ started: boolean; port: number }> {
+  const root = projectRoot(scanRoot);
+  const c = testDataConfig(root);
+  if (!c || c.kind !== 'folder' || dataProblem(root, c) || process.env.SPEC_TEST_DIR || !(await listening(defaultPort(root, c)))) return { started: false, port: 0 };
+  return ensureTestServer(scanRoot);
+}
+
+/** 테스트를 올리기 전 서버를 다시 띄우는 절차(건너뛰는 길이 없다): 운영 서버와 테스트 서버를 옛 코드인지 따지지 않고 끄고 지금 소스로 다시 띄운 뒤, 둘이 새 코드로 응답하는지 확인한다. 안 떠 있으면 이유 글을, 잘 떴으면 빈 글을 돌려준다. 설계서 보기를 안 쓰는 프로젝트(설정 파일 없음)는 갈아 띄울 서버가 없어 빈 글이다 */
+export async function restartForTest(scanRoot: string): Promise<string> {
+  const root = projectRoot(scanRoot);
+  if (!fs.existsSync(configFile(root)) || process.env.SPEC_TEST_DIR) return '';
+  const port = readConfig(root).port || 5290;
+  if (await openServers([root, '--no-open', '--restart'])) return `운영 서버(포트 ${port})를 새 코드로 다시 띄우지 못했다`;
+  const prod = await newCodeProblem(`http://localhost:${port}`);
+  if (prod) return `운영 서버(포트 ${port}): ${prod}`;
+  const c = testDataConfig(root);
+  if (c?.kind === 'folder' && !dataProblem(root, c)) {
+    let tport = defaultPort(root, c);
+    try { tport = (await ensureTestServer(scanRoot, true)).port; } catch (e) { return `테스트 서버(포트 ${tport}): ${e instanceof Error ? e.message : String(e)}`; }
+    const bad = await newCodeProblem(`http://localhost:${tport}`);
+    if (bad) return `테스트 서버(포트 ${tport}): ${bad}`;
+  }
+  return '';
 }
 
 /** 명령 입구 */

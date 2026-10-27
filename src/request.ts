@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { specDir, projectRoot } from './project.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { addReport } from './report.js';
-import { seedProblem, syncRequest } from './testdata.js';
+import { restartForTest, seedProblem, syncRequest } from './testdata.js';
 import { extractSpecs } from './extract.js';
 import { buildScenarios } from './scenarios.js';
 import type { Actor, DesignChange, DesignPoint, DesignScreen, Delivery, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
@@ -599,7 +599,11 @@ export async function main(argv: string[]): Promise<number | undefined> {
     } else if (pos[0] === 'impl') {
       const r = noteImpl(scanRoot, id, opts.commit || ''); console.log(`요청 #${r.id}: 구현 기록`);
     } else if (pos[0] === 'test') {
-      const r = requestTest(scanRoot, id, parseBrief(opts.brief, '테스트 요청(--brief "줄1|줄2")')); console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
+      // 테스트를 올리기 전에는 늘 서버를 새 코드로 다시 띄우고, 새 코드로 안 떠 있으면 올리지 않는다(이 절차를 건너뛰는 길은 없다)
+      const brief = parseBrief(opts.brief, '테스트 요청(--brief "줄1|줄2")');
+      const bad = await restartForTest(scanRoot);
+      if (bad) throw new Error(`요청 #${id}의 테스트를 올릴 수 없다: 서버가 새 코드로 안 떠 있다: ${bad}`);
+      const r = requestTest(scanRoot, id, brief); console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
     } else if (pos[0] === 'redesign') {
       const r = redesign(scanRoot, id, 'agent', opts.reason ?? '', opts.quote); console.log(`요청 #${r.id}: 설계 변경을 시작했다(사용자 요구를 인용해 기록). 설계를 고쳐 request design --id ${r.id}로 다시 올리고 사용자 승인을 받는다(이미 한 커밋과 이전 설계는 남는다)`);
     } else if (pos[0] === 'scope') {

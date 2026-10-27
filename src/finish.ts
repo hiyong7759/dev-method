@@ -13,6 +13,8 @@ import { readConfig } from './config.js';
 import { localFile, readLocal } from './login.js';
 import { main as openServers } from './open.js';
 import { parseArgs } from './cli.js';
+import { refreshTestServer } from './testdata.js';
+import { newCodeProblem } from './stale.js';
 import { matchScreen } from './viewer/util.js';
 import type { Model, Spec } from './types.js';
 
@@ -48,6 +50,10 @@ export async function main(argv: string[]): Promise<number | undefined> {
   // 도구를 고친 뒤에도 옛 코드의 서버가 남아 엉뚱한 실패를 만들지 않도록, 확인 전에 서버를 최신으로 맞춘다(주소를 직접 준 경우는 건드리지 않는다)
   if (!opts.url) await openServers([root, '--no-open']);
   let model: Model | null = null;
+  // 테스트 서버(설정이 있고 떠 있을 때)도 같은 이유로 새 코드로 맞춘다
+  if (!opts.url) {
+    try { const t = await refreshTestServer(path.resolve(root, src)); if (t.port) step('테스트 서버가 새 코드로 떠 있다', !(await newCodeProblem(`http://localhost:${t.port}`)), `포트 ${t.port}${t.started ? ' · 다시 띄움' : ''}`); } catch (e) { step('테스트 서버가 새 코드로 떠 있다', false, e instanceof Error ? e.message : String(e)); }
+  }
   try { model = await (await fetch(base + '/__spec/model.json')).json() as Model; } catch { /* 응답 없음 */ }
   step('설계서 보기 서버가 응답한다', !!model, model ? `${base} · 화면 ${model.screens.length}개` : `${base}/__spec/model.json 에 응답이 없다. 앱 개발 서버와 설계서 보기 서버(node <스킬 폴더>/spec.mjs serve --project .)를 에이전트가 직접 띄운 뒤 다시 실행한다`);
 
