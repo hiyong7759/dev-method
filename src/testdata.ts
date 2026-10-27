@@ -12,7 +12,7 @@ import { spawn } from 'node:child_process';
 import { parseArgs, errorText } from './cli.js';
 import { LAUNCHER, ROOT_DIR, SRC_DIR } from './paths.js';
 import { loadRequests } from './request.js';
-import { worktreeOf } from './worktree.js';
+import { worktreeOf, worktreeRefOf } from './worktree.js';
 import { configFile, readConfig } from './config.js';
 import { main as openServers, killPort } from './open.js';
 import { newCodeProblem } from './stale.js';
@@ -153,11 +153,13 @@ function defaultPort(root: string, c: TestDataConfig): number {
   return (readConfig(root).port || 5290) + 100;
 }
 
-/** 테스트 서버가 쓸 도구 코드 폴더: 지금 테스트 중인 요청의 워크트리(그 요청의 코드로 시험해야 하므로). 워크트리가 없거나 도구 코드가 없으면 null(운영과 같은 main 코드) */
+/** 테스트 서버가 쓸 도구 코드 폴더: 이 도구가 도는 워크트리 또는 지금 테스트 중인 요청의 워크트리(그 요청의 코드로 시험해야 하므로). 워크트리가 없거나 도구 코드가 없으면 null(운영과 같은 main 코드) */
 export function testCodeDir(scanRoot: string): string | null {
   const root = projectRoot(scanRoot);
   const rel = path.relative(root, scanRoot) || '.';
-  for (const r of loadRequests(scanRoot).filter((x) => x.stage === 'test').reverse()) {
+  // 이 도구가 요청 워크트리 안에서 돌고 있으면(담당이 finish·test를 부를 때) 그 워크트리가 테스트 대상이고, 아니면 테스트 단계인 요청 중 가장 나중 것이다
+  const here = loadRequests(scanRoot).find((x) => x.stage !== 'done' && x.stage !== 'cancelled' && worktreeRefOf(root, x.id)?.path === ROOT_DIR);
+  for (const r of [...(here ? [here] : []), ...loadRequests(scanRoot).filter((x) => x.stage === 'test').reverse()]) {
     const w = worktreeOf(root, r.id);
     if (w?.exists && fs.existsSync(path.join(w.path, 'skills', 'spec-view', 'spec.mjs')) && fs.existsSync(path.join(w.path, rel))) return w.path;
   }
