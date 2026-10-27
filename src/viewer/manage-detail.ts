@@ -11,6 +11,16 @@ import { manageInfoOverlay, manageCompare } from './manage-views.js';
 import { basket, sendBasket } from './comment-basket.js';
 import type { Model, RequestView, Scenario, ScenarioStep } from '../types.js';
 
+/** 담당 세션의 워크트리 추적: 작업 폴더·브랜치·main보다 앞선 커밋·저장 안 한 변경·합쳐졌는지(워크트리를 쓰지 않으면 그렇다고 알린다) */
+function worktreeBox(r: RequestView): HTMLElement {
+  const w = r.worktree;
+  if (!w) return h('div', { class: 'box' }, h('b', null, '워크트리 추적'), h('div', { class: 'hint' }, '워크트리 없음 · 이 담당은 main 폴더에서 일합니다'));
+  const item = (k: string, v: string): HTMLElement => h('span', null, h('span', { class: 'hint' }, `${k} `), v);
+  return h('div', { class: 'box' }, h('b', null, '워크트리 추적'),
+    h('div', { class: 'rm', style: 'gap:18px' }, item('작업 폴더', w.exists ? w.path : `${w.path}(폴더가 없음)`), item('브랜치', w.branch)),
+    h('div', { class: 'rm', style: 'gap:18px' }, item('main보다 앞선 커밋', `${w.ahead}개`), item('저장 안 한 변경', w.dirty ? `${w.dirty}개 파일` : '없음'), item('main에 합쳐졌나', w.merged ? '합쳐짐' : '아직 · 테스트 승인 뒤 합침')));
+}
+
 /** 서버에 결정을 보내고 성공하면 화면을 다시 그린다 */
 function act(path: string, body: Record<string, unknown>, done: string, onChange: () => void): void {
   post(`/__spec/request/${path}`, body).then(() => { toast(done); onChange(); }).catch((e: unknown) => toast(errorText(e)));
@@ -284,6 +294,8 @@ function testCard(model: Model, r: RequestView, onChange: () => void, td = false
  * @does 질문 중·막힘인 요청의 상세를 연다 | 제목 바로 아래에 아래 요소들과 같은 가로 100% 폭의 질문 중·막힘 상자가 각각 보이고, 다음 기록이 생기면 사라진다 | 담당 세션의 질문과 막힘을 확인한다#2 | → 3
  * @does 멈춘 듯한 요청을 열어 오른쪽 패널의 카드를 보고 "지금 다시 보내기"를 누른다 | 붉은 "담당 세션이 멈춘 듯합니다" 카드가 보이고, 누르면 담당 세션에 결정을 다시 보낸다 | 멈춘 담당 세션을 알아챈다#2
  * @does 전달 안 됨인 요청을 열어 오른쪽 패널의 전달 카드를 보고 "지금 다시 보내기"를 누른다 | 눌림→보냄→읽음→반영 네 칸과 몇 분째 안 읽는지가 빨간 카드로 보이고, 누르면 담당 세션에 결정을 다시 보낸다 | 결정이 담당 세션에 전달됐는지 확인한다#2
+ * @does 담당이 있는 요청의 상세를 열어 맡은 에이전트 칸을 본다 | 복사할 수 있는 들어가기 명령과 워크트리 추적(작업 폴더·브랜치·main보다 앞선 커밋·저장 안 한 변경·합쳐짐)이 보인다 | 담당 세션을 터미널로 연다#1
+ * @does 같은 파일을 건드리는 다른 진행 중 요청이 있는 요청의 상세를 연다 | 맡은 에이전트 칸 위에 어느 요청과 어느 파일이 겹치는지 경고 띠가 보인다 | 담당 세션을 터미널로 연다#2
  * @does 접수된 요청의 "시작"을 누른다 | 설계 작성 중으로 바뀌고 요청을 맡을 담당 세션이 새로 만들어진다 | 요청을 시작하고 설계를 승인한다#1 | → 2
  * @does 올라온 설계(정보 변경 요약·화면 시안)를 읽고 승인하거나 반려한다 | 승인하면 구현으로, 반려하면 설계 다시 작성 중으로 넘어간다 | 요청을 시작하고 설계를 승인한다#2
  * @does 반려해서 설계 다시 작성 중인 요청의 오른쪽 패널을 본다 | 가장 최근 반려의 사유·시각·몇 번째인지가 보인다 | 반려한 사유를 다시 쓰는 동안 확인한다#1
@@ -323,9 +335,10 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   const implEvents = r.events.filter((e) => e.kind === 'impl' || e.kind === 'test-requested');
   const comps = [...new Set((r.scope.scenarios ?? []).flatMap((n) => model.scenarios.find((s) => s.name === n)?.steps.map((st) => st.owner) ?? []))];
   const cards: HTMLElement[] = [
+    ...(r.fileOverlaps?.length ? [h('div', { class: 'warn' }, h('b', null, '같은 파일을 건드리는 진행 중 요청이 있습니다'), ` · ${r.fileOverlaps.map((o) => `#${o.id}과 ${o.files.join(', ')}`).join(' / ')}가 겹칩니다. 순서를 정해 하나씩 하세요.`)] : []),
     fold('agent', '맡은 에이전트', idx === 0 || !!r.agent.name, r.agent.name ? [chip('ag', r.agent.name), r.activity ? ` ${r.activity.working ? '일하는 중' : '쉬는 중'} · 마지막 활동 ${Math.max(0, Math.floor((Date.now() - Date.parse(r.activity.lastActiveAt)) / 60000))}분 전` : '', ` · 마지막 기록 ${fmt(r.events[r.events.length - 1].at)}`, r.cost && (r.cost.start || r.cost.wake) ? ` · 비용 약 $${r.cost.usd.toFixed(2)}` : ''] : '아직 정해지지 않았습니다',
-      [r.agent.name ? conversationBox(r.id) : null,
-      r.agent.name ? h('div', { class: 'rm' }, h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, `claude attach ${r.agent.name}`), h('button', { class: 'btn sm', onclick: () => { void copyText(`claude attach ${r.agent.name}`).then(() => toast('복사했습니다')); } }, '복사'), h('span', { class: 'hint' }, `일하는 중에 들어가면 일이 멈출 수 있습니다. 지난 일은 위 "대화 보기"로 보세요. VS Code는 세션 목록에서 "${r.agent.name}"`))
+      [r.agent.name ? conversationBox(r.id) : null, r.agent.name ? worktreeBox(r) : null,
+      r.attach ? h('div', { class: 'rm' }, h('span', { class: 'hint' }, '들어가기'), h('span', { class: 'code' }, r.attach), h('button', { class: 'btn sm', onclick: () => { void copyText(r.attach!).then(() => toast('복사했습니다')); } }, '복사'), h('span', { class: 'hint' }, `설계 제출·질문·막힘·테스트 올림·종료가 생기면 iTerm2 창이 자동으로 열립니다(요청마다 창 하나 · 닫기는 직접). 일하는 중에 들어가면 일이 멈출 수 있습니다. 지난 일은 위 "대화 보기"로 보세요`))
         : h('div', { class: 'hint' }, '이 요청만 알고 일하는 에이전트입니다. 맡으면 이름이 여기에 나옵니다.'),
       r.cost && (r.cost.start || r.cost.wake) ? h('div', { class: 'rm cost' }, h('b', null, '이 요청에 쓴 세션 비용'), chip('me', `약 $${r.cost.usd.toFixed(2)}`), h('span', { class: 'hint' }, `세션 시작 ${r.cost.start}번 · 깨움 ${r.cost.wake}번 · 토큰 입력 ${r.cost.inputTokens.toLocaleString()} · 출력 ${r.cost.outputTokens.toLocaleString()}`)) : null]),
     fold('origin', '요청 원문', idx === 0, r.origin.text ? `"${sumText(r.origin.text)}"` : '원문이 없습니다', [r.origin.text ? h('div', { class: 'quote' }, r.origin.text) : h('div', { class: 'hint' }, '원문이 기록되지 않았습니다.'),

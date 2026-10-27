@@ -28,11 +28,20 @@ export const READ_BANNED = ['Read(.spec/local.json)', 'Read(**/.spec/local.json)
 /** 담당 세션이 모두 쓰는 모델(소넷 보통). 비용과 품질을 한 가지로 맞추려고 한 곳에서 정한다 */
 const MODEL = 'sonnet';
 
-/** 세션 기록 파일 위치: ~/.claude/projects/<실제 프로젝트 경로에서 글자·숫자 아닌 것을 -로 바꾼 이름>/<세션>.jsonl */
+/** 세션 기록 파일 위치. 담당이 워크트리에 들어가면 Claude Code가 기록을 다른 프로젝트 폴더로 옮기므로 폴더 이름을 추측하지 않고 실제 위치를 찾는다: ① ~/.claude/jobs/<번호8>/state.json의 linkScanPath(세션이 지금 쓰는 파일) ② ~/.claude/projects 아래 모든 폴더의 <번호>.jsonl ③ 없으면 프로젝트 폴더 이름으로 짐작한 자리(아직 대화가 없는 새 세션) */
 export function transcriptOf(root: string, sid: string): string {
+  const home = os.homedir();
+  try {
+    const p = (JSON.parse(fs.readFileSync(path.join(home, '.claude', 'jobs', sid.slice(0, 8), 'state.json'), 'utf8')) as { linkScanPath?: string }).linkScanPath;
+    if (p && path.basename(p) === `${sid}.jsonl` && fs.existsSync(p)) return p;
+  } catch { /* 작업 정보가 없다 */ }
+  const projects = path.join(home, '.claude', 'projects');
+  try {
+    for (const d of fs.readdirSync(projects)) { const f = path.join(projects, d, `${sid}.jsonl`); if (fs.existsSync(f)) return f; }
+  } catch { /* 프로젝트 폴더가 없다 */ }
   let real = root;
   try { real = fs.realpathSync(root); } catch { /* 없으면 그대로 */ }
-  return path.join(os.homedir(), '.claude', 'projects', real.replace(/[^A-Za-z0-9]/g, '-'), `${sid}.jsonl`);
+  return path.join(projects, real.replace(/[^A-Za-z0-9]/g, '-'), `${sid}.jsonl`);
 }
 
 /** 이 안에 세션 기록이 바뀌었으면 일하는 중으로 본다 */

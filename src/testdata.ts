@@ -10,11 +10,13 @@ import path from 'node:path';
 import net from 'node:net';
 import { spawn } from 'node:child_process';
 import { parseArgs, errorText } from './cli.js';
-import { LAUNCHER } from './paths.js';
+import { LAUNCHER, ROOT_DIR, SRC_DIR } from './paths.js';
+import { loadRequests } from './request.js';
+import { worktreeOf, worktreeRefOf } from './worktree.js';
 import { configFile, readConfig } from './config.js';
 import { main as openServers, killPort } from './open.js';
 import { newCodeProblem } from './stale.js';
-import { projectRoot, specDir } from './project.js';
+import { gitTop, projectRoot, specDir } from './project.js';
 import { writeSamples } from './samples.js';
 import type { Request, ReviewFrame, SeedCase, SeedFile, TestDataConfig } from './types.js';
 
@@ -151,11 +153,28 @@ function defaultPort(root: string, c: TestDataConfig): number {
   return (readConfig(root).port || 5290) + 100;
 }
 
+/** 테스트 서버가 쓸 도구 코드 폴더: 이 도구가 도는 워크트리 또는 지금 테스트 중인 요청의 워크트리(그 요청의 코드로 시험해야 하므로). 워크트리가 없거나 도구 코드가 없으면 null(운영과 같은 main 코드) */
+export function testCodeDir(scanRoot: string): string | null {
+  const root = projectRoot(scanRoot);
+  const rel = path.relative(gitTop(scanRoot), scanRoot) || '.';
+  // 이 도구가 요청 워크트리 안에서 돌고 있으면(담당이 finish·test를 부를 때) 그 워크트리가 테스트 대상이고, 아니면 테스트 단계인 요청 중 가장 나중 것이다
+  const here = loadRequests(scanRoot).find((x) => x.stage !== 'done' && x.stage !== 'cancelled' && worktreeRefOf(root, x.id)?.path === ROOT_DIR);
+  for (const r of [...(here ? [here] : []), ...loadRequests(scanRoot).filter((x) => x.stage === 'test').reverse()]) {
+    const w = worktreeOf(root, r.id);
+    if (w?.exists && fs.existsSync(path.join(w.path, 'skills', 'spec-view', 'spec.mjs')) && fs.existsSync(path.join(w.path, rel))) return w.path;
+  }
+  return null;
+}
+
+/** 테스트 서버 코드 폴더 안의 도구 소스 폴더(옛 코드 판정에 쓴다). 워크트리를 안 쓰면 undefined(지금 코드) */
+const codeSrcDir = (scanRoot: string): string | undefined => { const d = testCodeDir(scanRoot); return d ? path.join(d, path.relative(ROOT_DIR, SRC_DIR)) : undefined; };
+
 /** 테스트용 설계서 서버를 운영과 다른 포트에 띄운다: 운영 .spec 대신 저장소 밖 테스트 자리의 .spec을 읽고 쓰며, 담당 세션은 깨우지 않는다 */
 function startServer(root: string, scanRoot: string, dir: string, port: number): void {
+  const codeDir = testCodeDir(scanRoot);
   fs.mkdirSync(dir, { recursive: true });
   const log = fs.openSync(path.join(dir, 'serve.log'), 'a');
-  const child = spawn(process.execPath, [LAUNCHER, 'serve', '--project', root, '--src', path.relative(root, scanRoot) || '.', '--port', String(port)], { cwd: root, detached: true, stdio: ['ignore', log, log], env: { ...process.env, SPEC_TEST_DIR: dir } });
+  const child = spawn(process.execPath, [codeDir ? path.join(codeDir, 'skills', 'spec-view', 'spec.mjs') : LAUNCHER, 'serve', '--project', root, '--src', path.relative(root, scanRoot) || '.', '--port', String(port)], { cwd: codeDir ?? root, detached: true, stdio: ['ignore', log, log], env: { ...process.env, SPEC_TEST_DIR: dir } });
   child.unref();
 }
 
@@ -205,14 +224,19 @@ export async function restartForTest(scanRoot: string): Promise<string> {
   const root = projectRoot(scanRoot);
   if (!fs.existsSync(configFile(root)) || process.env.SPEC_TEST_DIR) return '';
   const port = readConfig(root).port || 5290;
-  if (await openServers([root, '--no-open', '--restart'])) return `운영 서버(포트 ${port})를 새 코드로 다시 띄우지 못했다`;
-  const prod = await newCodeProblem(`http://localhost:${port}`);
-  if (prod) return `운영 서버(포트 ${port}): ${prod}`;
+  // 요청 워크트리 안에서 돌 때는 운영 서버를 건드리지 않는다(운영은 main 코드이고, 이 코드는 테스트 승인 뒤에야 main에 들어간다). 테스트 서버만 이 워크트리 코드로 띄워 확인한다
+  // (테스트 대상 워크트리가 없을 때 빈 글이 현재 폴더로 풀려 건너뛰어지지 않도록 null을 따로 본다)
+  const codeDir = testCodeDir(scanRoot);
+  if (!codeDir || path.resolve(codeDir) !== ROOT_DIR) {
+    if (await openServers([root, '--no-open', '--restart'])) return `운영 서버(포트 ${port})를 새 코드로 다시 띄우지 못했다`;
+    const prod = await newCodeProblem(`http://localhost:${port}`);
+    if (prod) return `운영 서버(포트 ${port}): ${prod}`;
+  }
   const c = testDataConfig(root);
   if (c?.kind === 'folder' && !dataProblem(root, c)) {
     let tport = defaultPort(root, c);
     try { tport = (await ensureTestServer(scanRoot, true)).port; } catch (e) { return `테스트 서버(포트 ${tport}): ${e instanceof Error ? e.message : String(e)}`; }
-    const bad = await newCodeProblem(`http://localhost:${tport}`);
+    const bad = await newCodeProblem(`http://localhost:${tport}`, codeSrcDir(scanRoot));
     if (bad) return `테스트 서버(포트 ${tport}): ${bad}`;
   }
   return '';

@@ -432,12 +432,34 @@ export interface Delivery {
   reason?: string;
 }
 
+/** 요청 담당 세션의 워크트리 추적 정보 */
+export interface WorktreeInfo {
+  /** 작업 폴더 */
+  path: string;
+  /** 브랜치 */
+  branch: string;
+  /** 기준 브랜치(main)보다 앞선 커밋 수 */
+  ahead: number;
+  /** 저장(커밋)하지 않은 변경 파일 수 */
+  dirty: number;
+  /** 기준 브랜치에 합쳐졌는가 */
+  merged: boolean;
+  /** 작업 폴더가 아직 있는가 */
+  exists: boolean;
+}
+
 /** 화면에 보여 줄 요청: 이름표, 누구 차례인지, 겹치는 요청을 붙인 것 */
 export interface RequestView extends Request {
   /** 가장 최근 결정의 전달 상태(전달 기록이 없는 옛 결정은 없음) */
   delivery?: Delivery;
   /** 담당 세션이 지금 일하는 중인지와 마지막 활동 시각(세션 기록이 없으면 없음) */
   activity?: { working: boolean; lastActiveAt: string };
+  /** 담당 세션의 워크트리 추적(워크트리를 쓰지 않는 세션이면 없음) */
+  worktree?: WorktreeInfo;
+  /** 같은 파일을 건드리는 다른 진행 중 요청(설계 승인 때 경고) */
+  fileOverlaps?: { id: number; files: string[] }[];
+  /** 담당 세션에 들어가는 터미널 명령(담당 이름이 있을 때) */
+  attach?: string;
   /** 단계의 화면용 이름 */
   stageLabel: string;
   /** 상태의 화면용 이름 */

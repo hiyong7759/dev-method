@@ -14,3 +14,7 @@ deliveries.json
 outbox.json
 outbox-text/
 wake-jobs.json
+notify-cursor.json
+notify-alive.json
+notify-ended.json
+terminal-windows.json

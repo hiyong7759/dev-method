@@ -118,7 +118,7 @@ export function addRequest(scanRoot: string, { title, origin = '', channel = '�
 }
 
 /** 요청 하나를 번호로 읽는다 */
-function loadOne(scanRoot: string, id: number): Request {
+export function loadOne(scanRoot: string, id: number): Request {
   const r = loadRequests(scanRoot).find((x) => x.id === id);
   if (!r) throw new Error(`요청 #${id}을 찾지 못했다`);
   return r;
@@ -612,6 +612,15 @@ export async function main(argv: string[]): Promise<number | undefined> {
       // 사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정 줄을 대기로 되돌린다(프로세스는 띄우지 않는다)
       const row = (await import('./outbox.js')).requeueOutbox(scanRoot, id);
       console.log(row ? `요청 #${id}: 마지막 결정을 다시 보내도록 상자 줄 ${row.seq}을 대기로 돌렸다(메신저가 보낸다)` : `요청 #${id}: 되돌릴 줄이 없다(설정 wake가 꺼져 있다)`);
+    } else if (pos[0] === 'watch') {
+      // 메인 세션이 Monitor로 돌려 담당 사건을 줄마다 받는다(--once면 지금 있는 것만)
+      await (await import('./notify.js')).watch(scanRoot, { once: opts.once === 'true' });
+    } else if (pos[0] === 'check') {
+      const lines = (await import('./land.js')).checkRequest(scanRoot, id, { run: opts['no-run'] !== 'true' });
+      for (const l of lines) console.log(`${l.ok ? '통과' : '문제'} · ${l.what}: ${l.detail}`);
+      if (lines.some((l) => !l.ok)) return 1;
+    } else if (pos[0] === 'land') {
+      console.log((await import('./land.js')).landRequest(scanRoot, id));
     } else if (pos[0] === 'ack') {
       // 담당 세션이 결정·시작 글을 받았다고 응답한다. 사용자 화면의 "읽음"은 이 명령으로만 찍힌다
       (await import('./delivery.js')).markRead(scanRoot, id);
@@ -690,6 +699,9 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  reject-design --id N --note "반려 이유" --quote "사용자가 한 말"   (사용자가 대화에서 설계를 반려했을 때만)',
         '  test-problem --id N --note "문제" --quote "사용자가 한 말"   (사용자가 대화에서 테스트 문제를 알렸을 때만)',
         '  cancel --id N --reason "취소 이유" --quote "사용자가 한 말"   (사용자가 대화에서 요청을 없애자고 했을 때만. 완료·취소 전 어느 단계든 취소로 끝낸다. 인용이 없으면 못 한다)',
+        '  watch [--once true]              (메인 세션 전용: 담당의 시작·질문·막힘·설계 제출·테스트 올림·종료를 새 것만 한 줄씩 내보내며 기다린다. Monitor로 돌려 사용자가 묻기 전에 알린다)',
+        '  check --id N [--no-run true]     (합치기 전 기계 확인: 설계 범위 밖 변경, 같은 파일을 바꾼 다른 브랜치, 타입 검사·시험. 읽기만 한다)',
+        '  land --id N                      (사용자가 테스트 승인한 요청의 워크트리 브랜치만 main에 --no-ff로 합친다. 메인 세션이 하고 담당은 하지 않는다)',
         '  agent --id N --name 세션이름',
         '  list'].join('\n'));
       return 1;
