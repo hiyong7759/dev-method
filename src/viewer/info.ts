@@ -108,7 +108,7 @@ export interface InfoMapOptions {
 export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, drawer, filter, onFilter, domain, onDomain }: InfoMapOptions): void {
   const domOf = (i: ModelInfo): string[] => (i.domains.length ? i.domains : ['기타']);
   const infos = infosOf(model, filter).filter((i) => !domain || domOf(i).includes(domain));
-  const availW = (root.clientWidth || window.innerWidth) - 200 - 380 - 150; // 왼쪽 목록과 오른쪽 패널은 항상 있어 폭을 미리 뺀다(고르면 상자가 움직이는 일이 없게)
+  const availW = (root.clientWidth || window.innerWidth) - 200 - 380 - 56 - 2; // 왼쪽 목록·오른쪽 패널(항상 있어 미리 뺀다)과 페이지 좌우 여백만 뺀다. 화면이 넓으면 그만큼 열이 늘어 안쪽 스크롤이 생기지 않는다
   const erd = buildErd(model, { infos, selected, availW, onSelect, bullets: true });
   const count = (f: InfoFilter): number => infosOf(model, f).filter((i) => !domain || domOf(i).includes(domain)).length;
   const allDomains = [...new Set(model.infos.flatMap(domOf))];
@@ -117,7 +117,7 @@ export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, d
   const legend = h('div', { class: 'legend2' }, h('span', { class: 'sw-box' }), h('span', null, '화면용 정보'), h('span', { class: 'sw-box dashed' }), h('span', null, '내부용 정보(어느 화면에도 보이지 않음)'), rv('리포트 #번호'), h('span', null, '눌러서 리포트로 이동'));
   const panel = drawer;
   root.append(h('div', { class: 'map-body' }, list,
-    h('div', { class: 'flow-center' }, h('div', { class: 'pg' },
+    h('div', { class: 'flow-center' }, h('div', { class: 'pg info-pg' },
       pageHead({ title: '정보 흐름', lead: '정보가 어느 화면에서 입력되고 보이고 바뀌고 판단되는지를 관계도로 봅니다. 도메인은 그 정보를 쓰는 화면의 도메인에서 계산합니다.' }),
       chips, h('div', { class: 'erd-wrap' }, erd), legend)),
     panel));

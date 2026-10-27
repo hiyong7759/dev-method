@@ -286,7 +286,7 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .erd-wrap{flex:1;display:flex;min-height:0}
 .erd{flex:1;overflow:auto;position:relative}
 .erd svg{position:absolute;left:0;top:0;pointer-events:none}
-.inode{position:absolute;width:212px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;overflow:hidden}
+.inode{position:absolute;width:212px;border:1px solid var(--line);border-radius:12px;background:var(--card);cursor:pointer;overflow:hidden}
 .inode.sel{border:2px solid var(--accent);background:var(--accent-bg)}
 .inode.dim{opacity:.45}
 .inode .h{padding:9px 12px 6px;font-size:13px;display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -489,6 +489,7 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 /* 사용 흐름 화면 틀 */
 .flow-center{flex:1;overflow:auto;min-width:0}
 .pg{padding:28px 28px 48px;display:flex;flex-direction:column;gap:20px;max-width:1240px}
+.info-pg{max-width:none}
 .flow-sec>h2{display:flex;align-items:baseline;gap:10px}.flow-sec>h2 small{font-weight:400;font-size:12px}
 .scn{cursor:pointer}
 .scn.picked{border:2px solid var(--accent);background:var(--accent-bg);padding:15px 17px}
@@ -533,7 +534,7 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .inode .h b{display:flex;align-items:center;gap:6px;justify-content:flex-start;font-family:inherit}
 .inode .kt{font-family:inherit;font-size:10px;padding:1px 7px}
 .inode .ftags{display:flex;gap:4px;flex-wrap:wrap;padding:0 12px 8px}
-.inode .tag{font-size:11px;padding:2px 7px}
+.inode .tag{font-size:11px;padding:2px 7px;border-radius:5px;color:var(--dim)}
 .inode .tag.flag{border-color:var(--amber);color:var(--amber);background:var(--amber-bg)}
 .inode .tag.add{border-color:var(--green-deep);color:var(--green);background:var(--green-bg)}
 .inode .tag.del{border-color:var(--red-deep);color:var(--red);background:var(--red-bg);text-decoration:line-through}
