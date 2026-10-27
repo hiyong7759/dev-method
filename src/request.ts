@@ -88,7 +88,7 @@ export interface NewRequest {
   reason?: string;
 }
 
-/** 에이전트가 요청을 만든다. 바로 작업이면 접수를 거치지 않고 설계 없음 승인으로 기록해 곧바로 구현 단계로 둔다 */
+/** 에이전트가 요청을 만든다. 제목은 "한 줄 요약 (세부)"로 받는다(요청 목록 핵심만 보기가 괄호 앞까지만 보인다). 바로 작업이면 접수를 거치지 않고 설계 없음 승인으로 기록해 곧바로 구현 단계로 둔다 */
 export function addRequest(scanRoot: string, { title, origin = '', channel = '대화', screens = [], infos = [], scenarios = [], steps = [], impactOnly = [], agent = '', source = 'user', relatedTo, noTest, detail = '', mode = '', reason = '' }: NewRequest): Request {
   if (!title?.trim()) throw new Error('요청 제목이 비었다');
   if (source !== 'user' && source !== 'report') throw new Error('출처는 user(사용자 요청)나 report(에이전트가 올린 리포트)만 가능하다');

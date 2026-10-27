@@ -4,7 +4,7 @@
  * @contract model.requests의 항목 모양(types.ts의 RequestView: 요청 파일 + describeRequests가 붙이는 stepLabel, turn, overlaps)에 기대어 그린다. 그 모양이 바뀌면 이 파일도 고친다.
  */
 import { h, chip, tag, bul, fmt, type BulKind, type Kid } from './util.js';
-import type { RequestView } from '../types.js';
+import type { Model, RequestView } from '../types.js';
 
 /** 요청이 거치는 다섯 단계(진행 표시의 순서). 접수는 설계 단계 안의 "아직 시작 전" 상태다 */
 const STAGES: { label: string; dot: BulKind }[] = [{ label: '접수', dot: 'que' }, { label: '설계', dot: 'des' }, { label: '구현', dot: 'imp' }, { label: '테스트', dot: 'tst' }, { label: '완료', dot: 'cmp' }];
@@ -98,4 +98,24 @@ export function lightbox(title: string, after: string, before: string, startBefo
   document.addEventListener('keydown', onKey);
   window.addEventListener('hashchange', close);
   document.body.append(ov);
+}
+
+/** 핵심만 보기의 한 줄 제목: 제목의 괄호 앞까지. 괄호가 없는 옛 제목은 40자쯤에서 줄인다 */
+export function briefTitle(title: string): string {
+  const i = title.indexOf('(');
+  const s = i > 0 ? title.slice(0, i).trim() : title;
+  return s.length > 40 ? `${s.slice(0, 40)}…` : s;
+}
+
+/**
+ * 내 차례 요청에서 내가 할 일의 제목들. 새로 적은 요약이 아니라 이미 있는 제목을 그대로 쓴다:
+ * 설계 승인 대기면 설계의 영역 이름, 테스트 승인 대기면 테스트 확인표의 단계 제목
+ */
+export function todoTitles(model: Model, r: RequestView): string[] {
+  if (r.turn !== 'user') return [];
+  if (r.stage === 'design') return [...new Set((r.design?.points ?? []).map((p) => p.area))];
+  if (r.stage !== 'test') return [];
+  const impact = new Set(r.scope.impactOnly ?? []), picked = r.scope.steps ?? [];
+  return (r.scope.scenarios ?? []).map((n) => model.scenarios.find((s) => s.name === n)).filter((s): s is NonNullable<typeof s> => !!s)
+    .flatMap((sc) => sc.steps.filter((st) => (impact.has(sc.name) ? picked.includes(`${sc.name}#${st.id}`) : st.main || picked.includes(`${sc.name}#${st.id}`))).map((st) => st.title));
 }

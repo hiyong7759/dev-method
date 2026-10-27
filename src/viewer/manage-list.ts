@@ -5,13 +5,22 @@
  */
 import { h, post, pageHead, filterChips, chip, fmt, toast, errorText, buls, type BulKind } from './util.js';
 import { hash, nav } from './route.js';
-import { chipFor, scopeTags, currentDesignApproval, deliveryReason, noteBoxes, notDelivered, unread } from './manage-parts.js';
+import { briefTitle, todoTitles, chipFor, scopeTags, currentDesignApproval, deliveryReason, noteBoxes, notDelivered, unread } from './manage-parts.js';
 import type { Model, RequestView } from '../types.js';
 
 /** 요청 카드의 구분 점: 지금 단계(설계·구현·테스트)와 에이전트 발견 여부. 거르기 칩의 점과 짝이다 */
 const STAGE_BUL: Record<string, { kind: BulKind; label: string }> = { design: { kind: 'des', label: '설계' }, impl: { kind: 'imp', label: '구현' }, test: { kind: 'tst', label: '테스트' }, done: { kind: 'cmp', label: '완료' } };
 const isQueued = (r: RequestView): boolean => r.stage === 'design' && r.step === 'queued';
 const bulsOf = (r: RequestView): { kind: BulKind; label: string }[] => [...(isQueued(r) ? [{ kind: 'que' as BulKind, label: '접수' }] : STAGE_BUL[r.stage] ? [STAGE_BUL[r.stage]] : []), ...(r.source === 'report' ? [{ kind: 'fnd' as BulKind, label: '에이전트 발견' }] : [])];
+
+/** 핵심만 보기의 요청 한 줄: 번호·한 줄 제목·상태. 내 차례면 아래에 할 일 제목을 한 줄씩 보인다(접고 펼침 없음, 자세한 것은 눌러서 상세로) */
+function briefRow(r: RequestView, model: Model): HTMLDivElement {
+  const todo = todoTitles(model, r);
+  return h('div', { class: `mg-req brief${r.turn === 'user' ? ' mine' : ''}`, onclick: () => nav(hash('manage', String(r.id))) },
+    h('div', { class: 'rid' }, `#${r.id}`),
+    h('div', null, h('div', { class: 'rt' }, buls(bulsOf(r)), briefTitle(r.title)), todo.length ? h('div', { class: 'brief-todo' }, todo.map((t) => h('div', null, `☐ ${t}`))) : null),
+    h('div', { class: 'ract' }, chipFor(r)));
+}
 
 /** 목록의 요청 한 줄 */
 function row(r: RequestView, onChange: () => void): HTMLDivElement {
@@ -35,9 +44,9 @@ function row(r: RequestView, onChange: () => void): HTMLDivElement {
 }
 
 /** 목록을 "누구 차례"별 묶음으로 나눠 보이는 한 칸. 비면 그리지 않는다 */
-function section(title: string, hint: string, list: RequestView[], onChange: () => void): HTMLElement | null {
+function section(title: string, hint: string, list: RequestView[], draw: (r: RequestView) => HTMLElement): HTMLElement | null {
   if (!list.length) return null;
-  return h('section', { class: 'mg-sec' }, h('h2', null, title, h('small', null, hint)), h('div', { class: 'mg-list' }, list.map((r) => row(r, onChange))));
+  return h('section', { class: 'mg-sec' }, h('h2', null, title, h('small', null, hint)), h('div', { class: 'mg-list' }, list.map(draw)));
 }
 
 /**
@@ -63,6 +72,13 @@ function section(title: string, hint: string, list: RequestView[], onChange: () 
  */
 export function manageList(root: HTMLElement, { model, kind, onChange }: { model: Model; kind: string; onChange: () => void }): void {
   const all = model.requests;
+  // 보기 방식: 주소의 view가 먼저, 없으면 브라우저가 기억한 값. 기본은 자세히
+  const remembered = (): string => { try { return localStorage.getItem('mg-view') ?? ''; } catch { return ''; } };
+  const view = new URLSearchParams(location.hash.split('?')[1] ?? '').get('view') ?? '';
+  const brief = (view || remembered()) === 'brief';
+  const setView = (v: 'brief' | 'full'): void => { try { localStorage.setItem('mg-view', v); } catch { /* 기억 못 해도 주소로 동작한다 */ } nav(hash('manage', '', { kind: kind || undefined, view: v === 'brief' ? 'brief' : undefined }), false); };
+  const draw = (r: RequestView): HTMLElement => (brief ? briefRow(r, model) : row(r, onChange));
+  const toggle = h('div', { class: 'seg' }, ([['full', '자세히'], ['brief', '핵심만']] as const).map(([v, label]) => h('button', { class: `seg-b${(v === 'brief') === brief ? ' on' : ''}`, onclick: () => setView(v) }, label)));
   const KINDS = [
     { key: '', label: '전체', bul: undefined as BulKind | undefined, list: all },
     { key: 'queued', label: '접수', bul: 'que' as BulKind | undefined, list: all.filter(isQueued) },
@@ -84,13 +100,14 @@ export function manageList(root: HTMLElement, { model, kind, onChange }: { model
       h('div', { class: 'rid mono' }, c.hash), h('div', null, h('div', { class: 'rt' }, buls([{ kind: 'nrq', label: '요청 없는 변경' }]), c.title), h('div', { class: 'rm' }, h('span', null, `${fmt(c.at)} · ${c.author} · 커밋에 요청 번호가 없어 이렇게 남았습니다`))),
       h('span'), h('div', { class: 'ract' }, h('button', { class: 'btn', onclick: () => { post('/__spec/request/record', { hash: c.hash, title: c.title }).then(() => { toast('요청으로 기록했습니다'); onChange(); }).catch((e: unknown) => toast(errorText(e))); } }, '요청으로 기록'))))) : h('div', { class: 'empty-note' }, '요청 번호 없이 남은 변경이 없습니다.')]
     : [all.length ? null : h('div', { class: 'empty-note' }, '아직 요청이 없습니다. 에이전트에게 변경을 요청하면 여기에 올라옵니다.'),
-      section('내 차례', `${mine.length}건 — 내가 승인하거나 반려해야 진행됩니다`, mine, onChange),
-      section('에이전트 차례', `${agent.length}건`, agent, onChange),
-      section('접수', `${queued.length}건 — 우선순위를 정한 것부터 「시작」을 누릅니다`, queued, onChange),
+      section('내 차례', `${mine.length}건 — 내가 승인하거나 반려해야 진행됩니다`, mine, draw),
+      section('에이전트 차례', `${agent.length}건`, agent, draw),
+      section('접수', `${queued.length}건 — 우선순위를 정한 것부터 「시작」을 누릅니다`, queued, draw),
       model.untracked.length ? h('div', { class: 'mg-sec' }, h('a', { class: 'mg-line', href: hash('manage', '', { kind: 'untracked' }) }, buls([{ kind: 'nrq', label: '요청 없는 변경' }]), h('b', null, '요청 없는 변경'), h('span', null, `요청 번호 없이 남은 변경 ${model.untracked.length}건`), h('span', { class: 'grow' }), h('span', { class: 'hint' }, '보기 ›'))) : null,
-      ended.length ? h('details', { class: 'mg-sec' }, h('summary', null, buls([{ kind: 'cmp', label: '완료' }]), h('b', null, '완료'), h('span', null, `끝난 요청 ${ended.length}건`), h('span', { class: 'grow' }), h('span', { class: 'hint' }, '펼쳐서 보기 ›')), h('div', { class: 'mg-list', style: 'margin-top:10px' }, ended.map((r) => row(r, onChange)))) : null];
+      ended.length ? h('details', { class: 'mg-sec' }, h('summary', null, buls([{ kind: 'cmp', label: '완료' }]), h('b', null, '완료'), h('span', null, brief ? `완료·취소 ${ended.length}건` : `끝난 요청 ${ended.length}건`), h('span', { class: 'grow' }), h('span', { class: 'hint' }, '펼쳐서 보기 ›')), h('div', { class: 'mg-list', style: 'margin-top:10px' }, ended.map(draw))) : null];
   root.append(h('div', { class: 'wrap' },
     pageHead({ title: '요청', lead: '현재를 바꾸는 일을 한곳에서 관리합니다. 요청 하나가 화면 몇 개를 건드려도 하나로 다룹니다.' }),
-    filterChips(KINDS.map((k) => ({ key: k.key, label: k.label, bul: k.bul, count: counts(k) })), cur.key, (k) => nav(hash('manage', '', { kind: k || undefined }))),
+    filterChips(KINDS.map((k) => ({ key: k.key, label: k.label, bul: k.bul, count: counts(k) })), cur.key, (k) => nav(hash('manage', '', { kind: k || undefined, view: view || undefined }))),
+    h('div', { class: 'seg-row' }, toggle),
     ...body));
 }
