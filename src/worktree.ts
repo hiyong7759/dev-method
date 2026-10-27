@@ -43,8 +43,3 @@ export function worktreeOf(root: string, id: number): WorktreeInfo | null {
     return { path: ref.path, branch: ref.branch, ahead, dirty, merged, exists };
   } catch { return { ...ref, ahead: 0, dirty: 0, merged: false, exists }; }
 }
-
-/** 이 폴더가 요청 워크트리(git 연결 작업 폴더)인지. 담당 기록(.spec/sessions.json)은 커밋하지 않아 워크트리에는 없으므로, 워크트리 안에서 도는지는 git으로 알아낸다 */
-export function isLinkedWorktree(dir: string): boolean {
-  try { return path.resolve(dir, git(dir, ['rev-parse', '--git-dir']).trim()) !== path.resolve(dir, git(dir, ['rev-parse', '--git-common-dir']).trim()); } catch { return false; }
-}

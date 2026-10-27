@@ -12,11 +12,11 @@ import { spawn } from 'node:child_process';
 import { parseArgs, errorText } from './cli.js';
 import { LAUNCHER, ROOT_DIR, SRC_DIR } from './paths.js';
 import { loadRequests } from './request.js';
-import { isLinkedWorktree, worktreeOf, worktreeRefOf } from './worktree.js';
+import { worktreeOf, worktreeRefOf } from './worktree.js';
 import { configFile, readConfig } from './config.js';
 import { main as openServers, killPort } from './open.js';
 import { newCodeProblem } from './stale.js';
-import { projectRoot, specDir } from './project.js';
+import { gitTop, projectRoot, specDir } from './project.js';
 import { writeSamples } from './samples.js';
 import type { Request, ReviewFrame, SeedCase, SeedFile, TestDataConfig } from './types.js';
 
@@ -156,7 +156,7 @@ function defaultPort(root: string, c: TestDataConfig): number {
 /** 테스트 서버가 쓸 도구 코드 폴더: 이 도구가 도는 워크트리 또는 지금 테스트 중인 요청의 워크트리(그 요청의 코드로 시험해야 하므로). 워크트리가 없거나 도구 코드가 없으면 null(운영과 같은 main 코드) */
 export function testCodeDir(scanRoot: string): string | null {
   const root = projectRoot(scanRoot);
-  const rel = path.relative(root, scanRoot) || '.';
+  const rel = path.relative(gitTop(scanRoot), scanRoot) || '.';
   // 이 도구가 요청 워크트리 안에서 돌고 있으면(담당이 finish·test를 부를 때) 그 워크트리가 테스트 대상이고, 아니면 테스트 단계인 요청 중 가장 나중 것이다
   const here = loadRequests(scanRoot).find((x) => x.stage !== 'done' && x.stage !== 'cancelled' && worktreeRefOf(root, x.id)?.path === ROOT_DIR);
   for (const r of [...(here ? [here] : []), ...loadRequests(scanRoot).filter((x) => x.stage === 'test').reverse()]) {
@@ -227,7 +227,7 @@ export async function restartForTest(scanRoot: string): Promise<string> {
   // 요청 워크트리 안에서 돌 때는 운영 서버를 건드리지 않는다(운영은 main 코드이고, 이 코드는 테스트 승인 뒤에야 main에 들어간다). 테스트 서버만 이 워크트리 코드로 띄워 확인한다
   // (테스트 대상 워크트리가 없을 때 빈 글이 현재 폴더로 풀려 건너뛰어지지 않도록 null을 따로 본다)
   const codeDir = testCodeDir(scanRoot);
-  if (!isLinkedWorktree(root) && (!codeDir || path.resolve(codeDir) !== ROOT_DIR)) {
+  if (!codeDir || path.resolve(codeDir) !== ROOT_DIR) {
     if (await openServers([root, '--no-open', '--restart'])) return `운영 서버(포트 ${port})를 새 코드로 다시 띄우지 못했다`;
     const prod = await newCodeProblem(`http://localhost:${port}`);
     if (prod) return `운영 서버(포트 ${port}): ${prod}`;
