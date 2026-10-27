@@ -408,7 +408,7 @@ export type DeliveryState = 'applied' | 'read' | 'sending' | 'hook-wait' | 'fail
 export interface Delivery {
   /** 결정 기록의 글(예: 설계 승인) */
   decision: string;
-  /** 결정 기록 종류 */
+  /** 결정 기록 종류. 'started'면 결정이 아니라 접수에서 설계를 시작한 것의 전달이다(글·읽음·반영의 뜻이 다르다) */
   kind: string;
   /** 사용자가 결정 단추를 누른 시각 */
   pressed: string;

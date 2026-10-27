@@ -15,10 +15,9 @@ import { screenHistory } from './history.js';
 import { decide, addNote, sendToTool } from './report.js';
 import { addComment, replyComment, closeComment, commentToRequest, shotDir } from './comment.js';
 import { ensureTestServer } from './testdata.js';
-import { addRequest, startDesign, recordUntracked, approveDesign, rejectDesign, redesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
-import { wakeOwner } from './wake.js';
+import { addRequest, recordUntracked, approveDesign, rejectDesign, redesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
+import { startRequest, wakeOwner } from './wake.js';
 import { conversationsOf } from './conversation.js';
-import { startOwner } from './session.js';
 import { errorText } from './cli.js';
 import { ROOT_DIR, SKILL_DIR, SRC_DIR, VIEWER_DIR } from './paths.js';
 
@@ -182,7 +181,7 @@ export function specHandler(scanRoot: string): SpecHandler {
         // 사용자가 '지금 다시 보내기'를 누르면 마지막 결정을 일하는 중인 세션에도 다시 보낸다
         if (url === '/__spec/testdata/ensure') return json(res, await ensureTestServer(scanRoot));
         if (url === '/__spec/request/resend') return json(res, { woken: wakeOwner(scanRoot, Number(b.id), true).length });
-        if (url === '/__spec/request/start') { const r = startDesign(scanRoot, Number(b.id)); startOwner(scanRoot, Number(b.id), 'start'); return json(res, r); }
+        if (url === '/__spec/request/start') return json(res, startRequest(scanRoot, Number(b.id)).request);
         if (url === '/__spec/request/design-approve') { const r = approveDesign(scanRoot, Number(b.id)); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
         if (url === '/__spec/request/design-reject') { const r = rejectDesign(scanRoot, Number(b.id), String(b.note || '')); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }
         if (url === '/__spec/request/redesign') { const r = redesign(scanRoot, Number(b.id), 'user', String(b.reason || '')); wakeOwner(scanRoot, Number(b.id)); return json(res, r); }

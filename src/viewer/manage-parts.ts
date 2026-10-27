@@ -2,6 +2,7 @@
  * @spec manage-parts 관리 화면이 함께 쓰는 조각
  * @why 요청 목록과 요청 상세가 같은 상태 이름표·범위 이름표를 쓰고, 요청 상세가 접수부터 완료까지 진행 표시를 그리므로, 두 화면이 다르게 보이지 않게 한 곳에 둔다.
  * @contract model.requests의 항목 모양(types.ts의 RequestView: 요청 파일 + describeRequests가 붙이는 stepLabel, turn, overlaps)에 기대어 그린다. 그 모양이 바뀌면 이 파일도 고친다.
+ * @does 접수에서 시작을 누른 요청의 상세를 연다 | 오른쪽 패널에 "시작이 전달됐나" 카드(시작 누름·글 보냄·글 읽음·설계 제출)가 보이고, 안 읽히면 자동으로 다시 보내며 끝내 안 읽히면 붉은 "시작이 전달되지 않았습니다"가 된다 | 시작 글이 전달됐는지 알아챈다#1
  */
 import { h, chip, tag, bul, fmt, type BulKind, type Kid } from './util.js';
 import type { Model, RequestView } from '../types.js';
@@ -42,6 +43,7 @@ export const unread = (r: RequestView): boolean => !!r.delivery && ['sending', '
 export function deliveryReason(r: RequestView): string {
   const v = r.delivery;
   if (!v) return '';
+  if (v.kind === 'started') return v.state === 'failed' ? `시작 글을 자동으로 ${v.resent}번 다시 보냈지만 ${v.waitMin}분째 안 읽음` : v.state === 'hook-wait' ? '담당 세션이 자동으로 만들어지지 않습니다' : `시작 글 읽기 대기 ${v.waitMin}분`;
   const what = r.stage === 'design' ? '설계 다시 쓰기 전' : '결정 반영 전';
   return v.state === 'failed' ? `${what} · 자동으로 ${v.resent}번 다시 보냈지만 ${v.waitMin}분째 안 읽음` : v.state === 'hook-wait' ? `${what} · 담당 세션이 움직일 때 전달됨` : `${what} · 읽기 대기 ${v.waitMin}분`;
 }
@@ -54,18 +56,19 @@ export function deliveryCard(r: RequestView, resend: () => void): HTMLElement | 
   const v = r.delivery;
   if (!v) return null;
   const hm = (iso: string): string => fmt(iso).slice(6);
-  if (v.state === 'stalled') return h('div', { class: 'card dlv bad' }, h('h3', null, '담당 세션이 멈춘 듯합니다', h('small', null, v.decision)), h('div', { class: 'hint' }, '결정을 반영한 뒤 다음 단계(테스트 요청 등)가 없어 한 번 더 보냈지만 그대로입니다. 세션을 열어 보거나 다시 보내세요.'), h('div', { class: 'sp-foot' }, h('button', { class: 'btn pri', onclick: resend }, '지금 다시 보내기')));
-  if (v.state === 'applied') return h('div', { class: 'hint dlv-done' }, `${v.decision} · ${hm(v.applied!)} 반영됨`);
+  const start = v.kind === 'started';
+  if (v.state === 'stalled') return h('div', { class: 'card dlv bad' }, h('h3', null, '담당 세션이 멈춘 듯합니다', h('small', null, v.decision)), h('div', { class: 'hint' }, start ? '시작 글을 읽은 뒤 설계가 올라오지 않아 한 번 더 보냈지만 그대로입니다.' : '결정을 반영한 뒤 다음 단계(테스트 요청 등)가 없어 한 번 더 보냈지만 그대로입니다. 세션을 열어 보거나 다시 보내세요.'), h('div', { class: 'sp-foot' }, h('button', { class: 'btn pri', onclick: resend }, '지금 다시 보내기')));
+  if (v.state === 'applied') return h('div', { class: 'hint dlv-done' }, `${v.decision} · ${hm(v.applied!)} ${start ? '설계 제출됨' : '반영됨'}`);
   const failed = v.state === 'failed';
   const cells: { label: string; at: string | null; bad: boolean }[] = [
-    { label: '눌림', at: v.pressed, bad: false }, { label: '보냄', at: v.sent, bad: false }, { label: '읽음', at: v.read, bad: failed }, { label: '반영', at: v.applied, bad: false },
+    { label: start ? '시작 누름' : '눌림', at: v.pressed, bad: false }, { label: start ? '글 보냄' : '보냄', at: v.sent, bad: false }, { label: start ? '글 읽음' : '읽음', at: v.read, bad: failed }, { label: start ? '설계 제출' : '반영', at: v.applied, bad: false },
   ];
   const next = v.nextResendAt ? ` · 다음 자동 재전송 ${hm(v.nextResendAt)}` : '';
   const sub = failed ? `${v.waitMin}분째 안 읽음 · 자동 재전송 ${v.resent}/${v.maxResend}번 끝남`
-    : v.state === 'hook-wait' ? '자동으로 깨우는 장치가 꺼져 있어, 담당 세션이 움직일 때 전달됩니다'
-    : v.state === 'read' ? '읽었고 곧 반영합니다' : `${v.waitMin}분째 안 읽음 · 자동 재전송 ${v.resent}/${v.maxResend}번${next}`;
+    : v.state === 'hook-wait' ? (start ? '담당 세션이 자동으로 만들어지지 않습니다 — 담당 세션을 직접 열어 이 요청을 맡겨야 합니다' : '자동으로 깨우는 장치가 꺼져 있어, 담당 세션이 움직일 때 전달됩니다')
+    : v.state === 'read' ? (start ? '시작 글을 읽었고 설계를 쓰는 중입니다' : '읽었고 곧 반영합니다') : `${v.waitMin}분째 안 읽음 · 자동 재전송 ${v.resent}/${v.maxResend}번${next}`;
   return h('div', { class: `card dlv${failed ? ' bad' : ''}` },
-    h('h3', null, failed ? '내 결정이 전달되지 않았습니다' : '내 결정이 전달됐나', h('small', null, v.decision)),
+    h('h3', null, failed ? (start ? '시작이 전달되지 않았습니다' : '내 결정이 전달되지 않았습니다') : (start ? '시작이 전달됐나' : '내 결정이 전달됐나'), h('small', null, v.decision)),
     h('div', { class: 'dlv-steps' }, cells.map((c, i) => h('div', { class: `dlv-c${c.at ? ' on' : ''}${c.bad ? ' bad' : ''}` },
       h('i', null, c.bad ? '!' : c.at ? '✓' : String(i + 1)), h('b', null, c.label), h('small', null, c.at ? hm(c.at) : c.bad ? '안 읽음' : '대기')))),
     h('div', { class: 'hint' }, sub),

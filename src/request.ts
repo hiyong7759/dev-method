@@ -161,7 +161,7 @@ export function describeRequests(list: Request[], componentsOf: (r: Request) => 
     // 에이전트 차례 글은 전달 기록으로 나눈다: 담당 세션이 읽기 전에는 일하는 것처럼 보이지 않게 한다
     const notRead = meta.turn === 'agent' && !!delivery && (delivery.state === 'sending' || delivery.state === 'hook-wait' || delivery.state === 'failed');
     const stalled = meta.turn === 'agent' && delivery?.state === 'stalled';
-    const stepLabel = r.mergedInto ? `#${r.mergedInto}에 합침` : stalled ? `${meta.label} · 멈춘 듯함` : notRead ? (delivery!.state === 'failed' ? '전달 안 됨' : '결정 전달 중') : meta.label;
+    const stepLabel = r.mergedInto ? `#${r.mergedInto}에 합침` : stalled ? `${meta.label} · 멈춘 듯함` : notRead ? (delivery!.state === 'failed' ? '전달 안 됨' : delivery!.kind === 'started' ? '시작 전달 중' : '결정 전달 중') : meta.label;
     return { ...r, ...(delivery ? { delivery } : {}), ...(ended(r) ? {} : openNotes(r)), stageLabel: STAGE_LABEL[r.stage], stepLabel, turn: meta.turn, overlaps, waitingFor, cost: { start: 0, wake: 0, inputTokens: 0, outputTokens: 0, usd: 0 }, redesigns: r.events.filter((e) => e.kind === 'redesigned').length };
   });
 }
@@ -574,8 +574,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
     } else if (pos[0] === 'list') {
       for (const r of describeRequests(loadRequests(scanRoot))) console.log(`#${r.id} [${r.stageLabel} · ${r.stepLabel}] ${r.title}`);
     } else if (pos[0] === 'start') {
-      const r = startDesign(scanRoot, id);
-      const sid = (await import('./session.js')).startOwner(scanRoot, id, 'start');
+      const { request: r, session: sid } = (await import('./wake.js')).startRequest(scanRoot, id);
       console.log(`요청 #${r.id}: 설계를 시작한다${sid ? ` · 담당 세션을 새로 만들었다(${sid.slice(0, 8)}, 진행은 .spec/wake.log)` : ''}`);
     } else if (pos[0] === 'design') {
       const input = opts.file ? JSON.parse(fs.readFileSync(opts.file, 'utf8')) as DesignInput : {};

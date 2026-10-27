@@ -1,7 +1,7 @@
 /**
  * @spec owner-session 요청 담당 세션 만들기와 비용 기록
  * @why 요청을 시작하면 그 요청 하나만 맡는 세션이 있어야 설계를 쓰고 사용자 결정에 이어서 일할 수 있다. 사람이 세션을 따로 열지 않아도 되게 서버·명령이 세션을 새로 만들고, 만들거나 깨울 때마다 든 비용을 요청별로 남겨 얼마나 드는지 본다.
- * @contract 프로젝트 설정 `wake: true`일 때만 세션을 만든다(호출마다 비용이 들기 때문). 시작은 줄 없이 바로, 깨움은 같은 세션끼리 차례로·서로 다른 세션은 3개까지 동시에 돈다. 담당 등록 전의 "시작 중" 세션(30분 안)은 옛 기록으로 걷어 내지 않고, 10분 넘게 소식이 없으면 retryStalledStarts가 한 번 다시 시작한다.새 세션은 `claude -p 글 --session-id 새번호`로 만들고 .spec/sessions.json에 요청 번호와 함께 바로 적는다. 요청 하나에 담당이 이미 있으면 새로 만들지 않는다. claude는 결과를 JSON으로 받아(`--output-format json`) 토큰과 비용을 .spec/session-costs.json에 적는다. 도구 호출은 기다리지 않고 따로 떨어져 돌며(서버·명령이 먼저 끝나도 계속), 결과는 .spec/wake.log에 남긴다. 어떤 경우에도 시작·결정 자체를 실패시키지 않는다. 담당 세션에는 node를 입구 파일(spec.mjs)로만 허용하고, 읽기 금지 경로(.spec/local.json, .env*)와 비밀 파일 이름이 든 명령을 막는 훅을 함께 건다. 새 담당·깨움 글에는 '그 일'의 끝(구현은 테스트 요청까지)과 막힘·질문을 남기는 명령, 쓰면 막히는 명령을 적는다.
+ * @contract 프로젝트 설정 `wake: true`일 때만 세션을 만든다(호출마다 비용이 들기 때문). 시작은 줄 없이 바로, 깨움은 같은 세션끼리 차례로·서로 다른 세션은 3개까지 동시에 돈다. 담당 등록 전의 "시작 중" 세션(30분 안)은 옛 기록으로 걷어 내지 않고, 시작 글이 안 읽히면 delivery.ts의 기준(5분, 최대 2번)에 따라 wake.ts가 resendStart로 같은 세션에 같은 글을 다시 보낸다(담당이 둘이 되지 않는다). 새 세션은 `claude -p 글 --session-id 새번호`로 만들고 .spec/sessions.json에 요청 번호와 함께 바로 적는다. 요청 하나에 담당이 이미 있으면 새로 만들지 않는다. claude는 결과를 JSON으로 받아(`--output-format json`) 토큰과 비용을 .spec/session-costs.json에 적는다. 도구 호출은 기다리지 않고 따로 떨어져 돌며(서버·명령이 먼저 끝나도 계속), 결과는 .spec/wake.log에 남긴다. 어떤 경우에도 시작·결정 자체를 실패시키지 않는다. 담당 세션에는 node를 입구 파일(spec.mjs)로만 허용하고, 읽기 금지 경로(.spec/local.json, .env*)와 비밀 파일 이름이 든 명령을 막는 훅을 함께 건다. 새 담당·깨움 글에는 '그 일'의 끝(구현은 테스트 요청까지)과 막힘·질문을 남기는 명령, 쓰면 막히는 명령을 적는다.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -12,9 +12,9 @@ import { fileURLToPath } from 'node:url';
 import { readConfig } from './config.js';
 import { brandOf } from './brand.js';
 import { kst } from './kst.js';
-import { loadRequests, noteSessionFailed, noteSessionStarted, STAGE_LABEL, STEP } from './request.js';
+import { loadRequests, noteSessionStarted, STAGE_LABEL, STEP } from './request.js';
 import { projectRoot, specDir } from './project.js';
-import { STALL_AFTER_MIN } from './delivery.js';
+import { isStart, STALL_AFTER_MIN } from './delivery.js';
 import type { Request, SessionCost } from './types.js';
 
 /** 이 도구의 입구 파일(다른 프로젝트에서도 같은 도구를 부른다) */
@@ -103,8 +103,6 @@ export function ownersOf(root: string, id: number): string[] {
 
 /** 시작한 지 이 안이면 아직 시작 중인 세션으로 본다 */
 const STARTING_MS = 30 * 60 * 1000;
-/** 시작한 뒤 담당 등록이 이만큼 없고 기록도 안 늘면 빠진 것으로 보고 다시 시작한다 */
-const STALLED_MS = 10 * 60 * 1000;
 
 /** 요청 id에 서버가 만들어 아직 시작 중인 담당 세션이 있는지 */
 function hasStarting(root: string, id: number): boolean {
@@ -125,7 +123,7 @@ function unregisterOwners(root: string, id: number): void {
 
 /** 세션이 어느 요청의 담당인지 적는다(훅이 적는 것과 같은 모양) */
 function registerOwner(root: string, sid: string, id: number): void {
-  let all: Record<string, { request: number; seen: string; starting?: string; retried?: boolean }> = {};
+  let all: Record<string, { request: number; seen: string; starting?: string }> = {};
   try { all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')); } catch { /* 처음이면 새로 */ }
   // starting: 이 서버가 만든 시각. 담당 등록이 끝나기 전의 세션을 옛 기록으로 오해해 걷어 내지 않는 근거다
   all[sid] = { request: id, seen: '', starting: new Date().toISOString() };
@@ -291,7 +289,9 @@ export function resumeOwner(scanRoot: string, id: number, sid: string, decided: 
   const root = projectRoot(scanRoot);
   const req = loadRequests(scanRoot).find((r) => r.id === id);
   const src = path.relative(root, scanRoot) || '.';
-  const head = stalled
+  const head = stalled && req && isStart(req)
+    ? `[spec-view] ${brandOf(root).name} 요청 #${id}${req ? ` "${req.title}"` : ''}을 시작했는데 담당을 맡은 뒤 ${STALL_AFTER_MIN}분 넘게 설계가 올라오지 않아 다시 알립니다. 요청 내용을 읽고 설계를 써서 \`request design --id ${id}\`로 올리고 승인 대기에서 멈추세요. 막혔거나 사용자에게 물을 것이 있으면 아래 명령으로 남기세요.`
+    : stalled
     ? `[spec-view] ${brandOf(root).name} 요청 #${id}${req ? ` "${req.title}"` : ''}에 사용자가 결정(${decided})한 뒤 ${STALL_AFTER_MIN}분 넘게 다음 단계 기록이 없어 다시 알립니다. 구현·커밋을 마쳤다면 \`request impl\`·\`finish\`·\`request test\`까지 올리고 멈추세요. 막혔거나 사용자에게 물을 것이 있으면 아래 명령으로 남기세요.`
     : `[spec-view] ${brandOf(root).name} 요청 #${id}${req ? ` "${req.title}"` : ''}에 사용자가 결정했습니다(${decided}).`;
   const msg = `${head}${briefOf(req)}\n${stalled ? '' : `${THAT_JOB} `}${guideOf(id, src)} 더 알아야 하면 .spec/requests/${id}.json과 \`node ${SPEC_MJS} todo --src ${src}\`로 지금 할 일을 확인하세요.`;
@@ -302,36 +302,12 @@ export function resumeOwner(scanRoot: string, id: number, sid: string, decided: 
   launch(root, scanRoot, id, sid, msg, steps);
 }
 
-/** 서버가 1분마다 부른다: 시작했는데 담당 등록이 STALLED_MS 넘게 없고 세션 기록도 늘지 않는 요청을 한 번 다시 시작한다. 그래도 안 되면 진행 기록에 실패로 남겨 사용자가 알게 한다 */
-export function retryStalledStarts(scanRoot: string): number[] {
-  const done: number[] = [];
-  try {
-    const root = projectRoot(scanRoot);
-    if (!readConfig(root).wake) return done;
-    const all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')) as Record<string, { request: number; seen: string; starting?: string; retried?: boolean; failed?: boolean }>;
-    const reqs = loadRequests(scanRoot);
-    for (const [sid, v] of Object.entries(all)) {
-      if (!v.starting || v.failed) continue;
-      const req = reqs.find((r) => r.id === v.request);
-      if (!req || req.agent.name || req.stage !== 'design') continue;
-      const age = Date.now() - Date.parse(v.starting);
-      let quiet = Infinity, exists = false;
-      try { quiet = Date.now() - fs.statSync(transcriptOf(root, sid)).mtimeMs; exists = true; } catch { /* 기록이 없으면 아직 시작도 못 한 것 */ }
-      if (age < STALLED_MS * (v.retried ? 2 : 1) || quiet < STALLED_MS) continue;
-      const log = logFile(root);
-      if (v.retried) {
-        v.failed = true;
-        noteSessionFailed(scanRoot, v.request, sid);
-        fs.appendFileSync(log, `${new Date().toISOString()} #${v.request} ${sid} 다시 시작했는데도 담당 등록이 없어 실패로 남김\n`);
-      } else {
-        v.retried = true;
-        const msg = newOwnerMessage(scanRoot, root, req, v.request, '');
-        fs.appendFileSync(log, `${new Date().toISOString()} #${v.request} ${sid} 시작이 끝나지 않아 같은 세션으로 다시 시작함\n`);
-        launch(root, scanRoot, v.request, sid, msg, [{ args: `${exists ? '--resume' : '--session-id'} ${sid} --name "${ownerName(root, v.request)}"`, prompt: '"$MSG"', kind: 'start' }]);
-      }
-      done.push(v.request);
-    }
-    if (done.length) fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
-  } catch { /* 점검이 실패해도 서버는 계속 돈다 */ }
-  return done;
+/** 시작 글을 같은 담당 세션에 다시 보낸다(담당이 둘이 되지 않게 새 세션을 만들지 않는다). 대화가 아직 안 만들어졌으면 같은 번호로 새로 시작하고, 있으면 이어 쓴다 */
+export function resendStart(scanRoot: string, id: number, sid: string): void {
+  const root = projectRoot(scanRoot);
+  const req = loadRequests(scanRoot).find((r) => r.id === id);
+  let exists = false;
+  try { fs.statSync(transcriptOf(root, sid)); exists = true; } catch { /* 기록이 없으면 아직 시작도 못 한 것 */ }
+  fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} ${sid} 시작 글이 읽히지 않아 같은 세션에 다시 보냄\n`);
+  launch(root, scanRoot, id, sid, newOwnerMessage(scanRoot, root, req, id, ''), [{ args: `${exists ? '--resume' : '--session-id'} ${sid} --name "${ownerName(root, id)}"`, prompt: '"$MSG"', kind: 'start' }]);
 }

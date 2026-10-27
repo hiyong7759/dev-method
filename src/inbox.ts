@@ -8,7 +8,7 @@ import path from 'node:path';
 import { configFile } from './config.js';
 import { kst } from './kst.js';
 import { loadRequests } from './request.js';
-import { markRead } from './delivery.js';
+import { markRead, markStartRead } from './delivery.js';
 
 /** 훅이 넘기는 JSON 중 쓰는 것 */
 interface HookInput {
@@ -65,13 +65,14 @@ export async function main(): Promise<number> {
       // 요청을 접수(add)만 한 세션은 담당이 아니다. 접수한 세션이 담당으로 적히면 요청을 시작할 때 "담당이 이미 있다"고 보아 담당 세션이 만들어지지 않는다
       const bound = cmd.match(/spec\.mjs\s+request\s+agent\b[^\n]*?--id[ =](\d+)/)?.[1];
       const req = bound ? requests.find((r) => r.id === Number(bound)) : undefined;
-      if (req) { sessions[sid] = { request: req.id, seen: req.events[req.events.length - 1]?.at ?? new Date().toISOString() }; save(); return 0; }
+      if (req) { sessions[sid] = { request: req.id, seen: req.events[req.events.length - 1]?.at ?? new Date().toISOString() }; save(); markStartRead(root, req); return 0; }
     }
     const mine = sessions[sid];
     const req = mine ? requests.find((r) => r.id === mine.request) : undefined;
     if (!mine || !req) return 0;
     // 깨움 글('[spec-view] 요청 #N')이 이 세션의 입력으로 들어왔으면 결정을 읽은 것이다
-    if (input.prompt?.includes(`[spec-view] 요청 #${req.id} `)) markRead(root, req.id);
+    // 새 담당 글('[프로젝트 요청 #N 담당]', 시작 글)이 들어왔을 때도 같다
+    if (input.prompt?.includes(`[spec-view] 요청 #${req.id} `) || input.prompt?.includes(`요청 #${req.id} 담당]`)) markRead(root, req.id);
     const news = req.events.filter((e) => e.by === 'user' && e.at > mine.seen && NEXT[e.kind]);
     if (!news.length) return 0;
     markRead(root, req.id);

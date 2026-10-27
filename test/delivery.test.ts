@@ -1,10 +1,10 @@
 /**
- * @why 사용자 결정의 전달 상태가 화면 세 곳(목록 이름표·상세 상태 글·패널 카드)에서 어긋나지 않는지 지킨다: 읽기 전에는 일하는 중처럼 보이지 않고, 뒤 칸이 찼으면 앞 칸도 차며, 5분 뒤 재전송 대상이 되고, 재전송이 끝나도 안 읽히면 전달 안 됨이 된다. 기록이 없는 옛 결정에는 상태를 만들지 않는다.
+ * @why (설계 시작도 같은 기록을 받는다: 보냄·읽음(담당 등록)·설계 제출·멈춤.) 사용자 결정의 전달 상태가 화면 세 곳(목록 이름표·상세 상태 글·패널 카드)에서 어긋나지 않는지 지킨다: 읽기 전에는 일하는 중처럼 보이지 않고, 뒤 칸이 찼으면 앞 칸도 차며, 5분 뒤 재전송 대상이 되고, 재전송이 끝나도 안 읽히면 전달 안 됨이 된다. 기록이 없는 옛 결정에는 상태를 만들지 않는다.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addRequest, approveDesign, describeRequests, loadRequests, rejectDesign, submitDesign } from '../src/request.js';
-import { deliveryOf, dueForResend, markRead, markSent, openDelivery } from '../src/delivery.js';
+import { addRequest, approveDesign, describeRequests, loadRequests, rejectDesign, setAgent, startDesign, submitDesign } from '../src/request.js';
+import { deliveryOf, dueForResend, dueForStall, markRead, markSent, markStartRead, markStallSent, openDelivery, STALL_AFTER_MIN } from '../src/delivery.js';
 import { tempProject } from './helpers.js';
 
 const min = 60_000;
@@ -72,4 +72,46 @@ test('새 결정이 생기면 이전 결정의 기록을 이어 쓰지 않는다
   assert.equal(deliveryOf(src, req(src)), null, '새 결정은 기록을 새로 열기 전에는 상태가 없다');
   openDelivery(src, req(src));
   assert.equal(deliveryOf(src, req(src))?.read, null);
+});
+
+/** 접수에서 시작해 담당 세션에 첫 글을 보낸 요청 한 건 */
+function started(): { src: string } {
+  const { src } = tempProject();
+  addRequest(src, { title: 's' });
+  startDesign(src, 1);
+  openDelivery(src, req(src)); markSent(src, 1, 'wake');
+  return { src };
+}
+
+test('시작도 전달 기록을 받는다: 보낸 뒤 읽기 전에는 "시작 전달 중", 담당 등록이 읽음, 설계 제출이 반영이다', () => {
+  const { src } = started();
+  const view = (): string => describeRequests(loadRequests(src), () => [], (r) => deliveryOf(src, r))[0].stepLabel;
+  assert.equal(deliveryOf(src, req(src))!.kind, 'started');
+  assert.equal(view(), '시작 전달 중');
+  assert.equal(dueForResend(src, loadRequests(src), Date.now() + 6 * min).length, 1, '5분 넘게 안 읽히면 시작 글을 다시 보낸다');
+  setAgent(src, 1, '담당'); markStartRead(src, req(src));
+  assert.equal(deliveryOf(src, req(src))!.state, 'read');
+  assert.notEqual(view(), '시작 전달 중');
+  submitDesign(src, 1, { files: [{ path: 'a.ts', why: '시험' }], understanding: 'u', screens: [] });
+  const v = deliveryOf(src, req(src))!;
+  assert.equal(v.state, 'applied');
+  assert.ok(v.applied, '설계 제출이 반영이다');
+});
+
+test('결정의 읽음은 담당 등록으로 적히지 않는다(시작일 때만)', () => {
+  const { src } = rejected();
+  openDelivery(src, req(src)); markSent(src, 1, 'wake');
+  markStartRead(src, req(src));
+  assert.equal(deliveryOf(src, req(src))!.state, 'sending');
+});
+
+test('시작을 읽고도 20분 넘게 설계가 없으면 한 번 더 보내고, 그래도 그대로면 멈춘 듯함이다', () => {
+  const { src } = started();
+  setAgent(src, 1, '담당'); markStartRead(src, req(src));
+  assert.deepEqual(dueForStall(src, loadRequests(src), Date.now() + (STALL_AFTER_MIN - 1) * min), [], '20분이 안 됐으면 기다린다');
+  const late = Date.now() + (STALL_AFTER_MIN + 1) * min;
+  assert.deepEqual(dueForStall(src, loadRequests(src), late), [1]);
+  markStallSent(src, 1);
+  assert.deepEqual(dueForStall(src, loadRequests(src), late), [], '시작마다 한 번만');
+  assert.equal(deliveryOf(src, req(src), late + (STALL_AFTER_MIN + 1) * min)!.state, 'stalled');
 });

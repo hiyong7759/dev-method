@@ -6,11 +6,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { wakeOwner } from '../src/wake.js';
-import { startOwner, parseUsage, retryStalledStarts } from '../src/session.js';
+import { resendUnread, startRequest, wakeOwner } from '../src/wake.js';
+import { startOwner, parseUsage } from '../src/session.js';
 import { conversationsOf } from '../src/conversation.js';
-import { openDelivery } from '../src/delivery.js';
-import { addRequest, setAgent } from '../src/request.js';
+import { deliveryOf, openDelivery } from '../src/delivery.js';
+import { addRequest, loadRequests, setAgent } from '../src/request.js';
 import { tempProject } from './helpers.js';
 
 /** 가짜 claude와 가짜 홈을 만들어 환경에 건다. 돌려주는 함수가 원래대로 되돌린다 */
@@ -246,26 +246,45 @@ test('시작 중인 담당 세션은 옛 기록으로 보지 않아, 다시 시�
   } finally { env.restore(); }
 });
 
-test('시작한 지 10분이 넘도록 담당 등록도 기록도 없으면 같은 세션으로 한 번 다시 시작하고, 그래도 안 되면 실패로 남긴다', async () => {
+test('요청을 시작하면 전달 기록이 열리고, 안 읽히면 같은 세션에 시작 글을 다시 보내며, 끝내 안 읽히면 실패로 남긴다', async () => {
   const env = fakeEnv();
   try {
     const { root, src } = tempProject({ wake: true }); addRequest(src, { title: '빠진 시작' });
-    const sid = startOwner(src, 1, 'start') as string;
+    const started = startRequest(src, 1);
+    const sid = started.session as string;
+    assert.ok(sid);
+    const v0 = deliveryOf(src, loadRequests(src)[0])!;
+    assert.equal(v0.kind, 'started');
+    assert.equal(v0.state, 'sending', '담당 세션을 만들어 글을 보낸 순간부터 전달 중이다');
     await wait(() => fs.existsSync(env.calls));
     fs.writeFileSync(env.calls, '');
-    const file = path.join(root, '.spec', 'sessions.json');
-    const age = (min: number): void => { const s = JSON.parse(fs.readFileSync(file, 'utf8')); s[sid].starting = new Date(Date.now() - min * 60000).toISOString(); fs.writeFileSync(file, JSON.stringify(s)); };
-    assert.deepEqual(retryStalledStarts(src), [], '방금 시작했으면 기다린다');
-    age(11);
-    assert.deepEqual(retryStalledStarts(src), [1]);
+    const file = path.join(root, '.spec', 'deliveries.json');
+    const age = (min: number): void => { const s = JSON.parse(fs.readFileSync(file, 'utf8')); s[1].lastSentAt = new Date(Date.now() - min * 60000).toISOString(); fs.writeFileSync(file, JSON.stringify(s)); };
+    assert.deepEqual(resendUnread(src), [], '방금 보냈으면 기다린다');
+    age(6);
+    assert.deepEqual(resendUnread(src), [1]);
     await wait(() => fs.readFileSync(env.calls, 'utf8').includes(`--session-id ${sid}`));
-    assert.deepEqual(retryStalledStarts(src), [], '다시 시작한 직후에는 또 하지 않는다');
-    age(25);
-    assert.deepEqual(retryStalledStarts(src), [1]);
+    assert.match(fs.readFileSync(env.calls, 'utf8'), /request agent --id 1/, '같은 시작 글을 보낸다');
+    const sessions = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'sessions.json'), 'utf8')) as Record<string, unknown>;
+    assert.deepEqual(Object.keys(sessions), [sid], '새 세션을 만들지 않아 담당이 둘이 되지 않는다');
+    assert.deepEqual(resendUnread(src), [], '다시 보낸 직후에는 또 보내지 않는다');
+    age(6);
+    assert.deepEqual(resendUnread(src), [1]);
+    age(6);
+    assert.deepEqual(resendUnread(src), [], '2번 보낸 뒤에는 더 보내지 않는다');
+    assert.equal(deliveryOf(src, loadRequests(src)[0])!.state, 'failed');
     const req = JSON.parse(fs.readFileSync(path.join(root, '.spec', 'requests', '1.json'), 'utf8')) as { events: { kind: string }[] };
-    assert.ok(req.events.some((e) => e.kind === 'session-failed'), '끝내 안 되면 진행 기록에 실패로 남긴다');
-    assert.deepEqual(retryStalledStarts(src), [], '실패로 남긴 뒤에는 더 하지 않는다');
+    assert.equal(req.events.filter((e) => e.kind === 'session-failed').length, 1, '끝내 안 읽히면 진행 기록에 실패로 한 번 남긴다');
+    resendUnread(src);
+    assert.equal((JSON.parse(fs.readFileSync(path.join(root, '.spec', 'requests', '1.json'), 'utf8')) as { events: { kind: string }[] }).events.filter((e) => e.kind === 'session-failed').length, 1, '또 남기지 않는다');
   } finally { env.restore(); }
+});
+
+test('깨우는 장치(wake)가 꺼져 있으면 시작해도 담당 세션을 만들지 않고 훅 대기로 알린다', () => {
+  const { src } = tempProject(); addRequest(src, { title: '수동' });
+  const started = startRequest(src, 1);
+  assert.equal(started.session, null);
+  assert.equal(deliveryOf(src, loadRequests(src)[0])!.state, 'hook-wait');
 });
 
 test('이미 완료된 요청은 결정이 와도 담당 세션을 깨우지 않는다', () => {
