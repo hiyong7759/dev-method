@@ -9,15 +9,15 @@ import { spawn } from 'node:child_process';
 import { LAUNCHER, SRC_DIR } from './paths.js';
 
 /** 도구 소스에서 가장 나중에 고친 시각(ms). 소스를 못 읽으면 0 */
-export function srcMtime(): number {
+export function srcMtime(dir: string = SRC_DIR): number {
   let m = 0;
   const walk = (d: string): void => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else m = Math.max(m, fs.statSync(f).mtimeMs); } };
-  try { walk(SRC_DIR); } catch { /* 소스를 못 읽으면 표 없음 */ }
+  try { walk(dir); } catch { /* 소스를 못 읽으면 표 없음 */ }
   return m;
 }
 
 /** 지금 소스의 표(글) */
-export const srcStamp = (): string => String(Math.floor(srcMtime()));
+export const srcStamp = (dir?: string): string => String(Math.floor(srcMtime(dir)));
 
 /** 이 서버가 뜰 때의 소스 표. 모델에 실려 응답한 서버가 어느 코드로 떠 있는지 알려 준다 */
 export const serverStamp: string = srcStamp();
@@ -30,11 +30,11 @@ export function staleServer(now = Date.now()): boolean {
 }
 
 /** 서버 주소가 새 코드로 응답하는지 본다. 새 코드면 빈 글, 아니면 이유 글 */
-export async function newCodeProblem(base: string): Promise<string> {
+export async function newCodeProblem(base: string, srcDir?: string): Promise<string> {
   try {
     const j = await (await fetch(`${base.replace(/\/$/, '')}/__spec/model.json`, { signal: AbortSignal.timeout(20000) })).json() as { serverStamp?: string };
     if (j.serverStamp === undefined) return '옛 코드로 떠 있다(코드 표가 없는 서버)';
-    return j.serverStamp === srcStamp() ? '' : '옛 코드로 떠 있다(소스가 서버가 뜬 뒤 바뀌었다)';
+    return j.serverStamp === srcStamp(srcDir) ? '' : '옛 코드로 떠 있다(소스가 서버가 뜬 뒤 바뀌었다)';
   } catch (e) { return `응답하지 않는다(${e instanceof Error ? e.message : String(e)})`; }
 }
 

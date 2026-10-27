@@ -119,9 +119,22 @@ export function failRow(scanRoot: string, seq: number, reason: string): OutboxRo
 const q = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
 
 /** `claude agents --json`이 알려 주는 지금 살아 있는 세션 한 건(읽기만 하는 조회) */
-interface AgentInfo { id?: string; sessionId?: string; name?: string; kind?: string; status?: string; startedAt?: number }
+export interface AgentInfo {
+  /** 짧은 세션 번호 */
+  id?: string;
+  /** 전체 세션 번호(담당 기록과 맞춘다) */
+  sessionId?: string;
+  /** 세션 이름(SendMessage가 알아듣는 이름) */
+  name?: string;
+  /** 세션 종류 */
+  kind?: string;
+  /** 일하는 중·쉬는 중·권한 확인 중 같은 상태 */
+  status?: string;
+  /** 시작한 때(ms) */
+  startedAt?: number;
+}
 /** 지금 살아 있는 세션 목록. 알 수 없으면 null(없다는 뜻이 아니다) */
-function agentsList(): AgentInfo[] | null {
+export function agentsList(): AgentInfo[] | null {
   try {
     const run = spawnSync('claude', ['agents', '--json'], { encoding: 'utf8', timeout: 15000 });
     return run.status === 0 ? (JSON.parse(run.stdout) as AgentInfo[]) : null;

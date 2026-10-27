@@ -11,6 +11,7 @@ import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { specHandler } from './middleware.js';
 import { ensureMessenger, setAfterEnqueue } from './outbox.js';
+import { openWindowsForNotices } from './notify.js';
 import { handOver, staleServer } from './stale.js';
 import { projectRoot } from './project.js';
 import { extractSpecs } from './extract.js';
@@ -85,6 +86,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
   // 단, 메신저 세션이 꺼져 있으면 승인한 결정이 대기에서 멈추므로 서버가 메신저를 살려 둔다(없으면 띄우고, 쉬는데 대기 줄이 있으면 깨운다). 담당 세션에 글을 보내는 일이 아니다
   setAfterEnqueue(() => { ensureMessenger(scanRoot); });
   ensureMessenger(scanRoot);
+  // 담당의 사건(시작·설계 제출·질문·막힘·테스트 올림·담당 종료)이 생기면 그 요청의 담당 세션 창을 iTerm2에 연다(5초마다. 요청마다 창 하나, 닫기는 사용자가). 테스트 서버에서는 열지 않는다
+  if (!process.env.SPEC_TEST_DIR) setInterval(() => { try { for (const p of openWindowsForNotices(scanRoot)) fs.appendFileSync(path.join(root, '.spec', 'wake.log'), `${new Date().toISOString()} 터미널 창 ${p}\n`); } catch { /* 알림이 서버를 멈추지 않게 */ } }, 5_000).unref();
   setInterval(() => {
     ensureMessenger(scanRoot);
     if (!staleServer()) return;
