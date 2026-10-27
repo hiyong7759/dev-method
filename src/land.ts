@@ -47,7 +47,8 @@ export function checkRequest(scanRoot: string, id: number, o: { run?: boolean } 
   const base = baseBranch(root);
   const out: CheckLine[] = [];
   const changed = names(git(root, ['diff', '--name-only', `${base}...${ref.branch}`]));
-  const allowed = new Set(filesOf(r));
+  // 구현하다 막혀 함께 고친 일(request also)로 남긴 파일도 범위 안으로 센다
+  const allowed = new Set([...filesOf(r), ...(r.alsoFixed ?? []).map((a) => a.where)]);
   const outside = changed.filter((f) => !exempt(f) && !allowed.has(f));
   out.push({ ok: !outside.length, what: '설계 범위', detail: outside.length ? `승인된 설계의 files 밖 변경: ${outside.join(', ')}` : `바꾼 ${changed.length}개 파일이 모두 설계 범위 안` });
   const others: string[] = [];
