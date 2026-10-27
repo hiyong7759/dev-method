@@ -3,7 +3,7 @@
  * @why 정보가 어느 화면에서 입력되고 보이고 바뀌고 판단되는지를, 어디서 열든 같은 모양의 상세 패널과 한눈에 보는 관계도로 보여 준다. 정보를 따로 문서로 쓰지 않아도 코드에서 읽은 것이 그대로 보이게 한다.
  * @contract model.infos, model.relations, model.screens[].fields를 그대로 그린다. 관계도는 창 폭에 맞춰 상자를 줄바꿈해 놓으므로, 창 폭이 바뀌면 부르는 쪽(app.ts)이 다시 그려야 한다. 오른쪽 패널은 항상 열려 있다(고르기 전에는 한눈에 보기).
  */
-import { h, ROLES, ROLE_LABEL, filterChips, sideList, pageHead, sidePanel, chip, tag, rv, type BulKind } from './util.js';
+import { h, ROLES, ROLE_LABEL, filterChips, sideList, pageHead, sidePanel, chip, tag, rv, nameLabel, type BulKind } from './util.js';
 import { reportLink } from './review.js';
 import { buildErd } from './erd.js';
 import { hash, nav } from './route.js';
@@ -45,7 +45,7 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
   const mine = new Set((model.screens.find((x) => x.name === currentScreen)?.fields ?? []).filter((f) => f.info === name).map((f) => f.prop));
   const sorted = [...info.props].sort((x, y) => Number(flaggedProps.has(y.name)) - Number(flaggedProps.has(x.name)));
   return sidePanel({
-    title: h('span', { style: 'display:flex;align-items:center;gap:8px' }, info.name, tag('', info.kind === 'screen' ? '화면용' : '내부용')), onClose,
+    title: h('span', { style: 'display:flex;align-items:center;gap:8px' }, nameLabel(model, 'infos', info.name), tag('', info.kind === 'screen' ? '화면용' : '내부용')), onClose,
     body: [
       h('div', { class: 'card' }, info.doc ? h('div', null, info.doc) : h('div', { style: 'color:var(--dim2);font-style:italic' }, '존재 이유 미작성'), h('div', { class: 'hint mono' }, `${info.fileSrc}:${info.line}`)),
       locNote ? h('div', { class: 'warn' }, locNote) : null,
@@ -53,7 +53,7 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
         h('div', { class: 'frows' }, sorted.map((p) => {
           const roles = ROLES.filter((r) => p.roles[r].length);
           return h('div', { class: `frow${focusField === p.name ? ' focus' : ''}${mine.has(p.name) ? ' mine' : ''}`, title: p.doc },
-            h('span', { class: 'mono fname' }, p.name),
+            h('span', { class: 'mono fname' }, nameLabel(model, 'props', p.name)),
             h('span', { class: 'froles' }, p.external ? [h('button', { class: 'role ext', title: `코드 밖에서 읽는다: ${p.external}`, onclick: (e: Event) => toggleExternalNote(e.currentTarget as HTMLElement, p.external) }, '바깥이 읽음'), h('span', { class: 'hint', style: 'font-size:11px' }, '눌러 보면 누가 읽는지 나옵니다')] : null, roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])), reportLink(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === name && r.review.prop === p.name), `정보 흐름 · ${name}`)));
         }))),
       h('div', { class: 'card' }, h('h3', null, '쓰이는 화면'),
@@ -129,7 +129,7 @@ export function infoMap(root: HTMLElement, model: Model, { selected, onSelect, d
 export function infoOverview(model: Model, { openInfo }: { openInfo: (name: string) => void }): HTMLElement {
   const infos = model.infos;
   const placesOf = (i: ModelInfo): number => new Set(ROLES.flatMap((r) => i.flow[r])).size;
-  const link = (i: ModelInfo, note: string): HTMLElement => h('div', { class: 'rel' }, h('span', { class: 'n', onclick: () => openInfo(i.name) }, i.name), h('span', { style: 'color:var(--dim);font-size:12px' }, note));
+  const link = (i: ModelInfo, note: string): HTMLElement => h('div', { class: 'rel' }, h('span', { class: 'n', onclick: () => openInfo(i.name) }, nameLabel(model, 'infos', i.name)), h('span', { style: 'color:var(--dim);font-size:12px' }, note));
   const unused = infos.filter((i) => i.unused);
   const flagged = infos.filter((i) => i.flagged).sort((a, b) => b.flagged - a.flagged);
   const busy = infos.slice().sort((a, b) => placesOf(b) - placesOf(a)).filter((i) => placesOf(i) > 0).slice(0, 5);

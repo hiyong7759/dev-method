@@ -3,7 +3,7 @@
  * @why 정보 흐름 화면과 요청의 "정보 변경 겹쳐 보기"가 같은 관계도(같은 배치, 같은 상자)를 쓰게 한다. 겹쳐 보기는 같은 그림 위에 추가·삭제·바뀜만 더 얹는다.
  * @contract 정보 목록과 관계를 받아 상자를 줄바꿈해 놓고 선을 긋는다. 창 폭이 바뀌면 부르는 쪽이 다시 부른다. 상자 모양은 시안의 정보 상자(이름, 한 줄 설명, 필드 이름표, 확인 필요 표시)다.
  */
-import { h, tag, buls, type BulKind } from './util.js';
+import { h, tag, buls, nameLabel, type BulKind } from './util.js';
 import { reportLink } from './review.js';
 import type { Model, ModelInfo } from '../types.js';
 
@@ -120,8 +120,8 @@ export function buildErd(model: Model, o: ErdOptions): HTMLElement {
     const hidden = fields.length - shownFields.length;
     const dim = o.dimOthers ? o.dimOthers(i) : false;
     const node = h('div', { class: `inode${i.kind === 'internal' ? ' internal' : ''}${selected === i.name ? ' sel' : ''}${dim ? ' dim' : ''}${deco?.cls ? ` ${deco.cls}` : ''}`, dataset: { ctarget: JSON.stringify({ kind: 'item', label: `정보 흐름 › ${i.name}`, info: i.name }) }, style: `left:${p.x}px;top:${p.y}px;height:${p.h}px`, title: `${i.name}${doc1 ? ' — ' + doc1 : ''}`, onclick: () => o.onSelect?.(i.name) },
-      h('div', { class: 'h' }, h('b', null, o.bullets ? buls([{ kind: (i.kind === 'internal' ? 'int' : 'scr') as BulKind, label: i.kind === 'internal' ? '내부용' : '화면용' }, ...(i.flagged ? [{ kind: 'rev' as BulKind, label: '확인 필요' }] : [])]) : null, i.name), h('span', null, deco?.sub ?? (i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1))),
-      h('div', { class: 'ftags' }, shownFields.map((f) => h('span', { class: `tag${f.kind === 'flag' ? ' flag' : f.kind === 'add' ? ' add' : f.kind === 'del' ? ' del' : ''}` }, f.kind === 'add' ? `+ ${f.name}` : f.name)), hidden > 0 ? h('span', { class: 'tag more' }, `+${hidden}`) : null),
+      h('div', { class: 'h' }, h('b', null, o.bullets ? buls([{ kind: (i.kind === 'internal' ? 'int' : 'scr') as BulKind, label: i.kind === 'internal' ? '내부용' : '화면용' }, ...(i.flagged ? [{ kind: 'rev' as BulKind, label: '확인 필요' }] : [])]) : null, nameLabel(model, 'infos', i.name)), h('span', null, deco?.sub ?? (i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1))),
+      h('div', { class: 'ftags' }, shownFields.map((f) => h('span', { class: `tag${f.kind === 'flag' ? ' flag' : f.kind === 'add' ? ' add' : f.kind === 'del' ? ' del' : ''}` }, f.kind === 'add' ? `+ ${nameLabel(model, 'props', f.name)}` : nameLabel(model, 'props', f.name))), hidden > 0 ? h('span', { class: 'tag more' }, `+${hidden}`) : null),
       deco?.badge ? h('span', { class: 'rv-pos' }, h('span', { class: 'rv ok' }, deco.badge)) : (i.flagged ? h('span', { class: 'rv-pos' }, reportLink(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === i.name), `정보 흐름 · ${i.name}`)) : null));
     erd.append(node);
   }

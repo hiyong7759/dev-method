@@ -20,6 +20,7 @@ import { reviewFrame } from './testdata.js';
 import { loadComments } from './comment.js';
 import { loadReports, reportRows, openCount, assignNumbers } from './report.js';
 import { loadGlossary } from './glossary.js';
+import { loadNames } from './names.js';
 import { detectNav } from './nav.js';
 import { errorText } from './cli.js';
 import { staleServer } from './stale.js';
@@ -235,7 +236,7 @@ export function buildModel(scanRoot: string): Model {
   const requests = describeRequests(rawRequests, componentsOf, (r) => deliveryOf(scanRoot, r)).map((r) => ({ ...r, cost: costOf(scanRoot, r.id) }));
   return {
     project: brandOf(root).name, projectDir: path.resolve(root), brand: brandOf(root), ...(process.env.SPEC_TEST_DIR ? { testEnv: '테스트 데이터' } : {}), ...(staleServer(root) ? { serverStale: staleServer(root)! } : {}), generatedAt: new Date().toISOString(),
-    screens, specs: out.specs, infos, relations, reports: rows, glossary: loadGlossary(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
+    screens, specs: out.specs, infos, relations, reports: rows, glossary: loadGlossary(scanRoot), names: loadNames(scanRoot), scenarios: out.scenarios, warnings: out.warnings, analysisError,
     requests, reviewFrame: reviewFrame(root), designs: designViews(root), designCanvas: readConfig(root).designCanvas ?? '', comments: loadComments(scanRoot), untracked: untrackedCommits(scanRoot, rawRequests),
     summary: {
       screens: screens.length, infos: infos.length, relations: relations.length,

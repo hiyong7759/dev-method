@@ -3,7 +3,7 @@
  * @why 사용자가 앱으로 이루려는 일(사용 시나리오)을 단계 순서대로, 갈라지는 길과 되돌아가는 길까지 한눈에 보게 한다. 화면이 아니라 일이 기준이라, 한 화면 안의 패널이나 오버레이, 여러 화면에 걸친 일을 같은 모양으로 그린다.
  * @contract model.scenarios(extract가 @does의 시나리오#단계·다음 단계·조건에서 계산)를 그대로 그린다. 기본 흐름은 가로 한 줄, 갈래는 갈라지는 단계 아래, 되돌아가는 길은 위쪽 점선 곡선이다. 여기서는 흐름을 새로 계산하지 않는다.
  */
-import { h, filterChips, sideList, pageHead, chip, tag, rv, sidePanel, buls, type BulKind } from './util.js';
+import { h, filterChips, sideList, pageHead, chip, tag, rv, sidePanel, buls, nameLabel, type BulKind } from './util.js';
 import { reportLink } from './review.js';
 import { hash, nav } from './route.js';
 import type { Model, ReportRow, RequestView, Scenario, ScenarioStep } from '../types.js';
@@ -134,7 +134,7 @@ function scenarioPanel(model: Model, sc: Scenario, onClose: () => void): HTMLEle
       reqs.length ? h('div', { class: 'card' }, reqs.map((r) => [chip(r.turn === 'user' ? 'me' : 'ag', `요청 #${r.id} ${r.stepLabel}`), h('div', null, r.title)])) : null,
       h('h4', { class: 'sp-sec' }, '이 시나리오가 건드리는 것 (코드에서 계산)'),
       h('div', { class: 'card' },
-        h('div', { class: 'tagrow' }, t.components.map((c) => tag('c', c)), t.infos.map((i) => tag('i', i))),
+        h('div', { class: 'tagrow' }, t.components.map((c) => tag('c', c)), t.infos.map((i) => tag('i', nameLabel(model, 'infos', i)))),
         h('div', { class: 'hint' }, t.screens.length ? `화면 ${t.screens.join(', ')}에 속합니다.` : '속한 화면을 찾지 못했습니다.', others.length ? ` 같은 컴포넌트를 쓰는 다른 시나리오: ${others.map((o) => o.name).join(', ')}` : '')),
       overlaps.length ? [h('h4', { class: 'sp-sec' }, '다른 요청과 겹침'), overlaps.map((o) => h('div', { class: 'card' }, h('div', null, h('b', null, `#${o.id}`), ` · 같은 컴포넌트 ${o.components.join(', ')}을 함께 건드립니다.`),
         h('a', { class: 'lnk', href: hash('manage', String(o.id)) }, `#${o.id} 열기 ›`)))] : null,

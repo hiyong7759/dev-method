@@ -733,6 +733,14 @@ export interface ModelProp {
 /** 정보의 쓰임: 화면이 보여주거나 입력받는 정보(screen)인지, 화면과 닿지 않는 내부용(internal)인지 */
 export type InfoKind = 'screen' | 'internal';
 
+/** 한 언어의 정보 이름과 필드 이름 */
+export interface InfoNames {
+  /** 정보 이름 → 그 언어 이름 */
+  infos: Record<string, string>;
+  /** 필드 이름 → 그 언어 이름(정보가 달라도 같은 이름이면 같은 말) */
+  props: Record<string, string>;
+}
+
 /** 화면에 보여 줄 정보 하나 */
 export interface ModelInfo {
   /** 정보 이름 */
@@ -900,6 +908,8 @@ export interface Model {
   reports: ReportRow[];
   /** 우리가 만든 용어들 */
   glossary: GlossaryTerm[];
+  /** 정보·필드의 언어별 이름(.spec/names.json). 언어 코드 → 이름들. 없는 이름은 영어 이름이 그대로 보인다 */
+  names: Record<string, InfoNames>;
   /** 사용 시나리오들 */
   scenarios: Scenario[];
   /** 메타정보 경고들 */

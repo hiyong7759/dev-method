@@ -458,8 +458,8 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .scn-t{font-size:16px;font-weight:700}
 .scn .open{margin-left:auto;display:inline-flex;align-items:center;padding:5px 10px;border-radius:8px;border:1px solid var(--accent-deep);background:var(--accent-bg);color:var(--accent);font-size:12px;font-weight:700;white-space:nowrap}
 .farea{position:relative;overflow-x:auto;overflow-y:hidden;padding:40px 4px 6px}
-.fcols{display:flex;gap:56px;align-items:flex-start;position:relative;z-index:1}
-.fcol{flex:none;width:210px;display:flex;flex-direction:column;gap:38px}
+.fcols{display:flex;gap:32px;align-items:flex-start;position:relative;z-index:1}
+.fcol{flex:1 1 0;min-width:170px;display:flex;flex-direction:column;gap:38px}
 .fs{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
 .fs.alt{border-color:var(--pink-deep);background:var(--pink-bg)}
 .fs .cond{font-size:11px;color:var(--pink);font-weight:700}
