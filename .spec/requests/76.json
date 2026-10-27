@@ -37,8 +37,8 @@
     "mode": "design",
     "reason": "리포트 처리 흐름이 바뀌므로 설계 확인이 필요하다"
   },
-  "stage": "design",
-  "step": "submitted",
+  "stage": "cancelled",
+  "step": "cancelled",
   "events": [
     {
       "at": "2026-10-26T12:48:54.330Z",
@@ -140,6 +140,13 @@
       "by": "agent",
       "kind": "design-submitted",
       "note": "설계 제출 (정보 변경 5건 · 화면 변경 2건)"
+    },
+    {
+      "at": "2026-10-27T14:21:38.498Z",
+      "by": "user",
+      "kind": "cancelled",
+      "note": "취소(설계 중): 중요하지 않은 일이라 없앤다(사용자 결정) (대화에서 한 말을 인용해 기록함)",
+      "quote": "76번은 그냥 없애버리든지 종료하든지 끝내버려"
     }
   ],
   "mergedFrom": [
