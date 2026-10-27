@@ -98,7 +98,7 @@ const hasBranch = (sc: Scenario): boolean => sc.steps.some((s) => !s.main);
 /** 시나리오 한 개: 이름, 요청·확인 필요 표시, 첫 화면 열기, 단계들과 화살표, 이어서 할 수 있는 일 */
 function scenarioCard(model: Model, sc: Scenario, picked: boolean, pick: () => void): HTMLElement {
   const mains = sc.steps.filter((s) => s.main);
-  const area = h('div', { class: 'farea' },
+  const area = h('div', { class: `farea${sc.steps.some((s) => s.edges.some((e) => e.kind === 'loop')) ? ' loops' : ''}` },
     h('div', { class: 'fcols' }, mains.map((m) => h('div', { class: 'fcol' }, stepBox(sc, m), branchesOf(sc, m).map((b) => stepBox(sc, b))))));
   const nexts = [...new Set(sc.steps.flatMap((s) => s.edges.filter((e) => e.kind === 'other').map((e) => e.scenario)))];
   const first = sc.firstScreens[0];

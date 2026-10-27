@@ -457,7 +457,8 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .scn-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .scn-t{font-size:16px;font-weight:700}
 .scn .open{margin-left:auto;display:inline-flex;align-items:center;padding:5px 10px;border-radius:8px;border:1px solid var(--accent-deep);background:var(--accent-bg);color:var(--accent);font-size:12px;font-weight:700;white-space:nowrap}
-.farea{position:relative;overflow-x:auto;overflow-y:hidden;padding:40px 4px 6px}
+.farea{position:relative;overflow-x:auto;overflow-y:hidden;padding:4px 4px 6px}
+.farea.loops{padding-top:40px}
 .fcols{display:flex;gap:32px;align-items:flex-start;position:relative;z-index:1}
 .fcol{flex:1 1 0;min-width:170px;display:flex;flex-direction:column;gap:38px}
 .fs{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2)}
@@ -529,7 +530,7 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 /* 정보 관계도 상자(시안): 이름 · 한 줄 설명 · 필드 이름표 · 확인 필요 */
 .inode{position:absolute;width:212px;overflow:visible}
 .inode.internal{border-style:dashed}
-.inode .h b{display:flex;align-items:center;gap:6px;justify-content:space-between}
+.inode .h b{display:flex;align-items:center;gap:6px;justify-content:flex-start;font-family:inherit}
 .inode .kt{font-family:inherit;font-size:10px;padding:1px 7px}
 .inode .ftags{display:flex;gap:4px;flex-wrap:wrap;padding:0 12px 8px}
 .inode .tag{font-size:11px;padding:2px 7px}

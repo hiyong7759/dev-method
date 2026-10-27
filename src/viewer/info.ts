@@ -52,8 +52,8 @@ export function infoDrawer(model: Model, name: string, { focusField, currentScre
       h('div', { class: 'card' }, h('h3', null, '필드 ', h('small', null, `${info.props.length}개${flagged ? ` · 리포트 ${flagged}건` : ''}`)),
         h('div', { class: 'frows' }, sorted.map((p) => {
           const roles = ROLES.filter((r) => p.roles[r].length);
-          return h('div', { class: `frow${focusField === p.name ? ' focus' : ''}${mine.has(p.name) ? ' mine' : ''}`, title: p.doc },
-            h('span', { class: 'mono fname' }, nameLabel(model, 'props', p.name)),
+          return h('div', { class: `frow${focusField === p.name ? ' focus' : ''}${mine.has(p.name) ? ' mine' : ''}`, title: `${p.name}${p.doc ? ' — ' + p.doc : ''}` },
+            h('span', { class: 'fname' }, nameLabel(model, 'props', p.name)),
             h('span', { class: 'froles' }, p.external ? [h('button', { class: 'role ext', title: `코드 밖에서 읽는다: ${p.external}`, onclick: (e: Event) => toggleExternalNote(e.currentTarget as HTMLElement, p.external) }, '바깥이 읽음'), h('span', { class: 'hint', style: 'font-size:11px' }, '눌러 보면 누가 읽는지 나옵니다')] : null, roles.map((r) => h('span', { class: `role ${r}` }, ROLE_LABEL[r])), reportLink(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === name && r.review.prop === p.name), `정보 흐름 · ${name}`)));
         }))),
       h('div', { class: 'card' }, h('h3', null, '쓰이는 화면'),
