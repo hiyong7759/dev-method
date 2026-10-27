@@ -13,3 +13,4 @@ wake-out/
 deliveries.json
 outbox.json
 outbox-text/
+wake-jobs.json
