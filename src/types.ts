@@ -277,6 +277,8 @@ export interface RequestTest {
   none: boolean;
   /** 테스트를 올릴 때 본 각 단계의 내용(제목·확인 기준) 서명: "시나리오#단계" → 서명. 설계가 바뀐 뒤 테스트를 다시 올릴 때 내용이 바뀐 단계의 체크를 풀기 위해 쓴다 */
   sigs?: Record<string, string>;
+  /** 테스트 승인 때 도구가 테스트 데이터를 지우며 남긴 것: 시나리오마다 대표 캡처(저장소 안 파일 이름)와 무슨 데이터로 확인했는지 한 줄 */
+  kept?: { scenario: string; label: string; how: string; shot: string }[];
 }
 
 /** 시안 판 하나의 최신 여부(설계서 보기 "시안 현황"과 화면 패널에 보인다) */

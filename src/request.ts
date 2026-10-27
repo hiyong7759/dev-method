@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { specDir, projectRoot } from './project.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { addReport } from './report.js';
-import { restartForTest, seedProblem, syncRequest } from './testdata.js';
+import { restartForTest, seedProblem, syncRequest, cleanupRequest } from './testdata.js';
 import { extractSpecs } from './extract.js';
 import { buildScenarios } from './scenarios.js';
 import type { Actor, DesignChange, DesignPoint, DesignScreen, Delivery, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
@@ -127,8 +127,8 @@ function loadOne(scanRoot: string, id: number): Request {
 function record(scanRoot: string, r: Request, by: Actor, kind: string, note: string, quote?: string): Request {
   r.events.push({ at: new Date().toISOString(), by, kind, note, ...(quote ? { quote } : {}) });
   save(scanRoot, r);
-  // 테스트 데이터 서버의 복사본이 낡지 않게 요청이 바뀔 때마다 그 요청을 복사본에 맞춘다(테스트 서버 자신 안에서는 하지 않는다: 복사본 위의 기록을 운영 것으로 덮지 않도록). 테스트 자리가 없거나 쓸 수 없어도 요청 기록은 막지 않는다
-  if (!process.env.SPEC_TEST_DIR) { try { syncRequest(projectRoot(scanRoot), r.id); } catch { /* 복사본만 낡을 뿐 */ } }
+  // 테스트 데이터 서버의 복사본이 낡지 않게 요청이 바뀔 때마다 그 요청을 복사본에 맞춘다(테스트 서버 자신 안에서는 하지 않는다: 복사본 위의 기록을 운영 것으로 덮지 않도록). 끝난 요청은 복사본을 다시 만들지 않는다(정리가 지운 것이 되살아나지 않게). 테스트 자리가 없거나 쓸 수 없어도 요청 기록은 막지 않는다
+  if (!process.env.SPEC_TEST_DIR && r.stage !== 'done') { try { syncRequest(projectRoot(scanRoot), r.id); } catch { /* 복사본만 낡을 뿐 */ } }
   return r;
 }
 /** 단계를 옮긴다 */
@@ -386,6 +386,14 @@ export function noteSessionFailed(scanRoot: string, id: number, sid: string): Re
   return record(scanRoot, loadOne(scanRoot, id), 'agent', 'session-failed', `담당 세션 시작이 끝나지 않음(${sid.slice(0, 8)}). 화면의 시작을 다시 누르거나 request session --id ${id}로 다시 만든다`);
 }
 
+/** tidy가 지난 완료 요청을 정리하며 남긴 대표 캡처·데이터 한 줄을 요청에 적는다 */
+export function saveKept(scanRoot: string, id: number, kept: NonNullable<Request['test']>['kept']): void {
+  const r = loadOne(scanRoot, id);
+  r.test = r.test ?? { checks: {}, found: [], none: false };
+  r.test.kept = kept;
+  record(scanRoot, r, 'agent', 'tidied', `테스트 데이터를 지우고 대표 캡처 ${kept?.length ?? 0}장만 남김`);
+}
+
 /** 요청 번호 없이 남은 커밋을 사용자가 요청으로 기록한다: 이미 끝난 요청 하나가 되어 그 커밋이 연결된다 */
 export function recordUntracked(scanRoot: string, hash: string, title: string): Request {
   if (!hash || !title?.trim()) throw new Error('커밋과 제목이 필요하다');
@@ -474,6 +482,8 @@ export function approveTest(scanRoot: string, id: number, none: boolean, quote?:
   r.test = r.test ?? { checks: {}, found: [], none: false };
   r.test.none = none;
   move(r, 'done', 'done');
+  // 끝난 요청의 테스트 데이터는 도구가 바로 지운다(대표 캡처와 데이터 한 줄만 요청에 남긴다)
+  try { const kept = cleanupRequest(projectRoot(scanRoot), id); if (kept?.length) r.test.kept = kept; } catch { /* 정리 실패는 승인을 막지 않는다. 다음 점검(tidy)이 알린다 */ }
   return record(scanRoot, r, 'user', 'test-approved', `${none ? '테스트 없음 승인' : '테스트 승인'}${quote ? ' (대화에서 한 승인을 인용해 기록함)' : ''}`, quote);
 }
 /** 테스트에서 문제 발견(이유 한 줄) → 에이전트가 같은 요청에서 고친다 */

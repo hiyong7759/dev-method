@@ -14,7 +14,7 @@ import { LAUNCHER } from './paths.js';
 import { configFile, readConfig } from './config.js';
 import { main as openServers, killPort } from './open.js';
 import { newCodeProblem } from './stale.js';
-import { projectRoot } from './project.js';
+import { projectRoot, specDir } from './project.js';
 import { writeSamples } from './samples.js';
 import type { Request, ReviewFrame, SeedCase, SeedFile, TestDataConfig } from './types.js';
 
@@ -48,14 +48,51 @@ export function dataProblem(root: string, c: TestDataConfig): string {
 }
 
 /** 기록을 두는 자리: dir이 있으면 그곳, 없으면(remote) ~/.spec-testdata/<프로젝트 폴더 이름> */
-const dataDir = (root: string, c: TestDataConfig): string => path.resolve(expand(c.dir || path.join('~', '.spec-testdata', path.basename(root))));
+export const dataDir = (root: string, c: TestDataConfig): string => path.resolve(expand(c.dir || path.join('~', '.spec-testdata', path.basename(root))));
 
 /** 시나리오별 기록 파일 */
-const seedFile = (root: string, c: TestDataConfig, id: number): string => path.join(dataDir(root, c), 'seeds', `${id}.json`);
+export const seedFile = (root: string, c: TestDataConfig, id: number): string => path.join(dataDir(root, c), 'seeds', `${id}.json`);
 
 /** 기록을 읽는다. 없으면 빈 기록 */
 export function readSeeds(root: string, c: TestDataConfig, id: number): SeedFile {
   try { return JSON.parse(fs.readFileSync(seedFile(root, c, id), 'utf8')) as SeedFile; } catch { return { request: id, cases: [] }; }
+}
+
+/** 임시 폴더(/tmp, /private/tmp, /var/folders)의 경로인가: 시간이 지나면 사라져 기록에 경로만 남는다 */
+export const isTempPath = (p: string): boolean => /^(\/private)?\/(tmp|var\/folders)\//.test(path.resolve(p));
+
+/** 캡처를 저장소 안(.spec/shots)으로 복사하고 저장소 기준 경로를 돌려준다. 이미 저장소 안이면 그대로 돌려준다 */
+export function keepShot(root: string, shot: string, id: number, tag: string): string {
+  const abs = path.resolve(root, shot);
+  if (inside(abs, root)) return path.relative(root, abs);
+  if (!fs.existsSync(abs)) throw new Error(`캡처 파일이 없다: ${shot}`);
+  const dest = path.join(specDir(root), 'shots', `r${id}-test-${tag.replace(/[^\p{L}\p{N}]+/gu, '_')}${path.extname(abs) || '.png'}`);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.copyFileSync(abs, dest);
+  return path.relative(root, dest);
+}
+
+/** 테스트를 승인한(끝난) 요청의 테스트 데이터를 지운다: 시나리오마다 대표 캡처 한 장과 데이터 한 줄만 돌려주고(요청에 남긴다), 기록(seeds)과 테스트 서버의 복사본·캡처를 지운다. 지운 것이 없으면 null */
+export function cleanupRequest(root: string, id: number): { scenario: string; label: string; how: string; shot: string }[] | null {
+  const c = testDataConfig(root);
+  if (!c || dataProblem(root, c)) return null;
+  const file = seedFile(root, c, id);
+  const cases = readSeeds(root, c, id).cases;
+  const kept: { scenario: string; label: string; how: string; shot: string }[] = [];
+  for (const sc of [...new Set(cases.map((x) => x.scenario))]) {
+    const mine = cases.filter((x) => x.scenario === sc);
+    const rep = mine.find((x) => x.kind === 'normal' && x.shot && fs.existsSync(path.resolve(root, x.shot))) ?? mine.find((x) => x.shot && fs.existsSync(path.resolve(root, x.shot)));
+    if (rep) kept.push({ scenario: sc, label: rep.label, how: rep.how, shot: keepShot(root, rep.shot, id, sc) });
+  }
+  let removed = false;
+  if (fs.existsSync(file)) { fs.rmSync(file, { force: true }); removed = true; }
+  if (c.kind === 'folder') {
+    const to = path.join(dataDir(root, c), '.spec');
+    for (const f of [path.join(to, 'requests', `${id}.json`)]) if (fs.existsSync(f)) { fs.rmSync(f, { force: true }); removed = true; }
+    const shots = path.join(to, 'shots');
+    if (fs.existsSync(shots)) for (const n of fs.readdirSync(shots)) if (n.startsWith(`r${id}-`)) { fs.rmSync(path.join(shots, n), { force: true }); removed = true; }
+  }
+  return removed || kept.length ? kept : null;
 }
 
 /** 테스트를 올릴 때 확인: 범위의 시나리오마다 정상 경우의 데이터와 화면 캡처가 있는지. 모자라면 이유 글을 돌려준다 */
@@ -202,7 +239,9 @@ export async function main(argv: string[]): Promise<number | undefined> {
         if (!KINDS.includes(opts.kind as never)) throw new Error(`--kind는 ${KINDS.join('|')} 중 하나다`);
         if (!opts.label?.trim()) throw new Error('--label(이 경우를 부르는 이름. 예: 정상-홍길동)이 필요하다');
         const f = readSeeds(root, c, id);
-        const one: SeedCase = { scenario: opts.scenario, kind: opts.kind as SeedCase['kind'], label: opts.label.trim(), how: opts.how ?? '', shot: opts.shot ?? '', at: new Date().toISOString() };
+        // 임시 폴더의 캡처는 지워지면 기록에 경로만 남으므로 저장소 안(.spec/shots)으로 복사해 그 경로를 적는다
+        const shot = opts.shot ? keepShot(root, opts.shot, id, `${opts.scenario}-${opts.label}`) : '';
+        const one: SeedCase = { scenario: opts.scenario, kind: opts.kind as SeedCase['kind'], label: opts.label.trim(), how: opts.how ?? '', shot, at: new Date().toISOString() };
         f.cases = [...f.cases.filter((x) => !(x.scenario === one.scenario && x.label === one.label)), one];
         fs.mkdirSync(path.dirname(seedFile(root, c, id)), { recursive: true });
         fs.writeFileSync(seedFile(root, c, id), JSON.stringify(f, null, 2) + '\n');
