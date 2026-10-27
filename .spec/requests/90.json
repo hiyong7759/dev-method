@@ -24,8 +24,8 @@
     "mode": "direct",
     "reason": "화면과 정보가 안 바뀌는 설정 한 줄 추가"
   },
-  "stage": "test",
-  "step": "requested",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-27T11:28:29.204Z",
@@ -50,6 +50,13 @@
       "by": "agent",
       "kind": "test-requested",
       "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-27T13:50:24.998Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "그대로 돌려보내고 88, 90, 91번은 승인 처리해"
     }
   ],
   "design": {
@@ -66,7 +73,7 @@
   "test": {
     "checks": {},
     "found": [],
-    "none": false,
+    "none": true,
     "brief": [
       "담당 세션을 claude --bg로 새로 띄울 때 설정(.spec/config.json)의 autoCompact를 --autocompact로 건다.",
       "값이 없거나 10만~100만 밖이면 옵션을 빼서 세션이 안 뜨는 일이 없다.",

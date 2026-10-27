@@ -24,8 +24,8 @@
     "mode": "direct",
     "reason": "화면·정보가 안 바뀌는 명령 추가"
   },
-  "stage": "test",
-  "step": "requested",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-27T11:38:47.816Z",
@@ -50,6 +50,13 @@
       "by": "agent",
       "kind": "test-requested",
       "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-27T13:50:25.107Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "그대로 돌려보내고 88, 90, 91번은 승인 처리해"
     }
   ],
   "design": {
@@ -66,7 +73,7 @@
   "test": {
     "checks": {},
     "found": [],
-    "none": false,
+    "none": true,
     "brief": [
       "request cancel 명령을 더했다. 사용자가 대화에서 한 말(--quote)과 이유가 있어야 하고, 완료·취소 전 어느 단계든 취소로 끝낸다.",
       "요청 파일은 지우지 않고 이력으로 남긴다.",
