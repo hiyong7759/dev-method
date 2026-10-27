@@ -155,85 +155,110 @@
       "by": "agent",
       "kind": "also-fixed",
       "note": "함께 고침: 견본 전달 안 됨 시험을 메신저 실패 기록 방식에 맞춤"
+    },
+    {
+      "at": "2026-10-27T09:10:51.520Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 c9cdf49"
+    },
+    {
+      "at": "2026-10-27T09:15:33.313Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-27T10:15:44.290Z",
+      "by": "agent",
+      "kind": "blocked",
+      "note": "막힘: claude --bg --name ... --model haiku 시험 실행이 'Workspace not trusted. Run claude in /Volumes/macex/workspace/dev-method once and accept the trust prompt, then retry.'로 실패함(종료코드 1). 이미 이 폴더에서 대화형 세션 29개가 도는데도 --bg는 따로 신뢰 확인을 요구함. 독립 메신저·닫힌 담당 이어 띄우기·새 담당 만들기가 모두 이 명령에 걸려 있어 신뢰가 풀리기 전에는 시험 불가"
+    },
+    {
+      "at": "2026-10-27T10:38:36.841Z",
+      "by": "agent",
+      "kind": "redesigned",
+      "note": "설계 변경(테스트 중): 메신저를 누가 띄워 두는지가 설계에 없었다. 서버가 메신저 세션이 없으면 띄우고 쉬는 중이면 깨우는 것을 설계에 넣고, 구현 중 달라진 점(outbox launch, 세션 번호로 열린 창 이름 찾기, messenger.md)도 반영한다",
+      "quote": "씨발 설계를 바꾸든지"
+    },
+    {
+      "at": "2026-10-27T10:39:06.779Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-27T10:41:31.510Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-27T10:46:28.217Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "승인했으니까 바로 구현부터 하고 검증까지 완료하고 보고에"
+    },
+    {
+      "at": "2026-10-27T11:02:50.622Z",
+      "by": "agent",
+      "kind": "also-fixed",
+      "note": "함께 고침: 메신저 시험 중 claude --bg의 동작(번호 불일치·옵션 붙인 --resume은 복사본·메신저 안에서 번호 출력 안 됨)을 확인해 launch가 이를 처리하게 함"
     }
   ],
   "design": {
-    "understanding": "에이전트에게 글을 보내는 모든 길(결정 7·코멘트·시작·재전송·멈춤 깨움·훅)을 outbox와 메신저의 SendMessage로 모으고, 헤드리스는 어디에도 남기지 않는다. 못 보내면 '전달 안 됨'과 이유를 보인다",
+    "understanding": "서버는 보낼 글을 outbox에 적고, 독립 메신저가 SendMessage·claude --bg로 전달한다. 서버가 메신저가 살아 있도록 확인해 없으면 띄운다. 헤드리스는 어디에도 없다",
     "points": [
       {
         "area": "시험 결과",
-        "title": "열린 쉬는 창에 SendMessage: 됨",
-        "text": "dev-method-a8에 핑을 보냈더니 새 차례가 시작돼 '핑 받음 #87'이라고 답했다(17:32 KST). 권한은 오가지 않고 글만 간다."
+        "title": "열린 창에 SendMessage: 됨",
+        "text": "dev-method-a8에 핑을 보냈더니 새 차례가 시작돼 답했다. 열린 세션 이름은 세션마다 따로 붙으므로(dev-method-39 등) 메신저가 claude agents --json에서 세션 번호로 지금 이름을 찾아 보낸다(줄에 적힌 담당 이름으로는 안 닿는다)."
       },
       {
         "area": "시험 결과",
-        "title": "닫힌 세션에 SendMessage: 안 됨",
-        "text": "sessions.json에 있는 옛 담당 세션 번호로 보냈더니 'No agent named ... is reachable'로 실패했다. 열려 있지 않으면 SendMessage는 닿지 않는다. 그래서 닫힌 담당은 먼저 띄워야 한다."
+        "title": "claude --bg 새 담당 만들기 + ack 읽음: 됨",
+        "text": "담당 없는 시험 요청을 시작하자 메신저가 claude --bg --session-id로 담당 세션을 만들었고(via bg-new), 받은 세션이 request ack를 불러 2초 뒤 읽음이 찍혔다. 처음엔 이 폴더 신뢰 기록이 없어 'Workspace not trusted'로 막혔으나 신뢰한 뒤 됐다."
       },
       {
         "area": "시험 결과",
-        "title": "백그라운드로 이어 띄우기·새로 만들기: 시험 못 함(막힘)",
-        "text": "claude --help에 --bg --resume <세션번호>가 있다. 같은 번호로 백그라운드 세션을 이어 띄우고 claude agents에 보이게 한다는 설명이다(claude -p와 달리 대화형 세션이라 attach로 열 수 있다). 새 담당을 만드는 claude --bg도 같은 계열이다. 다만 이 명령이 허용 목록 밖이라 실행하지 못했고 막힘으로 기록해 두었다. 되는지·SendMessage가 닿는지·메시지를 사용자 결정처럼 따르는지는 모른다."
+        "title": "claude --bg --resume 이어 띄우기: 됨(직접 시험)",
+        "text": "멈춘 세션을 같은 번호로 이어 띄워 답했다. 메신저가 outbox launch로 이 경로를 도는 것은 아직 시험하지 못했다."
       },
       {
         "area": "시험 결과",
-        "title": "받은 세션이 사용자 결정으로 따르는가: 아직 모름",
-        "text": "메시지는 '다른 세션이 보낸 글'로 감싸여 온다. 그래서 글에 요청 번호·결정 종류·인용·요청 파일 위치를 넣어 받은 쪽이 요청 파일에서 직접 확인하게 한다. 실제 담당 창에 보내 따르는지는 구현 뒤 시험한다."
+        "title": "발견한 결함: claude --bg는 미리 정한 세션 번호를 쓰지 않는다 → 닫힌 담당을 이어 띄우면 새 세션이 생긴다",
+        "text": "시험 요청의 담당을 claude --bg --session-id 0624c448…로 만들었더니 실제 세션 번호는 cda91127…로 다르게 붙었다(claude agents의 id와 ~/.claude/jobs 기록으로 확인). 그래서 ① sessions.json에 미리 정한 번호와 훅이 적은 실제 번호가 함께 담당으로 남고(#89에 둘) ② 닫힌 담당을 이어 띄우려 해도 미리 정한 번호의 대화 기록이 없어 --session-id로 다시 만들어, 이어받지 않고 세 번째 새 세션이 생겼다(담당이 늘어남). 고침: 새 담당을 만든 뒤 claude --bg가 출력한 짧은 번호로 claude agents --json에서 실제 세션 번호를 찾아 sessions.json의 미리 정한 번호를 실제 번호로 바꾸고, 이어 띄울 때는 그 실제 번호로 --resume한다. 대화 기록 유무도 실제 번호로 본다. 이 고침과 시험을 구현에 넣는다."
+      },
+      {
+        "area": "시험 결과",
+        "title": "메신저가 막혔던 두 가지와 고침",
+        "text": "(1) 메신저가 명령을 상대경로(./skills/…)로 쳐서 허용 패턴과 안 맞아 권한 확인 창에서 멈췄다 → 지시문에 절대경로를 그대로 쓰게 했다. (2) 글 파일을 읽어 넣는 $(cat …) 셸 치환이 있는 명령도 멈췄다 → 셸 없이 인자로 직접 claude --bg를 실행하는 outbox launch --row N으로 바꿨다. 서버는 이 함수를 부르지 않고 시험이 지킨다."
+      },
+      {
+        "area": "메신저 자동 기동",
+        "title": "서버가 메신저를 살려 둔다",
+        "text": "outbox.ts의 ensureMessenger가 claude agents --json(읽기 전용 조회)으로 이름이 '<프로젝트> 메신저'인 백그라운드 세션이 있는지 본다. ① 없으면 claude --bg --name '<프로젝트> 메신저' --model haiku으로 띄운다(messenger.md를 읽고 따르는 첫 글, 허용 도구는 Read·spec.mjs 절대경로 명령·Monitor·SendMessage·ToolSearch만). ② 있는데 쉬는 중(idle)이고 대기 줄이 있으면 claude --bg --resume으로 깨운다. ③ 이미 일하는 중이면 아무것도 안 한다. 서버 시작 때, 1분 점검 때, 줄을 적은 직후(serve.ts가 연결) 부른다. 설정 wake: true일 때만 하고, 같은 확인을 30초 안에 반복하지 않으며, 테스트용 서버(SPEC_TEST_DIR)는 하지 않는다. 띄우지 못하면 wake.log에 이유를 남기고 줄은 '대기'로 남아 화면에 '메신저가 아직 안 가져감'으로 보인다."
+      },
+      {
+        "area": "메신저 자동 기동",
+        "title": "'서버는 claude를 실행하지 않는다' 원칙의 경계",
+        "text": "원칙은 '담당 세션에 글을 헤드리스로 보내지 않는다'다. 서버가 claude를 실행하는 곳은 ① 메신저 세션을 켜는 claude --bg(담당에게 글을 보내는 것이 아님) ② 읽기 전용 claude agents --json 두 가지뿐이다. 담당에게 글을 보내는 claude --bg(launchRow)는 메신저가 부르는 명령으로만 두고 서버 파일은 부르지 않는다. 소스 검사 시험이 이 경계를 지킨다."
       },
       {
         "area": "변경 대상 전체",
         "title": "코드 전체를 다시 찾은 결과: 보내는 길 9곳",
-        "text": "(1) middleware.ts 결정 저장 직후 wakeOwner 호출 7곳: 설계 승인·반려·설계 변경·테스트 승인·테스트 문제·순서·다시 보내기(:183~:191). (2) middleware.ts:146 코멘트 묶음 보내기 뒤 wakeOwner. (3) middleware.ts:184 화면의 '시작'(startRequest). (4) request.ts:626 대화 결정(approve-design 등)의 wakeOwner. (5) request.ts:588 request session(startOwner)과 :592 request wake(wakeOwner). (6) request.ts start(startRequest). (7) serve.ts:88 1분 점검의 resendUnread·nudgeStalled. (8) inbox.ts 훅의 결정 주입과 markRead·markStartRead(:69,:75,:78). (9) session.ts·wake.ts·delivery.ts 안의 실행·기록. claude를 실행하는 곳은 session.ts의 launch(claude -p)와 `claude agents --json`(읽기 전용 상태 조회)뿐이고, 나머지 spawn은 git·서버 재시작·브라우저라 에이전트에게 글을 보내지 않는다."
-      },
-      {
-        "area": "변경 대상 전체",
-        "title": "middleware.ts: 모든 호출을 outbox 적기로",
-        "text": "wakeOwner를 부르던 9곳(결정 7·코멘트 1·다시 보내기 1)을 enqueueOutbox(요청 번호, 종류)로 바꾼다. 결정을 저장하는 일과 outbox에 적는 일은 같은 요청 안에서 끝나고, 적기가 실패해도 결정 자체는 실패시키지 않는다. 다시 보내기(/request/resend)는 마지막 결정의 outbox 줄을 다시 대기로 돌릴 뿐이다. 순서 변경도 이번에 outbox를 거치게 한다."
-      },
-      {
-        "area": "변경 대상 전체",
-        "title": "inbox.ts·훅 설정: 결정은 넣어 주되 읽음은 안 찍는다",
-        "text": "열린 세션이 움직일 때 결정을 additionalContext로 넣어 주는 훅은 헤드리스가 아니고 메신저가 못 닿을 때의 보조 길이라 남긴다. 다만 이 훅이 markRead를 찍는 두 곳(:75 깨움 글 들어옴, :78 결정 주입)을 없앤다. 읽음은 받은 세션이 request ack를 부를 때만 찍는다(담당이 request agent로 스스로 담당을 정할 때 찍는 시작 읽음은 세션 자신의 응답이라 남긴다). 훅 설정(.claude/settings.json)은 inbox 명령 연결 그대로라 바꾸지 않는다. 같은 결정이 메신저와 훅 양쪽으로 가도 ack는 한 번만 의미가 있게 글에 결정 시각을 넣는다."
-      },
-      {
-        "area": "변경 대상 전체",
-        "title": "새 담당 세션 만들기도 헤드리스 안 씀",
-        "text": "'시작'(화면·request start)과 request session은 담당이 없을 때 outbox에 '시작' 줄을 적고, 메신저가 claude --bg --session-id <새 번호> --name <담당 이름>에 시작 글을 붙여 대화형 백그라운드 세션을 만든 뒤 sessions.json에 요청 번호와 함께 적는다(claude -p 아님). 요청에 담당이 이미 있으면 새로 만들지 않는 규칙은 그대로다. claude --bg가 막히거나 실패하면 '시작 안 됨 · 이유'와 다시 보내기 단추를 보이고 헤드리스로 만들지 않는다. 이 길도 시험이 막혀 있어 구현 뒤 첫 시험이다."
-      },
-      {
-        "area": "변경 대상 전체",
-        "title": "request wake·session 명령과 rules",
-        "text": "request wake는 '마지막 결정 outbox 줄을 다시 대기로', request session은 '시작 줄을 다시 대기로'로 뜻을 바꾼다(프로세스를 띄우지 않는다). rules/request.md의 '시작하면 담당 세션을 만든다'와 approval.md의 '서버가 만들고 깨운다·wake 설정' 설명을 메신저·ack 방식으로 고쳐 쓴다. 설정 wake: true는 '메신저를 쓴다'는 뜻으로 읽는다."
+        "text": "(1) middleware.ts 결정 저장 직후 wakeOwner 7곳 (2) 코멘트 묶음 (3) 화면의 '시작' (4) request.ts 대화 결정 (5) request session·wake (6) request start (7) serve.ts 1분 점검의 재전송·멈춤 깨움 (8) inbox.ts 훅의 결정 주입과 markRead (9) session.ts·wake.ts·delivery.ts 안의 실행·기록. 모두 outbox 적기나 삭제로 바꿨다(구현 완료)."
       },
       {
         "area": "전달 길",
-        "title": "헤드리스 완전 제거",
-        "text": "session.ts의 claude -p 실행(launch)과 --resume·--session-id 호출(resumeOwner·startOwner·resendStart), wake.ts의 재전송·멈춤 재깨움(resendUnread·nudgeStalled)과 시작 재전송, /compact 먼저 보내기를 모두 없앤다. 서버는 글을 outbox에 적을 뿐 어떤 프로세스도 띄우지 않는다. 담당 세션에 걸던 허용·금지 도구와 읽기 금지 훅 설정은 새 세션을 만들 때(claude --bg) 그대로 붙인다. 담당 세션 비용 기록(session-costs.json)은 claude -p의 JSON 결과에서 읽던 것이라 이 방식에서는 얻지 못해 없앤다."
-      },
-      {
-        "area": "전달 길",
-        "title": "메신저가 SendMessage로 전달",
-        "text": "서버는 보낼 글마다 .spec/outbox.json에 한 줄(종류·받을 담당 세션, 글, 만든 시각, 보냄 시각, 실패 이유)을 더한다. 메신저는 작은 모델(Haiku) 세션이고 Monitor로 이 파일만 지켜보다 새 줄이 생길 때만 깨어 ListAgents로 담당 세션을 찾아 SendMessage로 보낸 뒤 보냄 시각을 적고 컨텍스트를 압축한다. 기다리는 동안 토큰이 들지 않는다."
-      },
-      {
-        "area": "전달 길",
-        "title": "닫힌 담당은 백그라운드 세션으로 이어 띄움",
-        "text": "ListAgents에 담당이 없으면 메신저가 claude --bg --resume <담당 세션>으로 같은 번호의 담당을 띄우고(헤드리스가 아닌 대화형 백그라운드 세션), 보이게 되면 SendMessage로 보낸다. 사용자에게 창을 열라고 시키지 않는다. 구현 뒤 가장 먼저 이 길을 실제 닫힌 담당으로 시험해 결과를 테스트 요청에 올린다."
-      },
-      {
-        "area": "전달 길",
-        "title": "못 보내면 '전달 안 됨'과 이유",
-        "text": "백그라운드로 띄우지 못하거나 메신저가 꺼져 있으면 outbox 줄에 실패 이유를 적고, 요청 화면은 헤드리스로 넘어가지 않은 채 '전달 안 됨 · 이유'와 '다시 보내기' 단추(outbox 줄을 다시 대기로 돌릴 뿐 프로세스를 띄우지 않음)를 보인다."
-      },
-      {
-        "area": "읽음",
-        "title": "받은 세션의 응답이 있을 때만 읽음",
-        "text": "글 안에 '확인했으면 request ack --id N을 실행하라'를 넣고, 이 명령이 요청 파일에 응답 기록을 남길 때 읽음을 찍는다. 보냄(메신저가 SendMessage 성공)과 읽음(세션의 응답)이 따로 보인다."
+        "title": "헤드리스 완전 제거와 읽음",
+        "text": "claude -p 실행, resumeOwner·startOwner·resendStart, 서버의 자동 재전송·멈춤 재깨움·끊긴 깨움 이어 보내기를 없앴다. 읽음은 request ack로만 찍고 inbox 훅은 결정을 넣어 주되 읽음은 찍지 않는다. 담당 세션 비용 기록은 헤드리스 결과에서 읽던 값이라 새로 적지 않는다(지난 기록은 읽기만)."
       },
       {
         "area": "화면",
-        "title": "요청 상세: 전달 안 됨과 담당 활동",
-        "text": "전달 카드가 눌림·보냄·읽음·반영에 더해 '전달 안 됨'(이유)과 다시 보내기 단추를 보인다. 담당 이름 옆에는 '일하는 중 · 마지막 활동 N분 전' 또는 '쉬는 중 · N분 전'이 보인다(활동 시각은 담당 대화 기록 파일의 마지막 수정 시각, 일함/쉼은 agents 상태)."
+        "title": "요청 상세: 전달 안 됨·이유·활동",
+        "text": "전달 카드가 '전달 안 됨 · 이유'와 다시 보내기 단추(줄을 대기로 돌릴 뿐)를 보이고, 맡은 에이전트 칸에 '일하는 중 · 마지막 활동 N분 전'이 보인다(대화 기록 파일의 마지막 수정이 2분 안이면 일하는 중). 이 문구를 화면에서 직접 확인하는 것이 아직 남아 있다."
       }
     ],
     "approach": "",
@@ -244,123 +269,179 @@
     "files": [
       {
         "path": "src/wake.ts",
-        "why": "헤드리스 깨움·재전송·멈춤 재깨움·시작 재전송을 없애고 결정·시작을 outbox에 적기만 하게 바꾼다"
+        "why": "시작 때 설계 시작 기록과 시작 글 적기만 남기고 헤드리스 깨움·재전송·멈춤 재깨움을 없앴다"
       },
       {
         "path": "src/outbox.ts",
-        "why": "보낼 글 목록(.spec/outbox.json)을 쓰고 읽는 새 파일. 글에 요청 번호·결정·인용·요청 파일 위치·ack 방법을 넣고 실패 이유·다시 대기를 다룬다"
+        "why": "보낼 글 목록(.spec/outbox.json)과 대기·보냄·못 보냄, 열린 세션 이름 찾기, outbox launch(claude --bg), 그리고 메신저를 살려 두는 ensureMessenger"
       },
       {
         "path": "src/delivery.ts",
-        "why": "읽음을 받은 세션의 응답(ack)이 있을 때만 찍고, '전달 안 됨'과 이유를 계산한다"
+        "why": "읽음을 ack로만 찍고, 전달 안 됨과 이유, 다시 대기로 돌리는 기록을 다룬다"
       },
       {
         "path": "src/session.ts",
-        "why": "claude -p 실행을 없애고, 담당 세션의 일함/쉼·마지막 활동 시각을 읽는 함수를 둔다"
+        "why": "claude -p 실행을 없애고, 담당 세션 번호·글 만들기·활동 시각과, 메신저·담당이 쓰는 claude --bg 인자·입구 파일 경로를 둔다"
       },
       {
         "path": "src/request.ts",
-        "why": "request ack를 더하고, 시작·request session·request wake·대화 결정의 wakeOwner/startOwner 호출을 outbox 적기로 바꾼다"
-      },
-      {
-        "path": "src/cli.ts",
-        "why": "request ack와 outbox 명령(메신저가 쓴다)을 연결한다"
+        "why": "request ack·outbox 명령을 더하고 시작·session·wake·대화 결정의 호출을 outbox로 바꿨다"
       },
       {
         "path": "src/serve.ts",
-        "why": "1분 점검의 resendUnread·nudgeStalled 호출을 없앤다"
+        "why": "자동 재전송·멈춤 재깨움을 없애고, 서버 시작·1분 점검·줄 적은 직후에 메신저를 살려 두는 확인을 연결한다"
       },
       {
         "path": "src/middleware.ts",
-        "why": "결정·코멘트·시작·순서·다시 보내기의 wakeOwner/startRequest 호출 9곳을 outbox 적기로 바꾸고 다시 보내기 요청을 받는다"
+        "why": "결정·코멘트·시작·순서·다시 보내기 호출을 outbox 적기로 바꿨다"
       },
       {
         "path": "src/inbox.ts",
-        "why": "훅의 markRead 두 곳을 없애 읽음이 ack로만 찍히게 하고, 결정 글 만들기를 outbox와 함께 쓰도록 맞춘다"
+        "why": "훅의 markRead를 없애 읽음이 ack로만 찍히게 했다"
       },
       {
         "path": "src/model.ts",
-        "why": "요청 상세가 전달 안 됨·담당 활동 상태를 받게 한다"
+        "why": "요청 상세가 담당 활동을 받게 했다"
       },
       {
         "path": "src/types.ts",
-        "why": "전달 기록·활동 상태의 모양을 바꾼다"
+        "why": "전달 기록·활동 상태의 모양을 바꿨다"
       },
       {
-        "path": "src/viewer/manage-views.ts",
-        "why": "요청 상세에 '전달 안 됨'·이유·다시 보내기, '일하는 중 · 마지막 활동 N분 전'을 보인다"
+        "path": "src/samples.ts",
+        "why": "견본 전달 기록을 새 저장 모양에 맞췄다"
+      },
+      {
+        "path": "src/viewer/manage-parts.ts",
+        "why": "전달 카드의 '전달 안 됨 · 이유'와 다시 보내기 문구"
+      },
+      {
+        "path": "src/viewer/manage-detail.ts",
+        "why": "맡은 에이전트 칸의 '일하는 중 · 마지막 활동 N분 전'과 안내 문구"
+      },
+      {
+        "path": "skills/spec-view/messenger.md",
+        "why": "독립 메신저 세션의 지시문(대기·보내기·launch·compact·절대경로)"
       },
       {
         "path": "skills/spec-view/rules/approval.md",
-        "why": "전달 방식(메신저·ack, 헤드리스 금지, 닫힌 담당은 백그라운드로 이어 띄움)을 규칙에 적는다"
+        "why": "전달 방식(메신저·ack, 헤드리스 금지, 메신저 자동 기동)을 규칙에 적는다"
       },
       {
         "path": "skills/spec-view/rules/request.md",
         "why": "시작 때 담당 세션을 만드는 방식을 메신저(claude --bg)로 고쳐 적는다"
+      },
+      {
+        "path": "test/wake.test.ts",
+        "why": "서버가 claude를 부르지 않는 것, outbox·launch·이름 찾기·메신저 자동 기동을 지킨다"
+      },
+      {
+        "path": "test/delivery.test.ts",
+        "why": "전달 상태 계산(대기·전달 안 됨 이유·ack 읽음)"
+      },
+      {
+        "path": "test/stall-notes.test.ts",
+        "why": "멈춘 듯함 표시"
+      },
+      {
+        "path": "test/stale.test.ts",
+        "why": "끊긴 깨움 이어 보내기 시험을 뺐다"
+      },
+      {
+        "path": "test/samples.test.ts",
+        "why": "견본 전달 안 됨 시험"
       }
     ],
     "brief": [
-      "어떤 경우에도 결정·새 담당 시작·코멘트를 헤드리스(claude -p, --resume)로 보내지 않는다. 서버는 보낼 글을 .spec/outbox.json에 적기만 하고, 작은 모델의 메신저 세션이 SendMessage로 보낸다. 코드 전체를 다시 찾아 에이전트에게 글을 보내는 길 9곳을 모두 바꾼다(아래 '변경 대상 전체').",
-      "창이 없는 담당은 사용자에게 열라고 시키지 않고 메신저가 claude --bg --resume으로 이어 띄워 보내고, 담당이 아직 없는 새 요청은 메신저가 claude --bg로 새 대화형 백그라운드 세션을 만든다. 둘 다 시험이 막혀 있어 구현 뒤 첫 시험이고, 안 되면 헤드리스로 넘어가지 않고 '전달 안 됨(시작 안 됨) · 이유'와 다시 보내기 단추를 보인다.",
-      "'읽음'은 받은 세션이 request ack로 응답을 남길 때만 찍는다. 열린 세션에 결정을 넣어 주는 inbox 훅은 남기되 읽음은 찍지 않는다. 요청 상세에는 담당이 '일하는 중 · 마지막 활동 N분 전'인지 보인다."
+      "어떤 경우에도 결정·시작·코멘트를 헤드리스(claude -p)로 보내지 않는다. 서버는 보낼 글을 .spec/outbox.json에 적기만 하고, 독립 메신저 세션(Haiku)이 가져가 열린 창이면 SendMessage, 닫힌 담당이면 claude --bg --resume, 담당이 없으면 claude --bg --session-id로 보낸다. 이 부분은 구현해 실제로 돌려 확인했다(열린 창 보내기, 새 담당 만들기와 ack 읽음, --bg --resume).",
+      "이번 변경: 메신저를 누가 띄워 두는지가 빠져 있었다. 메신저가 안 떠 있으면 승인해도 줄이 '대기'에서 멈춘다. 그래서 서버가 메신저 세션이 있는지 보고, 없으면 claude --bg로 띄우고, 쉬는 중인데 대기 줄이 있으면 --resume으로 깨운다(서버가 서버 시작·1분마다·줄을 적은 직후에 확인). 이것은 담당 세션에 글을 보내는 것이 아니라 메신저를 켜 두는 일이다.",
+      "읽음은 받은 세션이 request ack를 부를 때만 찍는다(실제로 2초 만에 찍힘). 못 보내면 '전달 안 됨 · 이유'와 다시 보내기 단추를 보인다. 요청 상세에는 '일하는 중 · 마지막 활동 N분 전'이 보인다."
     ]
   },
   "files": [
     {
       "path": "src/wake.ts",
-      "why": "헤드리스 깨움·재전송·멈춤 재깨움·시작 재전송을 없애고 결정·시작을 outbox에 적기만 하게 바꾼다"
+      "why": "시작 때 설계 시작 기록과 시작 글 적기만 남기고 헤드리스 깨움·재전송·멈춤 재깨움을 없앴다"
     },
     {
       "path": "src/outbox.ts",
-      "why": "보낼 글 목록(.spec/outbox.json)을 쓰고 읽는 새 파일. 글에 요청 번호·결정·인용·요청 파일 위치·ack 방법을 넣고 실패 이유·다시 대기를 다룬다"
+      "why": "보낼 글 목록(.spec/outbox.json)과 대기·보냄·못 보냄, 열린 세션 이름 찾기, outbox launch(claude --bg), 그리고 메신저를 살려 두는 ensureMessenger"
     },
     {
       "path": "src/delivery.ts",
-      "why": "읽음을 받은 세션의 응답(ack)이 있을 때만 찍고, '전달 안 됨'과 이유를 계산한다"
+      "why": "읽음을 ack로만 찍고, 전달 안 됨과 이유, 다시 대기로 돌리는 기록을 다룬다"
     },
     {
       "path": "src/session.ts",
-      "why": "claude -p 실행을 없애고, 담당 세션의 일함/쉼·마지막 활동 시각을 읽는 함수를 둔다"
+      "why": "claude -p 실행을 없애고, 담당 세션 번호·글 만들기·활동 시각과, 메신저·담당이 쓰는 claude --bg 인자·입구 파일 경로를 둔다"
     },
     {
       "path": "src/request.ts",
-      "why": "request ack를 더하고, 시작·request session·request wake·대화 결정의 wakeOwner/startOwner 호출을 outbox 적기로 바꾼다"
-    },
-    {
-      "path": "src/cli.ts",
-      "why": "request ack와 outbox 명령(메신저가 쓴다)을 연결한다"
+      "why": "request ack·outbox 명령을 더하고 시작·session·wake·대화 결정의 호출을 outbox로 바꿨다"
     },
     {
       "path": "src/serve.ts",
-      "why": "1분 점검의 resendUnread·nudgeStalled 호출을 없앤다"
+      "why": "자동 재전송·멈춤 재깨움을 없애고, 서버 시작·1분 점검·줄 적은 직후에 메신저를 살려 두는 확인을 연결한다"
     },
     {
       "path": "src/middleware.ts",
-      "why": "결정·코멘트·시작·순서·다시 보내기의 wakeOwner/startRequest 호출 9곳을 outbox 적기로 바꾸고 다시 보내기 요청을 받는다"
+      "why": "결정·코멘트·시작·순서·다시 보내기 호출을 outbox 적기로 바꿨다"
     },
     {
       "path": "src/inbox.ts",
-      "why": "훅의 markRead 두 곳을 없애 읽음이 ack로만 찍히게 하고, 결정 글 만들기를 outbox와 함께 쓰도록 맞춘다"
+      "why": "훅의 markRead를 없애 읽음이 ack로만 찍히게 했다"
     },
     {
       "path": "src/model.ts",
-      "why": "요청 상세가 전달 안 됨·담당 활동 상태를 받게 한다"
+      "why": "요청 상세가 담당 활동을 받게 했다"
     },
     {
       "path": "src/types.ts",
-      "why": "전달 기록·활동 상태의 모양을 바꾼다"
+      "why": "전달 기록·활동 상태의 모양을 바꿨다"
     },
     {
-      "path": "src/viewer/manage-views.ts",
-      "why": "요청 상세에 '전달 안 됨'·이유·다시 보내기, '일하는 중 · 마지막 활동 N분 전'을 보인다"
+      "path": "src/samples.ts",
+      "why": "견본 전달 기록을 새 저장 모양에 맞췄다"
+    },
+    {
+      "path": "src/viewer/manage-parts.ts",
+      "why": "전달 카드의 '전달 안 됨 · 이유'와 다시 보내기 문구"
+    },
+    {
+      "path": "src/viewer/manage-detail.ts",
+      "why": "맡은 에이전트 칸의 '일하는 중 · 마지막 활동 N분 전'과 안내 문구"
+    },
+    {
+      "path": "skills/spec-view/messenger.md",
+      "why": "독립 메신저 세션의 지시문(대기·보내기·launch·compact·절대경로)"
     },
     {
       "path": "skills/spec-view/rules/approval.md",
-      "why": "전달 방식(메신저·ack, 헤드리스 금지, 닫힌 담당은 백그라운드로 이어 띄움)을 규칙에 적는다"
+      "why": "전달 방식(메신저·ack, 헤드리스 금지, 메신저 자동 기동)을 규칙에 적는다"
     },
     {
       "path": "skills/spec-view/rules/request.md",
       "why": "시작 때 담당 세션을 만드는 방식을 메신저(claude --bg)로 고쳐 적는다"
+    },
+    {
+      "path": "test/wake.test.ts",
+      "why": "서버가 claude를 부르지 않는 것, outbox·launch·이름 찾기·메신저 자동 기동을 지킨다"
+    },
+    {
+      "path": "test/delivery.test.ts",
+      "why": "전달 상태 계산(대기·전달 안 됨 이유·ack 읽음)"
+    },
+    {
+      "path": "test/stall-notes.test.ts",
+      "why": "멈춘 듯함 표시"
+    },
+    {
+      "path": "test/stale.test.ts",
+      "why": "끊긴 깨움 이어 보내기 시험을 뺐다"
+    },
+    {
+      "path": "test/samples.test.ts",
+      "why": "견본 전달 안 됨 시험"
     }
   ],
   "alsoFixed": [
@@ -411,6 +492,183 @@
       "text": "견본 전달 안 됨 시험을 메신저 실패 기록 방식에 맞춤",
       "where": "test/samples.test.ts",
       "commit": ""
+    },
+    {
+      "at": "2026-10-27T11:02:50.621Z",
+      "text": "메신저 시험 중 claude --bg의 동작(번호 불일치·옵션 붙인 --resume은 복사본·메신저 안에서 번호 출력 안 됨)을 확인해 launch가 이를 처리하게 함",
+      "where": "test/wake.test.ts",
+      "commit": ""
+    }
+  ],
+  "commits": [
+    "c9cdf49"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false,
+    "brief": [
+      "요청 상세 '맡은 에이전트' 칸에 '일하는 중 또는 쉬는 중 · 마지막 활동 N분 전'이 보이는지",
+      "결정을 누르면 전달 카드가 '대기'(메신저가 아직 안 가져감)로 보이고, 서버가 담당 세션을 새로 띄우지 않는지(.spec/outbox.json에 줄만 생김)",
+      "보낼 길을 못 찾으면 '전달 안 됨 · 이유'와 다시 보내기 단추가 보이는지(견본 요청 9002번으로 모양 확인)",
+      "claude --bg 두 명령은 막혀 실제로 돌려 보지 못했으니 사용자가 허용하거나 직접 시험해야 함"
+    ],
+    "sigs": {}
+  },
+  "designVersions": [
+    {
+      "design": {
+        "understanding": "에이전트에게 글을 보내는 모든 길(결정 7·코멘트·시작·재전송·멈춤 깨움·훅)을 outbox와 메신저의 SendMessage로 모으고, 헤드리스는 어디에도 남기지 않는다. 못 보내면 '전달 안 됨'과 이유를 보인다",
+        "points": [
+          {
+            "area": "시험 결과",
+            "title": "열린 쉬는 창에 SendMessage: 됨",
+            "text": "dev-method-a8에 핑을 보냈더니 새 차례가 시작돼 '핑 받음 #87'이라고 답했다(17:32 KST). 권한은 오가지 않고 글만 간다."
+          },
+          {
+            "area": "시험 결과",
+            "title": "닫힌 세션에 SendMessage: 안 됨",
+            "text": "sessions.json에 있는 옛 담당 세션 번호로 보냈더니 'No agent named ... is reachable'로 실패했다. 열려 있지 않으면 SendMessage는 닿지 않는다. 그래서 닫힌 담당은 먼저 띄워야 한다."
+          },
+          {
+            "area": "시험 결과",
+            "title": "백그라운드로 이어 띄우기·새로 만들기: 시험 못 함(막힘)",
+            "text": "claude --help에 --bg --resume <세션번호>가 있다. 같은 번호로 백그라운드 세션을 이어 띄우고 claude agents에 보이게 한다는 설명이다(claude -p와 달리 대화형 세션이라 attach로 열 수 있다). 새 담당을 만드는 claude --bg도 같은 계열이다. 다만 이 명령이 허용 목록 밖이라 실행하지 못했고 막힘으로 기록해 두었다. 되는지·SendMessage가 닿는지·메시지를 사용자 결정처럼 따르는지는 모른다."
+          },
+          {
+            "area": "시험 결과",
+            "title": "받은 세션이 사용자 결정으로 따르는가: 아직 모름",
+            "text": "메시지는 '다른 세션이 보낸 글'로 감싸여 온다. 그래서 글에 요청 번호·결정 종류·인용·요청 파일 위치를 넣어 받은 쪽이 요청 파일에서 직접 확인하게 한다. 실제 담당 창에 보내 따르는지는 구현 뒤 시험한다."
+          },
+          {
+            "area": "변경 대상 전체",
+            "title": "코드 전체를 다시 찾은 결과: 보내는 길 9곳",
+            "text": "(1) middleware.ts 결정 저장 직후 wakeOwner 호출 7곳: 설계 승인·반려·설계 변경·테스트 승인·테스트 문제·순서·다시 보내기(:183~:191). (2) middleware.ts:146 코멘트 묶음 보내기 뒤 wakeOwner. (3) middleware.ts:184 화면의 '시작'(startRequest). (4) request.ts:626 대화 결정(approve-design 등)의 wakeOwner. (5) request.ts:588 request session(startOwner)과 :592 request wake(wakeOwner). (6) request.ts start(startRequest). (7) serve.ts:88 1분 점검의 resendUnread·nudgeStalled. (8) inbox.ts 훅의 결정 주입과 markRead·markStartRead(:69,:75,:78). (9) session.ts·wake.ts·delivery.ts 안의 실행·기록. claude를 실행하는 곳은 session.ts의 launch(claude -p)와 `claude agents --json`(읽기 전용 상태 조회)뿐이고, 나머지 spawn은 git·서버 재시작·브라우저라 에이전트에게 글을 보내지 않는다."
+          },
+          {
+            "area": "변경 대상 전체",
+            "title": "middleware.ts: 모든 호출을 outbox 적기로",
+            "text": "wakeOwner를 부르던 9곳(결정 7·코멘트 1·다시 보내기 1)을 enqueueOutbox(요청 번호, 종류)로 바꾼다. 결정을 저장하는 일과 outbox에 적는 일은 같은 요청 안에서 끝나고, 적기가 실패해도 결정 자체는 실패시키지 않는다. 다시 보내기(/request/resend)는 마지막 결정의 outbox 줄을 다시 대기로 돌릴 뿐이다. 순서 변경도 이번에 outbox를 거치게 한다."
+          },
+          {
+            "area": "변경 대상 전체",
+            "title": "inbox.ts·훅 설정: 결정은 넣어 주되 읽음은 안 찍는다",
+            "text": "열린 세션이 움직일 때 결정을 additionalContext로 넣어 주는 훅은 헤드리스가 아니고 메신저가 못 닿을 때의 보조 길이라 남긴다. 다만 이 훅이 markRead를 찍는 두 곳(:75 깨움 글 들어옴, :78 결정 주입)을 없앤다. 읽음은 받은 세션이 request ack를 부를 때만 찍는다(담당이 request agent로 스스로 담당을 정할 때 찍는 시작 읽음은 세션 자신의 응답이라 남긴다). 훅 설정(.claude/settings.json)은 inbox 명령 연결 그대로라 바꾸지 않는다. 같은 결정이 메신저와 훅 양쪽으로 가도 ack는 한 번만 의미가 있게 글에 결정 시각을 넣는다."
+          },
+          {
+            "area": "변경 대상 전체",
+            "title": "새 담당 세션 만들기도 헤드리스 안 씀",
+            "text": "'시작'(화면·request start)과 request session은 담당이 없을 때 outbox에 '시작' 줄을 적고, 메신저가 claude --bg --session-id <새 번호> --name <담당 이름>에 시작 글을 붙여 대화형 백그라운드 세션을 만든 뒤 sessions.json에 요청 번호와 함께 적는다(claude -p 아님). 요청에 담당이 이미 있으면 새로 만들지 않는 규칙은 그대로다. claude --bg가 막히거나 실패하면 '시작 안 됨 · 이유'와 다시 보내기 단추를 보이고 헤드리스로 만들지 않는다. 이 길도 시험이 막혀 있어 구현 뒤 첫 시험이다."
+          },
+          {
+            "area": "변경 대상 전체",
+            "title": "request wake·session 명령과 rules",
+            "text": "request wake는 '마지막 결정 outbox 줄을 다시 대기로', request session은 '시작 줄을 다시 대기로'로 뜻을 바꾼다(프로세스를 띄우지 않는다). rules/request.md의 '시작하면 담당 세션을 만든다'와 approval.md의 '서버가 만들고 깨운다·wake 설정' 설명을 메신저·ack 방식으로 고쳐 쓴다. 설정 wake: true는 '메신저를 쓴다'는 뜻으로 읽는다."
+          },
+          {
+            "area": "전달 길",
+            "title": "헤드리스 완전 제거",
+            "text": "session.ts의 claude -p 실행(launch)과 --resume·--session-id 호출(resumeOwner·startOwner·resendStart), wake.ts의 재전송·멈춤 재깨움(resendUnread·nudgeStalled)과 시작 재전송, /compact 먼저 보내기를 모두 없앤다. 서버는 글을 outbox에 적을 뿐 어떤 프로세스도 띄우지 않는다. 담당 세션에 걸던 허용·금지 도구와 읽기 금지 훅 설정은 새 세션을 만들 때(claude --bg) 그대로 붙인다. 담당 세션 비용 기록(session-costs.json)은 claude -p의 JSON 결과에서 읽던 것이라 이 방식에서는 얻지 못해 없앤다."
+          },
+          {
+            "area": "전달 길",
+            "title": "메신저가 SendMessage로 전달",
+            "text": "서버는 보낼 글마다 .spec/outbox.json에 한 줄(종류·받을 담당 세션, 글, 만든 시각, 보냄 시각, 실패 이유)을 더한다. 메신저는 작은 모델(Haiku) 세션이고 Monitor로 이 파일만 지켜보다 새 줄이 생길 때만 깨어 ListAgents로 담당 세션을 찾아 SendMessage로 보낸 뒤 보냄 시각을 적고 컨텍스트를 압축한다. 기다리는 동안 토큰이 들지 않는다."
+          },
+          {
+            "area": "전달 길",
+            "title": "닫힌 담당은 백그라운드 세션으로 이어 띄움",
+            "text": "ListAgents에 담당이 없으면 메신저가 claude --bg --resume <담당 세션>으로 같은 번호의 담당을 띄우고(헤드리스가 아닌 대화형 백그라운드 세션), 보이게 되면 SendMessage로 보낸다. 사용자에게 창을 열라고 시키지 않는다. 구현 뒤 가장 먼저 이 길을 실제 닫힌 담당으로 시험해 결과를 테스트 요청에 올린다."
+          },
+          {
+            "area": "전달 길",
+            "title": "못 보내면 '전달 안 됨'과 이유",
+            "text": "백그라운드로 띄우지 못하거나 메신저가 꺼져 있으면 outbox 줄에 실패 이유를 적고, 요청 화면은 헤드리스로 넘어가지 않은 채 '전달 안 됨 · 이유'와 '다시 보내기' 단추(outbox 줄을 다시 대기로 돌릴 뿐 프로세스를 띄우지 않음)를 보인다."
+          },
+          {
+            "area": "읽음",
+            "title": "받은 세션의 응답이 있을 때만 읽음",
+            "text": "글 안에 '확인했으면 request ack --id N을 실행하라'를 넣고, 이 명령이 요청 파일에 응답 기록을 남길 때 읽음을 찍는다. 보냄(메신저가 SendMessage 성공)과 읽음(세션의 응답)이 따로 보인다."
+          },
+          {
+            "area": "화면",
+            "title": "요청 상세: 전달 안 됨과 담당 활동",
+            "text": "전달 카드가 눌림·보냄·읽음·반영에 더해 '전달 안 됨'(이유)과 다시 보내기 단추를 보인다. 담당 이름 옆에는 '일하는 중 · 마지막 활동 N분 전' 또는 '쉬는 중 · N분 전'이 보인다(활동 시각은 담당 대화 기록 파일의 마지막 수정 시각, 일함/쉼은 agents 상태)."
+          }
+        ],
+        "approach": "",
+        "changes": [],
+        "screens": [],
+        "none": true,
+        "rejected": 2,
+        "files": [
+          {
+            "path": "src/wake.ts",
+            "why": "헤드리스 깨움·재전송·멈춤 재깨움·시작 재전송을 없애고 결정·시작을 outbox에 적기만 하게 바꾼다"
+          },
+          {
+            "path": "src/outbox.ts",
+            "why": "보낼 글 목록(.spec/outbox.json)을 쓰고 읽는 새 파일. 글에 요청 번호·결정·인용·요청 파일 위치·ack 방법을 넣고 실패 이유·다시 대기를 다룬다"
+          },
+          {
+            "path": "src/delivery.ts",
+            "why": "읽음을 받은 세션의 응답(ack)이 있을 때만 찍고, '전달 안 됨'과 이유를 계산한다"
+          },
+          {
+            "path": "src/session.ts",
+            "why": "claude -p 실행을 없애고, 담당 세션의 일함/쉼·마지막 활동 시각을 읽는 함수를 둔다"
+          },
+          {
+            "path": "src/request.ts",
+            "why": "request ack를 더하고, 시작·request session·request wake·대화 결정의 wakeOwner/startOwner 호출을 outbox 적기로 바꾼다"
+          },
+          {
+            "path": "src/cli.ts",
+            "why": "request ack와 outbox 명령(메신저가 쓴다)을 연결한다"
+          },
+          {
+            "path": "src/serve.ts",
+            "why": "1분 점검의 resendUnread·nudgeStalled 호출을 없앤다"
+          },
+          {
+            "path": "src/middleware.ts",
+            "why": "결정·코멘트·시작·순서·다시 보내기의 wakeOwner/startRequest 호출 9곳을 outbox 적기로 바꾸고 다시 보내기 요청을 받는다"
+          },
+          {
+            "path": "src/inbox.ts",
+            "why": "훅의 markRead 두 곳을 없애 읽음이 ack로만 찍히게 하고, 결정 글 만들기를 outbox와 함께 쓰도록 맞춘다"
+          },
+          {
+            "path": "src/model.ts",
+            "why": "요청 상세가 전달 안 됨·담당 활동 상태를 받게 한다"
+          },
+          {
+            "path": "src/types.ts",
+            "why": "전달 기록·활동 상태의 모양을 바꾼다"
+          },
+          {
+            "path": "src/viewer/manage-views.ts",
+            "why": "요청 상세에 '전달 안 됨'·이유·다시 보내기, '일하는 중 · 마지막 활동 N분 전'을 보인다"
+          },
+          {
+            "path": "skills/spec-view/rules/approval.md",
+            "why": "전달 방식(메신저·ack, 헤드리스 금지, 닫힌 담당은 백그라운드로 이어 띄움)을 규칙에 적는다"
+          },
+          {
+            "path": "skills/spec-view/rules/request.md",
+            "why": "시작 때 담당 세션을 만드는 방식을 메신저(claude --bg)로 고쳐 적는다"
+          }
+        ],
+        "brief": [
+          "어떤 경우에도 결정·새 담당 시작·코멘트를 헤드리스(claude -p, --resume)로 보내지 않는다. 서버는 보낼 글을 .spec/outbox.json에 적기만 하고, 작은 모델의 메신저 세션이 SendMessage로 보낸다. 코드 전체를 다시 찾아 에이전트에게 글을 보내는 길 9곳을 모두 바꾼다(아래 '변경 대상 전체').",
+          "창이 없는 담당은 사용자에게 열라고 시키지 않고 메신저가 claude --bg --resume으로 이어 띄워 보내고, 담당이 아직 없는 새 요청은 메신저가 claude --bg로 새 대화형 백그라운드 세션을 만든다. 둘 다 시험이 막혀 있어 구현 뒤 첫 시험이고, 안 되면 헤드리스로 넘어가지 않고 '전달 안 됨(시작 안 됨) · 이유'와 다시 보내기 단추를 보인다.",
+          "'읽음'은 받은 세션이 request ack로 응답을 남길 때만 찍는다. 열린 세션에 결정을 넣어 주는 inbox 훅은 남기되 읽음은 찍지 않는다. 요청 상세에는 담당이 '일하는 중 · 마지막 활동 N분 전'인지 보인다."
+        ]
+      },
+      "replacedAt": "2026-10-27T10:38:36.840Z",
+      "by": "agent",
+      "reason": "메신저를 누가 띄워 두는지가 설계에 없었다. 서버가 메신저 세션이 없으면 띄우고 쉬는 중이면 깨우는 것을 설계에 넣고, 구현 중 달라진 점(outbox launch, 세션 번호로 열린 창 이름 찾기, messenger.md)도 반영한다",
+      "approvedAt": "2026-10-27T09:00:34.985Z"
     }
   ]
 }

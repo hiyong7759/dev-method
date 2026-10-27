@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { specHandler } from './middleware.js';
+import { ensureMessenger, setAfterEnqueue } from './outbox.js';
 import { handOver, staleServer } from './stale.js';
 import { projectRoot } from './project.js';
 import { extractSpecs } from './extract.js';
@@ -81,7 +82,11 @@ export async function main(argv: string[]): Promise<number | undefined> {
   // 1분마다 소스가 서버가 뜬 뒤 바뀌었는지(옛 코드) 보고, 바뀌었으면 같은 설정의 새 서버를 띄우고 자기는 물러난다.
   // 담당 세션에 글을 보내거나 다시 보내는 일은 서버가 하지 않는다(보낼 글은 outbox에 있고 메신저 세션이 보낸다. 서버가 물러나도 줄은 파일에 남는다)
   const root = projectRoot(scanRoot);
+  // 단, 메신저 세션이 꺼져 있으면 승인한 결정이 대기에서 멈추므로 서버가 메신저를 살려 둔다(없으면 띄우고, 쉬는데 대기 줄이 있으면 깨운다). 담당 세션에 글을 보내는 일이 아니다
+  setAfterEnqueue(() => { ensureMessenger(scanRoot); });
+  ensureMessenger(scanRoot);
   setInterval(() => {
+    ensureMessenger(scanRoot);
     if (!staleServer()) return;
     handOver(root);
     setTimeout(() => process.exit(0), 300);

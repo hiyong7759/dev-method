@@ -16,7 +16,7 @@ import { isStart, STALL_AFTER_MIN } from './delivery.js';
 import type { Request, SessionCost } from './types.js';
 
 /** 이 도구의 입구 파일(다른 프로젝트에서도 같은 도구를 부른다) */
-const SPEC_MJS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'skills', 'spec-view', 'spec.mjs');
+export const SPEC_MJS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'skills', 'spec-view', 'spec.mjs');
 
 /** 사람 없이 쓸 수 있게 미리 허락하는 도구: 문서·소스 읽기와 고치기, 설계서 보기 명령(node는 입구 파일만 — 임의 스크립트로 읽기 금지 파일을 읽지 못하게), 검사, 시안을 찍는 ego-browser(없으면 사람 없는 세션이 승인을 기다리다 막힌다), 그리고 그 일의 커밋. 위험한 git 명령은 저장소의 차단 훅이 막는다 */
 export const ALLOWED = ['Read', 'Edit', 'Write', `Bash(node ${SPEC_MJS}:*)`, 'Bash(npm:*)', 'Bash(ego-browser:*)', 'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git add:*)', 'Bash(git commit:*)'];
@@ -121,6 +121,19 @@ function registerOwner(root: string, sid: string, id: number): void {
   all[sid] = { request: id, seen: '', starting: new Date().toISOString() };
   fs.mkdirSync(path.join(root, '.spec'), { recursive: true });
   fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
+}
+
+/** 담당 번호를 바꾼다. `claude --bg`는 미리 정한 세션 번호를 그대로 쓰지 않고 자기 번호를 붙이므로, 만든 뒤 실제 번호로 갈아 끼운다(그대로 두면 같은 요청에 담당이 둘로 남고, 이어 띄울 때 대화를 못 찾아 새 세션이 생긴다). 훅이 이미 실제 번호를 적었으면 옛 번호만 지운다 */
+export function rebindOwner(root: string, oldSid: string, newSid: string): void {
+  if (oldSid === newSid) return;
+  try {
+    const all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')) as Record<string, { request: number; seen: string; starting?: string }>;
+    if (!all[oldSid]) return;
+    all[newSid] = all[newSid] ?? all[oldSid];
+    delete all[oldSid];
+    fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
+    fs.appendFileSync(logFile(root), `${new Date().toISOString()} 담당 번호를 ${oldSid} → ${newSid}로 바꿈(claude --bg가 붙인 실제 번호)\n`);
+  } catch { /* 기록이 없으면 바꿀 것도 없다 */ }
 }
 
 /** 담당 세션의 명령에 비밀 파일 이름이 들어 있으면 막는 훅 */

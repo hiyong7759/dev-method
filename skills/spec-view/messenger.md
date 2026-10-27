@@ -12,7 +12,7 @@
    - `sendTo`가 이름이면(지금 열려 있는 세션, `claude agents --json`에서 세션 번호로 찾은 이름) `SendMessage`로 `to: sendTo`에 글 파일 내용을 그대로(요약·수정 금지) 보낸다. 성공하면 `node SPEC request outbox done --row N --via send --src SRC`.
    - `sendTo`가 null이거나 `No agent named … is reachable`이면 `node SPEC request outbox launch --row N --src SRC`를 실행한다(대화가 있으면 `claude --bg --resume`으로 이어 띄우고 없으면 `--session-id`로 새로 만든다. 성공·실패를 줄에 스스로 기록하므로 `done`을 따로 부르지 않는다). `bgCommand`를 직접 실행하지 않는다(셸 치환이 들어 있어 권한 확인 창에서 멈춘다).
    - 열린 창 보내기가 둘 다 안 되고 launch도 못 쓰면 `fail --row N --reason "무엇이 어떻게 안 됐는지" --src SRC`. 헤드리스(`claude -p`)로 대신 보내지 않는다.
-4. 한 줄을 끝낼 때마다 `/compact`로 대화를 줄인다. 그리고 1로 돌아간다.
+4. 1로 돌아간다. (컨텍스트 관리: 모델은 `/compact`를 스스로 실행할 수 없다. 대화 기록이 커지면 서버가 쉬는 때를 골라 이 세션을 멈추고 새로 띄운다. 그러니 출력은 짧게 보고, 글 내용을 대화에 되풀이해 쓰지 않는다.)
 
 ## 하지 말 것
 
