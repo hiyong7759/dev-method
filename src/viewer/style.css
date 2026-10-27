@@ -542,7 +542,7 @@ textarea{width:100%;min-height:76px;padding:10px;border-radius:8px;border:1px so
 .rv-pos{position:absolute;top:-10px;right:8px}
 .rv.ok{border-color:var(--green-deep);background:var(--green-bg);color:var(--green)}
 .rv.ok:before{background:var(--green)}
-.erd-wrap{flex:none;min-height:440px;border:1px solid var(--line);border-radius:12px;background:var(--bg2);display:block;overflow:auto;max-height:calc(100vh - 330px)}
+.erd-wrap{flex:none;min-height:440px;border:1px solid var(--line);border-radius:12px;background:var(--bg2);display:block;overflow-x:auto}
 .erd{overflow:visible;min-height:100%}
 .legend2{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--dim)}
 .sw-box{width:14px;height:14px;border-radius:4px;border:1px solid var(--line);background:var(--card);display:inline-block}

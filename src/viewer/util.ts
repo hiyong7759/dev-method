@@ -184,8 +184,8 @@ export async function copyText(text: string): Promise<boolean> {
 /** 사용자 언어(지금은 한국어). 이름 값이 언어별로 있어 언어가 늘면 여기만 바꾼다 */
 const NAME_LANG = 'ko';
 
-/** 정보나 필드 이름을 사용자 언어(지금은 한국어)로 만든다. 이름이 없으면 영어 이름이 그대로 나온다. 영어 이름은 부르는 쪽이 마우스를 올리면 보이게(title) 붙인다 */
+/** 정보나 필드 이름을 "사용자 언어(English)"로 만든다(지금은 "한국어(English)"). 사용자 언어 이름이 없으면 영어 이름만 나온다 */
 export function nameLabel(model: Model, kind: 'infos' | 'props', name: string): string {
   const local = model.names?.[NAME_LANG]?.[kind]?.[name];
-  return local || name;
+  return local ? `${local}(${name})` : name;
 }
