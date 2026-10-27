@@ -9,6 +9,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { projectRoot, specDir } from '../src/project.js';
 import { loadRequests } from '../src/request.js';
+import { worktreeRefOf } from '../src/worktree.js';
 
 const git = (cwd: string, ...a: string[]): void => { execFileSync('git', ['-C', cwd, '-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { stdio: 'ignore' }); };
 
@@ -27,4 +28,14 @@ test('워크트리 안에서 불러도 프로젝트 루트와 .spec은 main 작�
   fs.writeFileSync(path.join(main, '.spec', 'requests', '1.json'), JSON.stringify({ id: 1, title: 't', stage: 'test', step: 'x', events: [], scope: {}, agent: { name: '' } }));
   assert.equal(loadRequests(path.join(wt, 'src')).length, 1);
   assert.equal(fs.existsSync(path.join(wt, '.spec')), false);
+});
+
+test('세션 기록에 워크트리 정보가 없어도 git 워크트리(.claude/worktrees/req-번호)를 찾는다', () => {
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wr-')));
+  fs.writeFileSync(path.join(base, 'a.txt'), '');
+  git(base, 'init', '-q', '-b', 'main'); git(base, 'add', '-A'); git(base, 'commit', '-q', '-m', 'x');
+  const wt = path.join(base, '.claude', 'worktrees', 'req-7');
+  git(base, 'worktree', 'add', '-q', '-b', 'worktree-req-7', wt);
+  assert.deepEqual(worktreeRefOf(base, 7), { path: wt, branch: 'worktree-req-7' });
+  assert.equal(worktreeRefOf(base, 8), null);
 });

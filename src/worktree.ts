@@ -18,7 +18,7 @@ export function baseBranch(root: string): string {
   return 'main';
 }
 
-/** 담당 세션들 중 워크트리를 쓰는 것의 경로와 브랜치(없으면 null) */
+/** 요청의 워크트리 경로와 브랜치(없으면 null). ① 담당 세션 기록(~/.claude/jobs/<번호8>/state.json)에서 찾고, ② 없으면(담당이 바뀌었거나 기록에 워크트리 정보가 없으면) git worktree list에서 경로가 .claude/worktrees/req-<요청번호>인 것을 찾는다 */
 export function worktreeRefOf(root: string, id: number): { path: string; branch: string } | null {
   for (const sid of ownersOf(root, id)) {
     try {
@@ -26,6 +26,14 @@ export function worktreeRefOf(root: string, id: number): { path: string; branch:
       if (s.worktreePath && s.worktreeBranch) return { path: s.worktreePath, branch: s.worktreeBranch };
     } catch { /* 이 세션은 정보가 없다 */ }
   }
+  try {
+    let cur: { path?: string; branch?: string } = {};
+    for (const line of [...git(root, ['worktree', 'list', '--porcelain']).split('\n'), '']) {
+      if (line.startsWith('worktree ')) cur = { path: line.slice(9) };
+      else if (line.startsWith('branch ')) cur.branch = line.slice(7).replace(/^refs\/heads\//, '');
+      else if (!line && cur.path && cur.branch && cur.path.endsWith(`/.claude/worktrees/req-${id}`)) return { path: cur.path, branch: cur.branch };
+    }
+  } catch { /* git을 못 쓰면 워크트리 없음 */ }
   return null;
 }
 
