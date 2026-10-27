@@ -59,12 +59,12 @@ function drawArrows(area: HTMLElement, sc: Scenario): void {
       if (!b) continue;
       if (e.kind === 'loop' && !st.main) {
         // 갈래에서 돌아가는 길: 갈래 칸의 왼쪽에서 나와 앞 단계의 아랫면으로 들어간다
-        const x1 = X(a.left), y1 = Y(a.top + a.height / 2), x2 = X(b.left + b.width / 2), y2 = Y(b.bottom);
-        put(`M${x1} ${y1} C${x1 - 50} ${y1}, ${x2} ${y2 + 50}, ${x2} ${y2}`, 'var(--dim2)', 'ahl', true);
+        const x1 = X(a.left), y1 = Y(a.top + a.height / 2), x2 = X(b.left + b.width / 2), y2 = Y(b.bottom), r = 10;
+        put(`M${x1} ${y1} H${x2 + r} Q${x2} ${y1} ${x2} ${y1 - r} V${y2}`, 'var(--dim2)', 'ahl', true);
       } else if (e.kind === 'loop') {
-        // 위쪽으로 휘어 앞 단계의 윗면으로 돌아온다
-        const x1 = X(a.left + a.width / 2), x2 = X(b.left + b.width / 2), top = Math.min(Y(a.top), Y(b.top));
-        put(`M${x1} ${Y(a.top)} C${x1} ${top - 34}, ${x2} ${top - 34}, ${x2} ${Y(b.top)}`, 'var(--dim2)', 'ahl', true);
+        // 시안처럼 위로 곧게 올라가 옆으로 가서 앞 단계의 윗면으로 곧게 내려온다(위쪽 모서리만 둥글다)
+        const x1 = X(a.left + a.width / 2), x2 = X(b.left + b.width / 2), top = Math.min(Y(a.top), Y(b.top)) - 22, r = 10, d = x1 >= x2 ? 1 : -1;
+        put(`M${x1} ${Y(a.top)} V${top + r} Q${x1} ${top} ${x1 - d * r} ${top} H${x2 + d * r} Q${x2} ${top} ${x2} ${top + r} V${Y(b.top)}`, 'var(--dim2)', 'ahl', true);
       } else if (Math.abs(a.left - b.left) < 6) {
         // 같은 열(갈래): 바로 아래 칸이면 곧게 내려가고, 사이에 다른 칸이 끼면 오른쪽 틈으로 돌아 들어간다
         const between = [...area.querySelectorAll('[data-id]')].some((o) => { const r = o.getBoundingClientRect(); return o !== area.querySelector(`[data-id="${CSS.escape(e.to)}"]`) && Math.abs(r.left - a.left) < 6 && r.top > a.bottom - 1 && r.bottom < b.top + 1; });

@@ -31,7 +31,7 @@ export interface ErdOptions {
   bullets?: boolean;
 }
 
-const W = 212, GAPX = 30, GAPY = 52, NODE_H = 104, SHOWN = 4;
+const W = 212, GAPX = 30, GAPY = 52, NODE_H = 104, SHOWN = Infinity;
 
 /** 정보 관계도 한 장을 만든다 */
 export function buildErd(model: Model, o: ErdOptions): HTMLElement {
@@ -54,15 +54,37 @@ export function buildErd(model: Model, o: ErdOptions): HTMLElement {
     const list = byLevel[l].slice().sort((x, y) => degree(y.name) - degree(x.name));
     for (let k = 0; k < list.length; k += cols) rowsList.push(list.slice(k, k + cols));
   });
+  const makeNode = (i: ModelInfo): HTMLElement => {
+    const deco = o.decorate?.(i) ?? null;
+    const doc1 = i.doc ? i.doc.split(/[.。]/)[0] : '';
+    const flaggedProps = new Set(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === i.name).map((r) => r.review?.prop));
+    const fields = deco?.fields ?? i.props.map((pr) => ({ name: pr.name, kind: (flaggedProps.has(pr.name) ? 'flag' : '') as '' | 'flag' }));
+    const shownFields = fields.slice(0, SHOWN);
+    const hidden = fields.length - shownFields.length;
+    const dim = o.dimOthers ? o.dimOthers(i) : false;
+    const node = h('div', { class: `inode${i.kind === 'internal' ? ' internal' : ''}${selected === i.name ? ' sel' : ''}${dim ? ' dim' : ''}${deco?.cls ? ` ${deco.cls}` : ''}`, dataset: { ctarget: JSON.stringify({ kind: 'item', label: `정보 흐름 › ${i.name}`, info: i.name }) }, title: `${i.name}${doc1 ? ' — ' + doc1 : ''}`, onclick: () => o.onSelect?.(i.name) },
+      h('div', { class: 'h' }, h('b', null, o.bullets ? buls([{ kind: (i.kind === 'internal' ? 'int' : 'scr') as BulKind, label: i.kind === 'internal' ? '내부용' : '화면용' }, ...(i.flagged ? [{ kind: 'rev' as BulKind, label: '확인 필요' }] : [])]) : null, nameLabel(model, 'infos', i.name)), h('span', null, deco?.sub ?? (i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1))),
+      h('div', { class: 'ftags' }, shownFields.map((f) => h('span', { class: `tag${f.kind === 'flag' ? ' flag' : f.kind === 'add' ? ' add' : f.kind === 'del' ? ' del' : ''}`, title: f.name }, f.kind === 'add' ? `+ ${nameLabel(model, 'props', f.name)}` : nameLabel(model, 'props', f.name))), hidden > 0 ? h('span', { class: 'tag more' }, `+${hidden}`) : null),
+      deco?.badge ? h('span', { class: 'rv-pos' }, h('span', { class: 'rv ok' }, deco.badge)) : (i.flagged ? h('span', { class: 'rv-pos' }, reportLink(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === i.name), `정보 흐름 · ${i.name}`)) : null));
+    return node;
+  };
+  // 상자 높이는 안의 내용(설명 줄·필드 이름표 줄 수)만큼 커진다. 같은 줄의 상자는 가장 큰 높이로 맞춰 연결선이 어긋나지 않게 한다
+  const nodeEls = new Map<string, HTMLElement>(infos.map((i) => [i.name, makeNode(i)]));
+  const probe = h('div', { style: 'position:absolute;left:-9999px;top:0;visibility:hidden' }, [...nodeEls.values()]);
+  document.body.append(probe);
+  const natural: Record<string, number> = {};
+  nodeEls.forEach((el, name) => { natural[name] = Math.max(NODE_H, el.offsetHeight); });
+  probe.remove();
   const pos: Record<string, Pos> = {};
   let maxX = 0, y = 30;
   const widest = Math.max(0, ...rowsList.map((r) => r.length));
   const innerW = widest * (W + GAPX) - GAPX;
   rowsList.forEach((row) => {
     const off = (innerW - (row.length * (W + GAPX) - GAPX)) / 2;
-    row.forEach((i, k) => { pos[i.name] = { x: 30 + off + k * (W + GAPX), y, h: NODE_H }; });
+    const rowH = Math.max(...row.map((i) => natural[i.name]));
+    row.forEach((i, k) => { pos[i.name] = { x: 30 + off + k * (W + GAPX), y, h: rowH }; });
     maxX = Math.max(maxX, 30 + innerW);
-    y += NODE_H + GAPY;
+    y += rowH + GAPY;
   });
   const canvasW = maxX + 60, canvasH = y;
   const erd = h('div', { class: 'erd' });
@@ -89,7 +111,7 @@ export function buildErd(model: Model, o: ErdOptions): HTMLElement {
     const hl = !!selected && (r.from === selected || r.to === selected);
     if (Math.abs(a.y - b.y) < 4) {
       const [l, rr] = a.x < b.x ? [a, b] : [b, a];
-      const yy = l.y + NODE_H / 2;
+      const yy = l.y + l.h / 2;
       line(`M${l.x + W} ${yy} L${rr.x} ${yy}`, r.weak, hl);
       if (rr.x - l.x - W > 100) { text(l.x + W + 8, '1', yy - 6, hl); text(rr.x - 14, r.many, yy - 6, hl); text((l.x + W + rr.x) / 2 - 20, r.field, yy + 16, hl); }
     } else {
@@ -112,17 +134,8 @@ export function buildErd(model: Model, o: ErdOptions): HTMLElement {
   erd.append(svg);
   for (const i of infos) {
     const p = pos[i.name];
-    const deco = o.decorate?.(i) ?? null;
-    const doc1 = i.doc ? i.doc.split(/[.。]/)[0] : '';
-    const flaggedProps = new Set(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === i.name).map((r) => r.review?.prop));
-    const fields = deco?.fields ?? i.props.map((pr) => ({ name: pr.name, kind: (flaggedProps.has(pr.name) ? 'flag' : '') as '' | 'flag' }));
-    const shownFields = fields.slice(0, SHOWN);
-    const hidden = fields.length - shownFields.length;
-    const dim = o.dimOthers ? o.dimOthers(i) : false;
-    const node = h('div', { class: `inode${i.kind === 'internal' ? ' internal' : ''}${selected === i.name ? ' sel' : ''}${dim ? ' dim' : ''}${deco?.cls ? ` ${deco.cls}` : ''}`, dataset: { ctarget: JSON.stringify({ kind: 'item', label: `정보 흐름 › ${i.name}`, info: i.name }) }, style: `left:${p.x}px;top:${p.y}px;height:${p.h}px`, title: `${i.name}${doc1 ? ' — ' + doc1 : ''}`, onclick: () => o.onSelect?.(i.name) },
-      h('div', { class: 'h' }, h('b', null, o.bullets ? buls([{ kind: (i.kind === 'internal' ? 'int' : 'scr') as BulKind, label: i.kind === 'internal' ? '내부용' : '화면용' }, ...(i.flagged ? [{ kind: 'rev' as BulKind, label: '확인 필요' }] : [])]) : null, nameLabel(model, 'infos', i.name)), h('span', null, deco?.sub ?? (i.unused ? '쓰는 곳 없음 · 정리 후보' : doc1))),
-      h('div', { class: 'ftags' }, shownFields.map((f) => h('span', { class: `tag${f.kind === 'flag' ? ' flag' : f.kind === 'add' ? ' add' : f.kind === 'del' ? ' del' : ''}`, title: f.name }, f.kind === 'add' ? `+ ${nameLabel(model, 'props', f.name)}` : nameLabel(model, 'props', f.name))), hidden > 0 ? h('span', { class: 'tag more' }, `+${hidden}`) : null),
-      deco?.badge ? h('span', { class: 'rv-pos' }, h('span', { class: 'rv ok' }, deco.badge)) : (i.flagged ? h('span', { class: 'rv-pos' }, reportLink(model.reports.filter((r) => r.review && !r.decision && !r.tool &&r.review.info === i.name), `정보 흐름 · ${i.name}`)) : null));
+    const node = nodeEls.get(i.name) as HTMLElement;
+    node.style.left = `${p.x}px`; node.style.top = `${p.y}px`; node.style.height = `${p.h}px`;
     erd.append(node);
   }
   erd.append(h('div', { style: `width:${canvasW}px;height:${canvasH}px` }));
