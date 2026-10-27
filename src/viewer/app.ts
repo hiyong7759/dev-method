@@ -153,7 +153,7 @@ function render(): void {
   }
 }
 
-/** 보고 있는 요청 상세 데이터가 달라졌음을 알리는 알약. 누르면 새 내용으로 다시 그린다 */
+/** 보고 있는 관리 화면(요청 목록·상세) 데이터가 달라졌음을 알리는 알약. 누르면 새 내용으로 다시 그린다 */
 function showFresh(): void {
   if (document.getElementById('fresh-pill')) return;
   const pill = h('button', { id: 'fresh-pill', class: 'btn sm fresh', onclick: () => { pill.remove(); render(); } }, '새 내용이 있습니다 · 눌러서 새로 고침');
@@ -176,8 +176,8 @@ async function load(initial: boolean): Promise<void> {
   key = k; model = m;
   const r = parse();
   if (active && r.view === 'screen') { active.update(m); if (!menu) topEl?.replaceWith(topEl = topbar(m, r)); return; }
-  // 요청 상세는 2.5초마다 다시 그리면 깜빡이고 읽던 자리가 위로 올라가므로, 데이터만 달라졌을 때는 그리지 않고 "새 내용이 있다"는 알약만 띄운다(누르면 그때 다시 그린다)
-  if (!initial && r.view === 'manage' && /^\d+$/.test(r.arg)) { showFresh(); return; }
+  // 요청 목록·상세 같은 관리 화면은 2.5초마다 다시 그리면 깜빡이고 읽던 자리가 위로 올라가므로, 데이터만 달라졌을 때는 그리지 않고 "새 내용이 있다"는 알약만 띄운다(누르면 그때 다시 그린다)
+  if (!initial && r.view === 'manage') { showFresh(); return; }
   document.getElementById('fresh-pill')?.remove();
   // 같은 주소에서 데이터만 달라져 다시 그릴 때는 보던 자리·펼침·입력을 지킨다
   const snap = initial ? null : snapshot(root);

@@ -1,0 +1,51 @@
+{
+  "id": 94,
+  "title": "요청 목록 화면도 데이터가 달라질 때 저절로 다시 그리지 않고 새 내용 알약만 띄운다",
+  "source": "user",
+  "origin": {
+    "text": "야 그리고 목록화면도 자꾸 갱신된다 이건 바로 수정하자",
+    "channel": "대화",
+    "at": "2026-10-27T14:27:22.572Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "noTest": "화면 모양과 정보는 그대로이고 저절로 다시 그리는 동작만 없애는 고장 수리라 사용자 화면 테스트 항목이 없다(#86에서 상세에 한 것과 같다)",
+  "detail": {
+    "text": "app.ts load()의 저절로 다시 그리지 않는 조건을 요청 상세(숫자 주소)에서 관리 영역 전체(요청 목록·상세 하위 화면)로 넓힌다. 데이터만 달라지면 '새 내용이 있습니다' 알약만 띄우고, 사용자가 누르거나 결정을 내리면 그때 다시 그린다.",
+    "confirmedAt": "2026-10-27T14:27:22.572Z",
+    "mode": "direct",
+    "reason": "화면 모양·정보가 안 바뀌는 고장 수리(#86의 상세 처리를 목록에도 적용)"
+  },
+  "stage": "impl",
+  "step": "working",
+  "events": [
+    {
+      "at": "2026-10-27T14:27:22.572Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-27T14:27:22.572Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "바로 작업으로 등록(설계 없음 승인으로 봄)"
+    }
+  ],
+  "design": {
+    "understanding": "",
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0
+  }
+}
