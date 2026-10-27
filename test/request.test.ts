@@ -3,13 +3,26 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { redesign, checkTest, addRequest, startDesign, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, setScope, loadRequests, describeRequests } from '../src/request.js';
+import { parseBrief, redesign, checkTest, addRequest, startDesign, submitDesign, approveDesign, rejectDesign, noteImpl, requestTest, approveTest, testProblem, setOrder, setScope, loadRequests, describeRequests } from '../src/request.js';
 import { tempProject } from './helpers.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { liveShotFile } from '../src/request.js';
 
 const design = { understanding: '이해', approach: '방법', files: [{ path: 'a.ts', why: '시험' }] };
+
+test('핵심 요약은 없으면 올릴 수 없고, 올리면 설계·테스트에 그대로 저장된다', () => {
+  assert.throws(() => parseBrief(undefined, '설계'), /핵심 요약/);
+  assert.throws(() => parseBrief(' | ', '테스트'), /핵심 요약/);
+  assert.throws(() => parseBrief(['1', '2', '3', '4', '5'], '설계'), /4줄까지/);
+  assert.deepEqual(parseBrief('줄1| 줄2 ', '테스트'), ['줄1', '줄2']);
+  const { src } = tempProject();
+  addRequest(src, { title: '요약 요청' });
+  submitDesign(src, 1, { ...design, brief: ['정할 것'] }); approveDesign(src, 1);
+  assert.deepEqual(loadRequests(src)[0].design?.brief, ['정할 것']);
+  requestTest(src, 1, ['눌러서 본다']);
+  assert.deepEqual(loadRequests(src)[0].test?.brief, ['눌러서 본다']);
+});
 
 test('요청은 설계 → 구현 → 테스트 → 완료로 흐른다', () => {
   const { src } = tempProject();

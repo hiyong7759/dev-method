@@ -832,4 +832,6 @@ a.open.td{border-color:var(--amber-deep);color:var(--amber)}
 .seg-row{display:flex;justify-content:flex-end;margin:10px 0}
 .mg-req.brief{padding:10px 14px;gap:12px}
 .mg-req.brief .brief-todo{margin-top:6px;font-size:12.5px;color:var(--dim)}
-.mg-req.brief .brief-todo div{padding:2px 0}
+.mg-req.brief .brief-todo div{padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mg-req.brief .brief-main{min-width:0}
+.mg-req.brief .brief-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

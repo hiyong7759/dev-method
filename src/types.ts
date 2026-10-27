@@ -261,10 +261,14 @@ export interface RequestDesign {
   rejected: number;
   /** 이 설계가 건드린다고 적은 파일과 이유(승인되면 구현 커밋이 이 안에서만 가능하다. 옛 설계는 없음) */
   files?: { path: string; why: string }[];
+  /** 사용자가 판단하기 쉽게 에이전트가 정리한 핵심 요약(1~4줄). 요청 목록의 핵심만 보기와 상세 맨 위에 그대로 보인다(옛 설계는 없음) */
+  brief?: string[];
 }
 
 /** 테스트 단계의 확인 기록 */
 export interface RequestTest {
+  /** 사용자가 화면에서 무엇을 눌러 무엇을 보면 되는지 에이전트가 정리한 핵심 요약(1~4줄. 옛 테스트는 없음) */
+  brief?: string[];
   /** 확인한 단계들: "시나리오#단계" → 확인함 */
   checks: Record<string, boolean>;
   /** 테스트하다 발견한 범위 밖의 것(리포트로도 올라간다) */

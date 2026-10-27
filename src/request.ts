@@ -170,6 +170,8 @@ export function describeRequests(list: Request[], componentsOf: (r: Request) => 
 
 /** 설계 파일(--file)이 가진 모양. 그림 파일은 .spec/shots로 복사한다 */
 export interface DesignInput {
+  /** 핵심 요약 문장들(1~4줄). `request design`(명령)에서는 필수 */
+  brief?: string[];
   /** 이렇게 이해했다(짧은 한 줄 요약) */
   understanding?: string;
   /** 이렇게 이해한 것을 영역별로 나눈 항목들 */
@@ -224,6 +226,14 @@ export function startDesign(scanRoot: string, id: number): Request {
   return record(scanRoot, r, 'agent', 'started', '설계를 시작함(우선순위를 정해 시작)');
 }
 
+/** 핵심 요약 입력을 문장 1~4줄로 다듬는다. 없으면 올리지 못하게 한다(명령에서 쓴다: 목록의 핵심만 보기가 이 문장을 그대로 보이므로 에이전트가 꼭 적어야 한다) */
+export function parseBrief(raw: unknown, what: string): string[] {
+  const lines = (Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split('|') : []).map((s) => String(s).trim()).filter(Boolean);
+  if (!lines.length) throw new Error(`${what}에 핵심 요약(brief)을 적어야 한다. 사용자가 판단하기 쉽게 문장 1~4줄로 정리한다(영역·단계 이름만 늘어놓지 않는다)`);
+  if (lines.length > 4) throw new Error(`핵심 요약(brief)은 4줄까지다(지금 ${lines.length}줄). 가장 중요한 것만 남긴다`);
+  return lines;
+}
+
 /** 에이전트가 설계 결과를 올린다 → 사용자 승인 대기 */
 export function submitDesign(scanRoot: string, id: number, d: DesignInput): Request {
   const r = loadOne(scanRoot, id);
@@ -241,7 +251,7 @@ export function submitDesign(scanRoot: string, id: number, d: DesignInput): Requ
     screen: s.screen, after: copyShot(scanRoot, s.after, `${prefix}${i + 1}-after`), ...resolveBefore(scanRoot, id, i, s, prefix), link: s.link ?? '', note: s.note ?? '', counts: { add: s.counts?.add ?? 0, change: s.counts?.change ?? 0, remove: s.counts?.remove ?? 0 },
     ...(s.highlights?.length ? { highlights: s.highlights } : {}),
   }));
-  const design: RequestDesign = { understanding: d.understanding?.trim() ?? '', ...(d.points?.length ? { points: d.points } : {}), approach: d.approach?.trim() ?? '', changes: d.changes ?? [], screens, data: d.data, none, rejected: prev, files };
+  const design: RequestDesign = { understanding: d.understanding?.trim() ?? '', ...(d.points?.length ? { points: d.points } : {}), approach: d.approach?.trim() ?? '', changes: d.changes ?? [], screens, data: d.data, none, rejected: prev, files, ...(d.brief?.length ? { brief: d.brief } : {}) };
   r.design = design;
   r.scope.screens = [...new Set([...r.scope.screens, ...screens.map((s) => s.screen)])];
   r.scope.infos = [...new Set([...r.scope.infos, ...design.changes.map((c) => c.info)])];
@@ -300,7 +310,7 @@ export function noteImpl(scanRoot: string, id: number, commitArg: string): Reque
 }
 
 /** 에이전트가 구현을 끝내고 테스트를 올린다(고친 뒤 다시 올릴 때도 같다) → 사용자 확인 대기 */
-export function requestTest(scanRoot: string, id: number): Request {
+export function requestTest(scanRoot: string, id: number, brief?: string[]): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'impl' && r.stage !== 'test') throw new Error(`요청 #${id}은 테스트를 올릴 수 있는 단계가 아니다(지금: ${STAGE_LABEL[r.stage]})`);
   if (r.scope.screens.length && !(r.scope.scenarios ?? []).length) throw new Error(`요청 #${id}은 범위에 화면(${r.scope.screens.join(', ')})이 있는데 사용 시나리오가 없어 테스트를 올릴 수 없다. 시나리오를 소스(@does)에 올리고 \`request scope --id ${id} --scenarios …\`로 범위에 연결한다`);
@@ -312,6 +322,7 @@ export function requestTest(scanRoot: string, id: number): Request {
   const again = r.stage === 'test';
   move(r, 'test', 'requested');
   r.test = r.test ?? { checks: {}, found: [], none: false };
+  if (brief?.length) r.test.brief = brief;
   // 설계가 바뀐 뒤 다시 올릴 때: 제목과 확인 기준이 그대로인 단계의 체크는 두고, 바뀌었거나 없어진 단계의 체크는 푼다
   const sigs = stepSigs(scanRoot, r);
   if (sigs) {
@@ -568,7 +579,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
       console.log(`요청 #${r.id}: 설계를 시작한다${sid ? ` · 담당 세션을 새로 만들었다(${sid.slice(0, 8)}, 진행은 .spec/wake.log)` : ''}`);
     } else if (pos[0] === 'design') {
       const input = opts.file ? JSON.parse(fs.readFileSync(opts.file, 'utf8')) as DesignInput : {};
-      const r = submitDesign(scanRoot, id, { ...input, none: input.none || opts.none === 'true', ...(opts.files ? { files: csv(opts.files).map((p) => ({ path: p })) } : {}) });
+      const brief = parseBrief(input.brief ?? opts.brief, '설계');
+      const r = submitDesign(scanRoot, id, { ...input, brief, none: input.none || opts.none === 'true', ...(opts.files ? { files: csv(opts.files).map((p) => ({ path: p })) } : {}) });
       console.log(`요청 #${r.id}: 설계를 올렸다. 사용자가 승인하거나 반려할 때까지 구현하지 않는다`);
     } else if (pos[0] === 'session') {
       // 시작은 했는데 담당 세션이 안 만들어진 요청(옛 기록 등)에 담당 세션을 다시 만든다
@@ -587,7 +599,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
     } else if (pos[0] === 'impl') {
       const r = noteImpl(scanRoot, id, opts.commit || ''); console.log(`요청 #${r.id}: 구현 기록`);
     } else if (pos[0] === 'test') {
-      const r = requestTest(scanRoot, id); console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
+      const r = requestTest(scanRoot, id, parseBrief(opts.brief, '테스트 요청(--brief "줄1|줄2")')); console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
     } else if (pos[0] === 'redesign') {
       const r = redesign(scanRoot, id, 'agent', opts.reason ?? '', opts.quote); console.log(`요청 #${r.id}: 설계 변경을 시작했다(사용자 요구를 인용해 기록). 설계를 고쳐 request design --id ${r.id}로 다시 올리고 사용자 승인을 받는다(이미 한 커밋과 이전 설계는 남는다)`);
     } else if (pos[0] === 'scope') {

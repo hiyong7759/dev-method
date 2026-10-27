@@ -5,7 +5,7 @@
  */
 import { h, post, pageHead, filterChips, chip, fmt, toast, errorText, buls, type BulKind } from './util.js';
 import { hash, nav } from './route.js';
-import { briefTitle, todoTitles, chipFor, scopeTags, currentDesignApproval, deliveryReason, noteBoxes, notDelivered, unread } from './manage-parts.js';
+import { todoTitles, chipFor, scopeTags, currentDesignApproval, deliveryReason, noteBoxes, notDelivered, unread } from './manage-parts.js';
 import type { Model, RequestView } from '../types.js';
 
 /** 요청 카드의 구분 점: 지금 단계(설계·구현·테스트)와 에이전트 발견 여부. 거르기 칩의 점과 짝이다 */
@@ -18,7 +18,7 @@ function briefRow(r: RequestView, model: Model): HTMLDivElement {
   const todo = todoTitles(model, r);
   return h('div', { class: `mg-req brief${r.turn === 'user' ? ' mine' : ''}`, onclick: () => nav(hash('manage', String(r.id))) },
     h('div', { class: 'rid' }, `#${r.id}`),
-    h('div', null, h('div', { class: 'rt' }, buls(bulsOf(r)), briefTitle(r.title)), todo.length ? h('div', { class: 'brief-todo' }, todo.map((t) => h('div', null, `☐ ${t}`))) : null),
+    h('div', { class: 'brief-main' }, h('div', { class: 'rt' }, buls(bulsOf(r)), h('span', { class: 'brief-t' }, r.title)), todo.length ? h('div', { class: 'brief-todo' }, todo.map((t) => h('div', null, `☐ ${t}`))) : null),
     h('div', { class: 'ract' }, chipFor(r)));
 }
 
