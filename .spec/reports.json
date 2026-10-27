@@ -17,26 +17,27 @@
       "at": "2026-10-24T12:40:03.008Z"
     },
     "review:JsxRoute.props": {
-      "state": "intended",
+      "state": "kept",
       "reason": "라우트 읽기에서 펼쳐 복사(...literalProps)해 담고 propflow가 e.props로 읽는다. 점검 도구가 펼쳐 복사를 못 따라간 것(요청 #67)",
       "at": "2026-10-24T12:50:00.000Z"
     },
     "review:JsxRoute.spread": {
-      "state": "intended",
+      "state": "kept",
       "reason": "라우트 읽기에서 펼쳐 복사(...literalProps)해 담고 propflow가 e.spread로 읽는다. 점검 도구가 펼쳐 복사를 못 따라간 것(요청 #67)",
       "at": "2026-10-24T12:50:00.000Z"
     },
     "review:LoginSetting.id": {
-      "state": "intended",
+      "state": "kept",
       "reason": "도구는 읽지 않고, 화면을 보는 에이전트가 .spec/local.json에서 직접 읽는 파일 규격이다(요청 #67)",
       "at": "2026-10-24T12:50:00.000Z"
     },
     "review:LoginSetting.url": {
-      "state": "intended",
+      "state": "kept",
       "reason": "도구는 읽지 않고, 화면을 보는 에이전트가 .spec/local.json에서 직접 읽는 파일 규격이다(요청 #67)",
       "at": "2026-10-24T12:50:00.000Z"
     }
   },
+  "notes": {},
   "numbers": {
     "review:DesignView.board": 1,
     "review:DesignView.request": 2,
@@ -65,6 +66,37 @@
     "review:LoginSetting.submitSelector": 25,
     "review:LoginSetting.url": 26,
     "review:Request.noTest": 27,
-    "review:Request.detail": 28
+    "review:Request.detail": 28,
+    "review:AgentReport.recommend": 29,
+    "review:AgentReport.why": 30,
+    "review:ReportNote": 31,
+    "review:ReportNote.at": 32,
+    "review:ReportNote.by": 33,
+    "review:ReportNote.recommend": 34,
+    "review:ReportNote.text": 35,
+    "review:ReportRow.notes": 36,
+    "review:ReportRow.recommend": 37,
+    "review:ReportRow.stage": 38,
+    "review:ReportRow.tool": 39,
+    "review:ModelProp.external": 40,
+    "review:RequestView.delivery": 41,
+    "review:RequestView.redesigns": 42,
+    "review:TestDataConfig.reviewUrl": 43,
+    "review:DesignVersion.approvedAt": 44,
+    "review:Conversation.sid": 45,
+    "review:Conversation.total": 46,
+    "review:Conversation.turns": 47,
+    "review:Model.brand": 48,
+    "review:Model.projectDir": 49,
+    "review:Request.files": 50,
+    "review:RequestDesign.files": 51,
+    "review:RequestView.asking": 52,
+    "review:RequestView.blocked": 53,
+    "review:InfoNames.infos": 54,
+    "review:InfoNames.props": 55,
+    "review:Model.names": 56,
+    "review:RequestDesign.brief": 57,
+    "review:RequestTest.brief": 58,
+    "review:DesignInput.brief": 59
   }
 }

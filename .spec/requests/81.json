@@ -33,8 +33,8 @@
     "mode": "design",
     "reason": "도구 동작이 바뀌어 설계 승인을 받는다"
   },
-  "stage": "test",
-  "step": "requested",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-26T13:35:10.808Z",
@@ -103,6 +103,12 @@
       "by": "agent",
       "kind": "test-requested",
       "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-26T22:27:17.520Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 승인"
     }
   ],
   "mergedFrom": [
@@ -229,7 +235,9 @@
     "rejected": 0
   },
   "test": {
-    "checks": {},
+    "checks": {
+      "여러 프로젝트를 구분한다#1": true
+    },
     "found": [],
     "none": false,
     "sigs": {

@@ -250,8 +250,8 @@
         "src/reports.ts",
         "src/viewer/review.ts"
       ],
-      "state": "differs",
-      "request": 47,
+      "state": "draft",
+      "request": 51,
       "verifyLater": [
         "시안의 '의도 확인' 묶음(코드에는 있는데 사용 흐름에 안 나오는 동작)과 '도구가 못 읽는 모양' 접힌 줄은 아직 없음 — 요청 #51에서 만든다"
       ]
