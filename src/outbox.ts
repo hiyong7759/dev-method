@@ -137,6 +137,16 @@ export function showRow(scanRoot: string, seq: number): { row: OutboxRow; textFi
   return { row, textFile: tf, conversationExists: exists, sendTo: openNameOf(row.session), bgCommand, bgVia: exists ? 'bg-resume' : 'bg-new' };
 }
 
+/** 메신저가 `outbox launch`로 부른다(서버는 부르지 않는다): 열린 창이 아닌 담당에게 `claude --bg`로 글을 보낸다. 대화가 있으면 이어 띄우고 없으면 새로 만든다. 셸을 거치지 않고 인자로 직접 실행하므로 메신저의 허용 목록(node 입구 파일만)으로 된다. 결과는 줄에 기록한다 */
+export function launchRow(scanRoot: string, seq: number): OutboxRow {
+  const { row, textFile: tf, conversationExists, bgVia } = showRow(scanRoot, seq);
+  const root = projectRoot(scanRoot);
+  const head = conversationExists ? ['--bg', '--resume', row.session] : ['--bg', '--session-id', row.session, '--name', ownerName(root, row.request)];
+  const run = spawnSync('claude', [...head, ...launchArgs(), fs.readFileSync(tf, 'utf8')], { cwd: root, encoding: 'utf8', timeout: 60_000 });
+  fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${row.request} ${row.session} claude --bg ${conversationExists ? '--resume' : '--session-id'} 종료코드=${run.status}\n`);
+  return run.status === 0 ? doneRow(scanRoot, seq, bgVia) : failRow(scanRoot, seq, `claude --bg 실패(종료코드 ${run.status}): ${(run.stderr || run.stdout || run.error?.message || '').trim().slice(0, 200)}`);
+}
+
 /** 대기 줄이 생길 때까지(최대 timeoutMs) 기다렸다가 대기 줄 번호들을 돌려준다. 기다리는 동안 토큰을 쓰지 않는다(메신저가 Monitor로 부른다) */
 export async function waitPending(scanRoot: string, timeoutMs = 10 * 60_000): Promise<number[]> {
   const end = Date.now() + timeoutMs;

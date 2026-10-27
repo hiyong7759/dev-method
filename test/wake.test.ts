@@ -126,8 +126,10 @@ test('서버 소스 어디에도 claude를 실행해 글을 보내는 길(헤드
   for (const f of all) {
     const text = fs.readFileSync(path.join(dir, f), 'utf8');
     assert.ok(!/claude -p /.test(text), `${f}에 claude -p 실행이 있다`);
-    // 열린 세션 이름을 찾는 읽기 전용 조회(claude agents)만 예외다
-    assert.ok(!/spawn(Sync)?\(\s*'claude',\s*\[\s*'(?!agents')/.test(text), `${f}가 claude를 실행한다`);
+    // 예외: 읽기 전용 조회(claude agents)와, 메신저가 부르는 outbox.ts의 launchRow(claude --bg). 서버 파일은 outbox.ts를 부르더라도 launchRow를 부르지 않는다(아래)
+    if (f !== 'outbox.ts') assert.ok(!/spawn(Sync)?\(\s*'claude'/.test(text), `${f}가 claude를 실행한다`);
+    else assert.ok(!/spawn(Sync)?\(\s*'claude',\s*\[\s*'(?!agents')(?!\.\.\.head)/.test(text), `${f}가 허용되지 않은 claude 실행을 한다`);
+    if (f !== 'outbox.ts' && f !== 'request.ts') assert.ok(!text.includes('launchRow'), `${f}가 launchRow를 부른다(서버는 부르지 않는다)`);
     assert.ok(!/execFile(Sync)?\(\s*'claude'/.test(text), `${f}가 claude를 실행한다`);
   }
 });

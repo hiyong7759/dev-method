@@ -603,6 +603,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
       else if (sub === 'list') { for (const r of ob.loadOutbox(scanRoot).slice(-20)) console.log(`줄 ${r.seq} #${r.request} ${r.kind === 'start' ? '시작' : '결정'} ${r.state}${r.reason ? ` · ${r.reason}` : ''}`); }
       else if (sub === 'show') console.log(JSON.stringify(ob.showRow(scanRoot, seq), null, 2));
       else if (sub === 'done') { const r = ob.doneRow(scanRoot, seq, opts.via as 'send' | 'bg-resume' | 'bg-new'); console.log(`줄 ${r.seq}: 보냄(${r.via})`); }
+      else if (sub === 'launch') { const r = ob.launchRow(scanRoot, seq); console.log(r.state === 'sent' ? `줄 ${r.seq}: claude --bg로 보냄(${r.via})` : `줄 ${r.seq}: 못 보냄(${r.reason})`); }
       else if (sub === 'fail') { const r = ob.failRow(scanRoot, seq, opts.reason ?? '이유 없음'); console.log(`줄 ${r.seq}: 못 보냄(${r.reason}) — 화면에 전달 안 됨으로 보인다`); }
       else throw new Error('사용: request outbox wait|list|show --row N|done --row N --via 길|fail --row N --reason 이유');
     } else if (pos[0] === 'shot') {
@@ -650,7 +651,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  wake --id N                      (사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정 줄을 상자에서 대기로 되돌린다. 보내는 것은 메신저)',
         '  session --id N                   (시작은 했는데 담당 세션이 안 만들어진 요청의 시작 글을 상자에 다시 적는다. 설정 wake가 켜져 있어야 한다)',
         '  ack --id N                       (담당 세션이 결정·시작 글을 받았다고 응답한다. 사용자 화면의 "읽음"은 이 명령으로만 찍힌다)',
-        '  outbox wait|list|show --row N|done --row N --via send|bg-resume|bg-new|fail --row N --reason "이유"   (메신저 세션 전용: 상자의 글을 담당 세션에 보내고 결과를 남긴다)',
+        '  outbox wait|list|show --row N|launch --row N|done --row N --via send|bg-resume|bg-new|fail --row N --reason "이유"   (메신저 세션 전용: 상자의 글을 담당 세션에 보내고 결과를 남긴다)',
         '  shot --id N --screen 화면이름 --url 주소 [--selector css]   (바꾸기 전 운영 화면을 손대지 않고 그대로 찍어 현행 그림으로 저장. 설계를 올릴 때 이 그림이 현행으로 붙는다)',
         '  design --id N --file 설계.json [--files 경로1,경로2]   (설계 JSON에 files: [{path, why}]로 건드릴 파일을 적는다(필수). 또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
