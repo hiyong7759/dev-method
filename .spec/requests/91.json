@@ -24,8 +24,8 @@
     "mode": "direct",
     "reason": "화면·정보가 안 바뀌는 명령 추가"
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-27T11:38:47.816Z",
@@ -38,6 +38,18 @@
       "by": "user",
       "kind": "design-approved",
       "note": "바로 작업으로 등록(설계 없음 승인으로 봄)"
+    },
+    {
+      "at": "2026-10-27T11:39:43.536Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 5cab8d5"
+    },
+    {
+      "at": "2026-10-27T11:39:54.970Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
     }
   ],
   "design": {
@@ -47,5 +59,19 @@
     "screens": [],
     "none": true,
     "rejected": 0
+  },
+  "commits": [
+    "5cab8d5"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false,
+    "brief": [
+      "request cancel 명령을 더했다. 사용자가 대화에서 한 말(--quote)과 이유가 있어야 하고, 완료·취소 전 어느 단계든 취소로 끝낸다.",
+      "요청 파일은 지우지 않고 이력으로 남긴다.",
+      "화면은 바뀌지 않았다. 단위 시험 1개를 더해 전체 117개가 통과했다."
+    ],
+    "sigs": {}
   }
 }

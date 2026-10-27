@@ -1,0 +1,158 @@
+{
+  "id": 89,
+  "title": "test-0 메신저 시험(바로 닫을 시험용)",
+  "source": "user",
+  "origin": {
+    "text": "요청 #87 메신저 시험용. 담당 세션이 시작 글을 받으면 request ack만 하고 멈춘다",
+    "channel": "대화",
+    "at": "2026-10-27T10:26:38.964Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": "dev-method #89 담당"
+  },
+  "noTest": "시험용 요청이라 화면·정보가 안 바뀐다",
+  "stage": "cancelled",
+  "step": "cancelled",
+  "events": [
+    {
+      "at": "2026-10-27T10:26:38.964Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-27T10:26:47.500Z",
+      "by": "agent",
+      "kind": "started",
+      "note": "설계를 시작함(우선순위를 정해 시작)"
+    },
+    {
+      "at": "2026-10-27T10:26:47.515Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(0624c448)"
+    },
+    {
+      "at": "2026-10-27T10:30:06.590Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #89 담당"
+    },
+    {
+      "at": "2026-10-27T10:53:53.068Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(4abdaa1d)"
+    },
+    {
+      "at": "2026-10-27T10:54:05.847Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #89 담당"
+    },
+    {
+      "at": "2026-10-27T10:55:02.056Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(e8214ce4)"
+    },
+    {
+      "at": "2026-10-27T10:55:12.017Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #89 담당"
+    },
+    {
+      "at": "2026-10-27T10:55:39.843Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #89 담당"
+    },
+    {
+      "at": "2026-10-27T10:56:15.185Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(0e0919d8)"
+    },
+    {
+      "at": "2026-10-27T10:56:26.535Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #89 담당"
+    },
+    {
+      "at": "2026-10-27T10:57:00.226Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(da5ff990)"
+    },
+    {
+      "at": "2026-10-27T10:57:32.785Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #89 담당"
+    },
+    {
+      "at": "2026-10-27T10:57:52.854Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(575a7f34)"
+    },
+    {
+      "at": "2026-10-27T10:58:06.098Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #89 담당"
+    },
+    {
+      "at": "2026-10-27T10:58:22.283Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-27T10:59:02.226Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(13774389)"
+    },
+    {
+      "at": "2026-10-27T10:59:10.756Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #89 담당"
+    },
+    {
+      "at": "2026-10-27T11:39:55.075Z",
+      "by": "user",
+      "kind": "cancelled",
+      "note": "취소(설계 중): 메신저 시험용으로 만든 요청이라 닫는다 (대화에서 한 말을 인용해 기록함)",
+      "quote": "다 지우고 왜 89, 90번이 아직 살아있는 건지"
+    }
+  ],
+  "design": {
+    "understanding": "시험용 요청. 담당이 읽음(ack)만 찍고 멈춘다",
+    "approach": "코드·화면 변경 없이 시작 글을 받으면 request ack만 하고 멈춘다.",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0,
+    "files": [
+      {
+        "path": ".spec/requests/89.json",
+        "why": "시험용이라 소스는 안 바꾸고 요청 기록만 남는다"
+      }
+    ],
+    "brief": [
+      "메신저 시험용 요청이라 화면·정보·소스가 바뀌지 않는다.",
+      "담당 세션이 시작 글을 받아 '읽음'만 찍고 멈추는지 확인하는 것이 전부다."
+    ]
+  }
+}
