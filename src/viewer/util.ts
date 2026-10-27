@@ -78,10 +78,23 @@ export interface PageHeadOptions {
   actions?: Kid;
 }
 export function pageHead({ crumb, title, lead, meta, actions }: PageHeadOptions): HTMLElement {
-  const main = h('div', null, crumb ? h('div', { class: 'crumb' }, crumb) : null, h('h1', null, title), lead ? h('p', { class: 'lead' }, lead) : null, meta ? h('div', { class: 'lead meta' }, meta) : null);
+  const crumbEl = crumb ? h('div', { class: 'crumb' }, crumb) : null;
+  const back = crumbEl ? backButton(crumbEl) : null;
+  const main = h('div', null, back, crumbEl, h('h1', null, title), lead ? h('p', { class: 'lead' }, lead) : null, meta ? h('div', { class: 'lead meta' }, meta) : null);
   const el = h('header', { class: 'ph' }, h('i', { class: 'ph-mark' }), actions ? h('div', { class: 'phrow' }, main, h('div', { style: 'display:flex;gap:8px;flex:none' }, actions)) : main);
   stickHead(el);
   return el;
+}
+
+/** 빵부스러기의 바로 위 단계로 돌아가는 단추. 옆 패널을 접어도 머리에 늘 남아, 들어온 화면에서 되돌아갈 길이 끊기지 않는다. 요청 목록으로 가는 링크는 마지막에 보던 거르기·보기를 되살린다 */
+function backButton(crumbEl: HTMLElement): HTMLElement | null {
+  const links = [...crumbEl.querySelectorAll('a')];
+  for (const a of links) if (a.getAttribute('href') === '#/manage') { try { const last = sessionStorage.getItem('mg-last'); if (last) a.setAttribute('href', last); } catch { /* 기억 못 해도 목록은 열린다 */ } }
+  const up = links[links.length - 1];
+  if (!up) return null;
+  const text = up.textContent ?? '';
+  const href = up.getAttribute('href') ?? '';
+  return h('a', { class: 'btn sm back', href }, text.startsWith('#') ? `‹ 요청 ${text} 상세로` : `‹ ${text}로 돌아가기`);
 }
 
 /** 페이지 머리를 스크롤해도 위에 붙여 두는 일. 붙으면(stuck) 설명 줄을 접어 자리를 줄이고, 아래에 붙는 필터 칩이 비켜 설 높이(--ph-h)를 알린다 */

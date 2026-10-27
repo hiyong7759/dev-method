@@ -12,7 +12,8 @@ import type { DesignChange, Model, RequestView } from '../types.js';
 /** 모드를 주소 쿼리에서 읽는다 */
 const modeOf = (def: string): string => new URLSearchParams(location.hash.split('?')[1] ?? '').get('mode') || def;
 /** 쿼리를 바꿔 다시 이동한다 */
-const setQuery = (id: number, sub: string, q: Record<string, string>): void => nav(hash('manage', `${id}/${sub}`, q), true);
+/** 보기 방식(현행·변경 후·나란히·겹쳐 보기)을 바꾼다. 주소만 바꾸는 replaceState는 화면을 다시 그리게 하지 않으므로, 바꾼 뒤 hashchange를 직접 알려 다시 그리게 한다(뒤로 가기 기록은 쌓지 않는다) */
+const setQuery = (id: number, sub: string, q: Record<string, string>): void => { nav(hash('manage', `${id}/${sub}`, q), true); window.dispatchEvent(new HashChangeEvent('hashchange')); };
 /** 모드 고르기 줄 */
 function modeSeg(items: [string, string][], cur: string, pick: (k: string) => void): HTMLElement {
   return h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: cur === k ? 'on' : '', onclick: () => pick(k) }, l)));
@@ -79,6 +80,8 @@ export function manageInfoOverlay(root: HTMLElement, { model, r }: { model: Mode
  * @to 요청 상세 | "요청 상세로 돌아가기"를 누른다 | 요청 번호
  * @to 요청 목록 | 위쪽 "요청"을 누른다
  * @does 지금 화면과 변경 후 디자인을 비교한다 | 네 가지 보기 방식으로 바뀐다 | 요청의 진행을 확인한다#5 | → 3
+ * @does 비교 화면의 그림이나 "🔍 크게 보기"를 누른다 | 그림이 큰 확대 창으로 열린다 | 긴 화면을 스크롤해도 제목·거르기·닫기가 보인다#3 | → 4
+ * @does 확대 창 안에서 그림을 아래로 스크롤한다 | 위쪽 줄의 "닫기 ✕ (Esc)"가 계속 보이고 누르면 창이 닫힌다 | 긴 화면을 스크롤해도 제목·거르기·닫기가 보인다#4
  */
 export function manageCompare(root: HTMLElement, { r, screen }: { r: RequestView; screen: string }): void {
   const ds = r.design?.screens ?? [];

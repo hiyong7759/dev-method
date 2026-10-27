@@ -292,7 +292,7 @@ export function commentTool(init: Model): CommentTool {
         i !== cur ? h('button', { class: 'btn sm', onclick: () => go(i) }, '가기') : null);
     };
     return h('div', { class: 'cm-path' },
-      h('div', { class: 'cm-tg' }, h('b', null, sc.name), chip('ag', `요청 #${r.id} 테스트`), h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: endPath }, '경로 끝내기')),
+      h('div', { class: 'cm-tg' }, h('b', null, sc.name), chip('ag', `요청 #${r.id} 테스트`), h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => { endPath(); nav(hash('manage', String(r.id))); } }, `‹ 요청 #${r.id} 상세로`), h('button', { class: 'btn sm', onclick: endPath }, '경로 끝내기')),
       steps.map(row),
       h('div', { class: 'cm-foot' }, h('button', { class: 'btn sm', disabled: cur <= 0, onclick: () => go(cur - 1) }, '‹ 이전 화면'), h('button', { class: 'btn sm', disabled: cur >= steps.length - 1, onclick: () => go(cur + 1) }, '다음 화면 ›')));
   }
