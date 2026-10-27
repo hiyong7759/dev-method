@@ -67,6 +67,23 @@ export function checkRequest(scanRoot: string, id: number, o: { run?: boolean } 
   return out;
 }
 
+/** 브랜치를 --no-ff로 합친다. 충돌 파일이 실행 기록(.spec/finish.json)뿐이면 main 쪽 것으로 풀어 합치고, 그 밖의 충돌은 합치기를 되돌리고 알린다 */
+export function mergeBranch(root: string, branch: string, message: string, base: string): void {
+  // main 폴더에서 finish를 돌려 저장 안 한 채 바뀐 실행 기록은 합치기를 막으므로(다시 돌리면 생기는 값) 되돌려 둔다
+  if (git(root, ['status', '--porcelain', '--', '.spec/finish.json']).trim()) git(root, ['checkout', 'HEAD', '--', '.spec/finish.json']);
+  try { git(root, ['merge', '--no-ff', branch, '-m', message]); return; } catch (e) {
+    const conflicted = names(git(root, ['diff', '--name-only', '--diff-filter=U']));
+    if (conflicted.length && conflicted.every((f) => f === '.spec/finish.json')) {
+      git(root, ['checkout', '--ours', '.spec/finish.json']);
+      git(root, ['add', '.spec/finish.json']);
+      git(root, ['commit', '--no-edit']);
+      return;
+    }
+    try { git(root, ['merge', '--abort']); } catch { /* 합치던 중이 아니면 할 일 없음 */ }
+    throw new Error(`합치다 충돌해 되돌렸다. 담당이 ${base}를 가져와 고친 뒤 다시 한다: ${String((e as { stdout?: string }).stdout ?? e).trim().split('\n').slice(-2).join(' / ')}`);
+  }
+}
+
 /** 테스트 승인된 요청의 브랜치를 main에 --no-ff로 합친다. 합친 줄을 돌려준다 */
 export function landRequest(scanRoot: string, id: number): string {
   const root = projectRoot(scanRoot);
@@ -79,11 +96,6 @@ export function landRequest(scanRoot: string, id: number): string {
   const base = baseBranch(root);
   const now = git(root, ['rev-parse', '--abbrev-ref', 'HEAD']).trim();
   if (now !== base) throw new Error(`합치는 폴더가 ${base} 브랜치가 아니다(지금 ${now})`);
-  try {
-    git(root, ['merge', '--no-ff', wt.branch, '-m', `요청 #${id}: ${r.title}\n\n사용자가 테스트 승인한 코드를 ${wt.branch}에서 합친다.\n\n요청 #${id}`]);
-  } catch (e) {
-    try { git(root, ['merge', '--abort']); } catch { /* 합치던 중이 아니면 할 일 없음 */ }
-    throw new Error(`합치다 충돌해 되돌렸다. 담당이 ${base}를 가져와 고친 뒤 다시 한다: ${String((e as { stdout?: string }).stdout ?? e).trim().split('\n').slice(-2).join(' / ')}`);
-  }
+  mergeBranch(root, wt.branch, `요청 #${id}: ${r.title}\n\n사용자가 테스트 승인한 코드를 ${wt.branch}에서 합친다.\n\n요청 #${id}`, base);
   return `요청 #${id}: ${wt.branch}을(를) ${base}에 --no-ff로 합쳤다`;
 }

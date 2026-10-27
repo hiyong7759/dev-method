@@ -1,0 +1,51 @@
+{
+  "id": 95,
+  "title": "합치기(request land)가 추적 안 되는 파일을 저장 안 한 변경으로 세지 않고, 실행 기록 파일(finish.json) 충돌은 main 쪽으로 푼다",
+  "source": "user",
+  "origin": {
+    "text": "구현 담당이 워크트리에 하고 이 문제는 확실하게 고치긴 해야 돼. 계속 진행해보면서 제일 좋은 방법으로 해결하자",
+    "channel": "대화",
+    "at": "2026-10-27T14:32:31.096Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "noTest": "화면은 안 바뀌고 합치기 명령의 오작동을 고치는 일이라 사용자 화면 테스트가 없다",
+  "detail": {
+    "text": "request land가 워크트리의 추적 안 되는 파일(node_modules, 옛 기록 복사본)까지 '저장하지 않은 변경'으로 세어 합치기를 거부하던 것을 추적 중인 파일의 변경만 세게 하고, 합치다 .spec/finish.json(실행 때마다 바뀌는 기록)만 충돌하면 main 쪽 것으로 풀어 합친다. 그 밖의 충돌은 지금처럼 되돌리고 알린다.",
+    "confirmedAt": "2026-10-27T14:32:31.096Z",
+    "mode": "direct",
+    "reason": "화면·정보가 안 바뀌는 도구 고장 수리"
+  },
+  "stage": "impl",
+  "step": "working",
+  "events": [
+    {
+      "at": "2026-10-27T14:32:31.096Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-27T14:32:31.096Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "바로 작업으로 등록(설계 없음 승인으로 봄)"
+    }
+  ],
+  "design": {
+    "understanding": "",
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0
+  }
+}
