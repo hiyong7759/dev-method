@@ -1,0 +1,40 @@
+{
+  "id": 105,
+  "title": "알림 읽은 자리를 서버와 watch가 안전하게 나눠 쓰고, 새 요청의 시작·첫 설계 제출 알림을 놓치지 않게 한다",
+  "source": "user",
+  "origin": {
+    "text": "리포트 남긴 거는 네가 보고 요청 올릴 거는 그냥 요청 올리면 될 것 같아",
+    "channel": "대화",
+    "at": "2026-10-28T09:35:55.388Z"
+  },
+  "scope": {
+    "screens": [
+      "요청 상세"
+    ],
+    "infos": [],
+    "scenarios": [
+      "담당 세션의 질문과 막힘을 확인한다"
+    ],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "detail": {
+    "text": "재현된 1건(리포트 #72): 서버와 request watch가 notify-cursor.json·notify-ended.json을 잠금 없이 같이 고쳐 써서 같은 사건이 겹치거나(중복 최대 41건) 빠짐(누락 최대 17건). 코드 지적 1건(리포트 #80): 처음 보는 요청은 사건을 알리지 않고 읽은 자리만 끝으로 옮겨, 새 요청의 시작·첫 설계 제출 알림이 건너뛰어질 수 있음. #96에서 만든 잠금(lock.ts)을 쓸 수 있다",
+    "confirmedAt": "2026-10-28T09:35:55.388Z",
+    "mode": "design",
+    "reason": ""
+  },
+  "stage": "design",
+  "step": "queued",
+  "events": [
+    {
+      "at": "2026-10-28T09:35:55.388Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

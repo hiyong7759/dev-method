@@ -1,0 +1,40 @@
+{
+  "id": 104,
+  "title": "합치기(land)가 합치기 전 확인(check)을 강제하고, 빈 브랜치를 '합쳐짐'으로 잘못 보지 않게 한다",
+  "source": "user",
+  "origin": {
+    "text": "리포트 남긴 거는 네가 보고 요청 올릴 거는 그냥 요청 올리면 될 것 같아",
+    "channel": "대화",
+    "at": "2026-10-28T09:35:55.279Z"
+  },
+  "scope": {
+    "screens": [
+      "요청 상세"
+    ],
+    "infos": [],
+    "scenarios": [
+      "요청의 진행을 확인한다"
+    ],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "detail": {
+    "text": "재현된 2건(리포트 #70·#71): landRequest가 checkRequest를 부르지 않아 범위 밖 변경·시험 실패가 있어도 합쳐짐, 커밋 없는 브랜치가 main이 앞서면 '합쳐짐'으로 나오고 land가 아무것도 합치지 않음. 함께: 합칠 때 main 폴더에 저장 안 한 변경이 있어 거부돼도 '충돌'로 안내되는 문제",
+    "confirmedAt": "2026-10-28T09:35:55.279Z",
+    "mode": "design",
+    "reason": ""
+  },
+  "stage": "design",
+  "step": "queued",
+  "events": [
+    {
+      "at": "2026-10-28T09:35:55.279Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    }
+  ]
+}

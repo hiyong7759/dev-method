@@ -24,8 +24,8 @@
     "mode": "direct",
     "reason": "화면·정보가 바뀌지 않는 고장 수리이고 사용자가 직접 처리하라고 지시함"
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-28T09:32:05.353Z",
@@ -38,6 +38,18 @@
       "by": "user",
       "kind": "design-approved",
       "note": "바로 작업으로 등록(설계 없음 승인으로 봄)"
+    },
+    {
+      "at": "2026-10-28T09:35:07.825Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 bdae3c5"
+    },
+    {
+      "at": "2026-10-28T09:35:21.252Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
     }
   ],
   "design": {
@@ -47,5 +59,18 @@
     "screens": [],
     "none": true,
     "rejected": 0
+  },
+  "commits": [
+    "bdae3c5"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false,
+    "brief": [
+      "담당 중복 방지 장치의 허점 5가지를 고쳤다(막힘 표시 소실, 잠금 경쟁, 담당 기록 덮어쓰기, 번호 못 찾을 때, 훅 우회)",
+      "화면 변화 없음, 자동 시험 157개 통과"
+    ],
+    "sigs": {}
   }
 }
