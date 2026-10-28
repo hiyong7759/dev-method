@@ -1,7 +1,7 @@
 /**
  * @spec outbox 담당 세션에 보낼 글 상자(메신저가 가져가 보낸다)
  * @why 결정·시작을 담당 세션에 알리는 일을 서버가 헤드리스(claude -p)로 하면 열려 있는 세션 창에는 사용자 메시지처럼 들어가지 않고 따로 도는 복사본이 생겨 결정이 사라진다. 그래서 서버는 보낼 글과 받을 세션만 이 상자에 적고, 작은 모델의 메신저 세션이 SendMessage로 열린 창에 보낸다. 서버는 어떤 프로세스도 띄우지 않는다.
- * @contract 상자는 이 컴퓨터에만 두는 .spec/outbox.json(줄 목록)이고 글 본문은 .spec/outbox-text/<줄 번호>.txt에 둔다. 줄 하나 = 요청 하나의 마지막 결정(또는 시작) 한 건이며, 같은 요청의 대기 중인 옛 줄은 새 줄이 대신한다. 상태는 pending(대기)·sent(보냄)·failed(못 보냄, 이유 있음)이다. 설정 `wake: true`일 때만 줄을 적는다(꺼져 있으면 전달 기록만 열어 두고, 열린 세션에는 inbox 훅이 알린다). 완료·취소된 요청의 결정은 줄을 만들지 않는다. 담당이 없으면 session.ts가 새 번호를 정하고, 메신저는 ① 열린 창이면 SendMessage ② 아니고 대화가 있으면 `claude --bg --resume` ③ 대화가 없으면 `claude --bg --session-id` 순서로 시도한다. 어느 길도 안 되면 헤드리스로 넘어가지 않고 이유와 함께 failed로 남기며(화면에 '전달 안 됨 · 이유'), 사용자가 다시 보내기를 누르면 대기로 돌아간다. 메신저는 `request outbox wait`로 줄이 생길 때까지 토큰 없이 기다리고, `show`로 한 줄을 받아, `done`·`fail`로 결과를 적는다. 적기가 실패해도 사용자 결정은 그대로 성공한다. `claude --bg`는 미리 정한 세션 번호를 쓰지 않고 자기 번호를 붙이므로 launchRow가 만든 뒤 실제 번호로 담당 기록(rebindOwner)과 줄을 바꾼다. 메신저가 꺼져 있으면 줄이 영영 대기에 머무르므로 서버(serve.ts)가 ensureMessenger로 메신저를 살려 둔다(없으면 `claude --bg`로 띄우고, 쉬는 중인데 대기 줄이 있으면 `--resume`으로 깨운다). 서버가 claude를 실행하는 곳은 이 메신저 기동과 읽기 전용 `claude agents --json`뿐이고, 담당 세션에 글을 보내는 launchRow는 메신저(`outbox launch`)만 부른다.
+ * @contract 상자는 이 컴퓨터에만 두는 .spec/outbox.json(줄 목록)이고 글 본문은 .spec/outbox-text/<줄 번호>.txt에 둔다. 읽고 고쳐 쓰는 구간은 잠금(.spec/locks/outbox-file)으로 한 번에 하나만 한다. 줄 하나 = 요청 하나의 마지막 결정(또는 시작) 한 건이며, 같은 요청의 대기 중인 옛 줄은 새 줄이 대신한다. 상태는 pending(대기)·taking(메신저가 가져감)·sent(보냄)·failed(못 보냄, 이유 있음)이다. 줄을 적으면 ready: false이고, 서버가 담당을 확인(ownerUp)해 돌고 있으면 ready: true로 바꾼 뒤에야 메신저가 가져갈 수 있다. 담당이 안 떠 있으면 서버가 ownerUp 한 곳에서 요청당 잠금 아래 `claude --bg`로 띄워 대기 줄의 글을 처음 글로 넘기고 줄을 보냄으로 적는다(메신저는 담당을 띄우지 않는다). 메신저는 `outbox take`로 줄을 가져간다: 줄당 잠금 파일을 먼저 만든 한 쪽만 성공하고, 가져간 동안 `outbox beat`로 살아 있다고 표시하며, 90초 넘게 표시가 없으면 대기로 돌아간다. 설정 `wake: true`일 때만 줄을 적는다(꺼져 있으면 전달 기록만 열어 두고, 열린 세션에는 inbox 훅이 알린다). 완료·취소된 요청의 결정은 줄을 만들지 않는다. 담당이 없으면 session.ts가 새 번호를 정한다. 어느 길도 안 되면 헤드리스로 넘어가지 않고 이유와 함께 failed로 남기며(화면에 '전달 안 됨 · 이유'), 사용자가 다시 보내기를 누르면 대기로 돌아간다. `claude --bg`는 미리 정한 세션 번호를 쓰지 않고 자기 번호를 붙이므로, 띄우는 동안 담당 기록에 '맞추는 중'을 적고 ownerUp이 만든 뒤 실제 번호로 담당 기록(rebindOwner)과 줄을 바꾼다. 메신저가 꺼져 있으면 줄이 영영 대기에 머무르므로 서버(serve.ts)가 ensureMessenger로 메신저를 살려 둔다(없으면 잠금 아래 `claude --bg`로 띄우고 60초는 띄우는 중으로 본다. 쉬는 중인데 가져갈 줄이 있으면 `--resume`으로 깨운다). 서버가 claude를 실행하는 곳은 메신저 기동·담당 띄우기(ownerUp)·읽기 전용 `claude agents --json`뿐이고(멈춤은 reconcile.ts), 담당을 띄우는 길은 ownerUp 하나뿐이다.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -12,7 +12,8 @@ import { isStart, lastDecision, markDelivered, markRequeued, markUndelivered, op
 import type { Via } from './delivery.js';
 import { loadRequests } from './request.js';
 import { brandOf } from './brand.js';
-import { launchArgs, logFile, newOwnerMessage, decisionMessage, ownerName, ownersOf, prepareOwner, rebindOwner, SPEC_MJS, transcriptOf } from './session.js';
+import { launchArgs, loadOwners, logFile, markRebinding, newOwnerMessage, decisionMessage, ownerName, ownersOf, prepareOwner, rebindOwner, SPEC_MJS, transcriptOf } from './session.js';
+import { beat, tryLock, unlock, withLock } from './lock.js';
 import { projectRoot, specDir } from './project.js';
 import type { Request } from './types.js';
 
@@ -31,7 +32,13 @@ export interface OutboxRow {
   /** 적은 시각 */
   at: string;
   /** 메신저가 어디까지 했나: 대기(아직 안 가져감)·보냄·못 보냄 */
-  state: 'pending' | 'sent' | 'failed';
+  state: 'pending' | 'taking' | 'sent' | 'failed';
+  /** 서버(도구)가 받을 담당이 돌고 있음을 확인했나. false면 메신저가 가져가지 못한다(담당 띄우기는 서버가 한다). 없으면(옛 줄) 확인된 것으로 본다 */
+  ready?: boolean;
+  /** state가 taking일 때 가져간 메신저 세션 번호 */
+  takenBy?: string;
+  /** 가져간 메신저가 마지막으로 "살아 있다"고 표시한 시각 */
+  beatAt?: string;
   /** failed일 때 이유 */
   reason?: string;
   /** 보낸 길 */
@@ -49,9 +56,56 @@ function save(scanRoot: string, rows: OutboxRow[]): void {
   fs.mkdirSync(specDir(scanRoot), { recursive: true });
   fs.writeFileSync(file(scanRoot), JSON.stringify(rows, null, 2) + '\n');
 }
+/** 상자를 잠근 채 읽고 고쳐 쓴다(두 프로세스가 서로의 변경을 덮어쓰지 않게). fn이 돌려준 값을 그대로 돌려준다 */
+function mutate<T>(scanRoot: string, fn: (rows: OutboxRow[]) => T): T {
+  const out = withLock(scanRoot, 'outbox-file', () => { const rows = loadOutbox(scanRoot); const r = fn(rows); save(scanRoot, rows); return { r }; }, { staleMs: 10_000, waitMs: 5000 });
+  if (!out) throw new Error('상자를 잠그지 못했다(다른 쪽이 쓰는 중)');
+  return out.r;
+}
 
-/** 대기 중인 줄들 */
-export const pendingRows = (scanRoot: string): OutboxRow[] => loadOutbox(scanRoot).filter((r) => r.state === 'pending');
+/** 가져간 메신저가 이 안에 "살아 있다" 표시를 안 하면 죽은 것으로 보고 줄을 대기로 돌린다 */
+export const TAKE_BEAT_MS = 90_000;
+/** 가져간 줄 중 표시가 끊긴 것을 대기로 돌린다(돌린 줄 수를 돌려준다) */
+export function releaseStale(scanRoot: string, now = Date.now()): number {
+  try {
+    if (!loadOutbox(scanRoot).some((r) => r.state === 'taking' && now - Date.parse(r.beatAt ?? r.at) > TAKE_BEAT_MS)) return 0;
+    return mutate(scanRoot, (rows) => {
+      let n = 0;
+      for (const r of rows) if (r.state === 'taking' && now - Date.parse(r.beatAt ?? r.at) > TAKE_BEAT_MS) { r.state = 'pending'; delete r.takenBy; delete r.beatAt; n++; }
+      return n;
+    });
+  } catch { return 0; }
+}
+
+/** 메신저가 가져갈 수 있는 줄들: 대기이고 받을 담당이 돌고 있음을 서버가 확인한 것 */
+export const pendingRows = (scanRoot: string): OutboxRow[] => { releaseStale(scanRoot); return loadOutbox(scanRoot).filter((r) => r.state === 'pending' && r.ready !== false); };
+
+/** 줄 하나를 가져간다. 줄당 잠금 파일을 먼저 만든 한 쪽만 성공하고, 늦은 쪽·이미 가져간 줄·받는 담당이 아직 확인 안 된 줄은 이유와 함께 실패한다 */
+export function takeRow(scanRoot: string, seq: number, by: string): { ok: boolean; reason?: string } {
+  releaseStale(scanRoot);
+  if (!tryLock(scanRoot, `take-${seq}`, TAKE_BEAT_MS, by)) return { ok: false, reason: '이미 다른 메신저가 가져갔다' };
+  try {
+    const got = mutate(scanRoot, (rows) => {
+      const row = rows.find((r) => r.seq === seq);
+      if (!row) return '상자에 그 줄이 없다';
+      if (row.state !== 'pending') return `이미 ${row.state === 'taking' ? '가져간' : row.state === 'sent' ? '보낸' : '처리한'} 줄이다`;
+      if (row.ready === false) return '받을 담당이 아직 확인되지 않았다(서버가 담당을 확인하는 중)';
+      row.state = 'taking'; row.takenBy = by; row.beatAt = new Date().toISOString();
+      return null;
+    });
+    if (got) { unlock(scanRoot, `take-${seq}`); return { ok: false, reason: got }; }
+    return { ok: true };
+  } catch (e) { unlock(scanRoot, `take-${seq}`); return { ok: false, reason: (e as Error).message }; }
+}
+
+/** 가져간 메신저가 "살아 있다"를 표시한다(주기적으로 부른다). 내가 가져간 줄이 아니면 false */
+export function beatRow(scanRoot: string, seq: number, by: string): boolean {
+  try {
+    const ok = mutate(scanRoot, (rows) => { const row = rows.find((r) => r.seq === seq); if (!row || row.state !== 'taking' || row.takenBy !== by) return false; row.beatAt = new Date().toISOString(); return true; });
+    if (ok) beat(scanRoot, `take-${seq}`);
+    return ok;
+  } catch { return false; }
+}
 
 /** 요청의 마지막 결정(또는 시작)을 상자에 적는다. 적은 줄을 돌려준다(꺼져 있거나 보낼 것이 없거나 실패하면 null). 전달 기록은 늘 먼저 연다 */
 export function enqueueOutbox(scanRoot: string, id: number, kind?: OutboxRow['kind']): OutboxRow | null {
@@ -69,13 +123,18 @@ export function enqueueOutbox(scanRoot: string, id: number, kind?: OutboxRow['ki
     // 글에 적는 결정은 가장 최근 기록이다(순서 정하기처럼 결정 기록은 아니지만 알릴 일도 같은 길로 간다)
     const decided = req.events[req.events.length - 1]?.note ?? '결정';
     const text = k === 'start' ? newOwnerMessage(scanRoot, root, req, id, '') : decisionMessage(scanRoot, id, decided);
-    const rows = loadOutbox(scanRoot).filter((r) => !(r.request === id && r.state === 'pending'));
-    const seq = Math.max(0, ...loadOutbox(scanRoot).map((r) => r.seq)) + 1;
-    const row: OutboxRow = { seq, request: id, kind: k, session: sid, to: req.agent.name || ownerName(root, id), at: new Date().toISOString(), state: 'pending' };
-    fs.mkdirSync(path.dirname(textFile(scanRoot, seq)), { recursive: true });
-    fs.writeFileSync(textFile(scanRoot, seq), text);
-    save(scanRoot, [...rows, row]);
-    fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} ${sid} 상자에 적음(줄 ${seq}, ${k === 'start' ? '시작' : '결정'}) — 메신저가 보낸다\n`);
+    // 받을 담당이 돌고 있는지는 서버(ownerUp)가 확인한다. 확인 전(ready: false)에는 메신저가 가져가지 못한다
+    const row = mutate(scanRoot, (rows) => {
+      for (let i = rows.length - 1; i >= 0; i--) if (rows[i].request === id && rows[i].state === 'pending') rows.splice(i, 1);
+      const seq = Math.max(0, ...rows.map((r) => r.seq)) + 1;
+      const made: OutboxRow = { seq, request: id, kind: k, session: sid, to: req.agent.name || ownerName(root, id), at: new Date().toISOString(), state: 'pending', ready: false };
+      fs.mkdirSync(path.dirname(textFile(scanRoot, seq)), { recursive: true });
+      fs.writeFileSync(textFile(scanRoot, seq), text);
+      rows.push(made);
+      return made;
+    });
+    fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} ${sid} 상자에 적음(줄 ${row.seq}, ${k === 'start' ? '시작' : '결정'}) — 서버가 담당을 확인한 뒤 메신저가 보낸다\n`);
+    kickOwnerUp(scanRoot, id);
     try { afterEnqueue?.(); } catch { /* 메신저 확인이 실패해도 줄은 적혔다 */ }
     return row;
   } catch { return null; /* 사용자 결정은 상자에 못 적어도 성공해야 한다 */ }
@@ -89,28 +148,34 @@ export function requeueOutbox(scanRoot: string, id: number): OutboxRow | null {
     const req = loadRequests(scanRoot).find((r) => r.id === id) as Request | undefined;
     if (!last || !req || (lastDecision(req) && (last.kind === 'start') !== isStart(req))) return enqueueOutbox(scanRoot, id);
     markRequeued(scanRoot, id);
-    last.state = 'pending'; delete last.reason; delete last.via;
-    save(scanRoot, rows);
-    return last;
+    const again = mutate(scanRoot, (all) => { const row = all.find((r) => r.seq === last.seq); if (!row) return null; row.state = 'pending'; row.ready = false; delete row.reason; delete row.via; delete row.takenBy; delete row.beatAt; return row; });
+    if (again) kickOwnerUp(scanRoot, id);
+    return again;
   } catch { return null; }
 }
 
 /** 메신저가 보냈다고 알린다 */
 export function doneRow(scanRoot: string, seq: number, via: Via): OutboxRow {
-  const rows = loadOutbox(scanRoot), row = rows.find((r) => r.seq === seq);
-  if (!row) throw new Error(`상자에 줄 ${seq}이 없다`);
-  row.state = 'sent'; row.via = via; delete row.reason;
-  save(scanRoot, rows);
+  const row = mutate(scanRoot, (rows) => {
+    const r = rows.find((x) => x.seq === seq);
+    if (!r) throw new Error(`상자에 줄 ${seq}이 없다`);
+    r.state = 'sent'; r.via = via; delete r.reason; delete r.takenBy; delete r.beatAt;
+    return { ...r };
+  });
+  unlock(scanRoot, `take-${seq}`);
   markDelivered(scanRoot, row.request, via);
   return row;
 }
 
 /** 메신저가 못 보냈다고 이유와 함께 알린다 */
 export function failRow(scanRoot: string, seq: number, reason: string): OutboxRow {
-  const rows = loadOutbox(scanRoot), row = rows.find((r) => r.seq === seq);
-  if (!row) throw new Error(`상자에 줄 ${seq}이 없다`);
-  row.state = 'failed'; row.reason = reason;
-  save(scanRoot, rows);
+  const row = mutate(scanRoot, (rows) => {
+    const r = rows.find((x) => x.seq === seq);
+    if (!r) throw new Error(`상자에 줄 ${seq}이 없다`);
+    r.state = 'failed'; r.reason = reason; delete r.takenBy; delete r.beatAt;
+    return { ...r };
+  });
+  unlock(scanRoot, `take-${seq}`);
   markUndelivered(scanRoot, row.request, reason);
   return row;
 }
@@ -146,46 +211,85 @@ export function openNameOf(sid: string): string | null {
   return agentsList()?.find((a) => a.sessionId === sid)?.name ?? null;
 }
 
-/** 메신저가 한 줄을 보낼 때 필요한 것: 받을 이름(열린 창이면 그 이름, 아니면 null), 글 파일, 열린 창이 안 될 때 쓸 `claude --bg` 명령(대화가 있으면 이어 띄우고 없으면 새로 만든다) */
-export function showRow(scanRoot: string, seq: number): { row: OutboxRow; textFile: string; conversationExists: boolean; sendTo: string | null; bgCommand: string; bgVia: Via } {
+/** 지금 떠 있는 요청 담당의 세션 번호와 이름. 원본 표시가 있는 담당 기록(없는 옛 요청은 기록에 있는 모두)만 센다. 떠 있지 않으면 null, 세션 목록을 못 읽으면 undefined */
+export function runningOwner(root: string, id: number, list: AgentInfo[] | null = agentsList()): AgentInfo | null | undefined {
+  if (!list) return undefined;
+  const mine = Object.entries(loadOwners(root)).filter(([, v]) => v.request === id);
+  const sids = (mine.some(([, v]) => v.origin) ? mine.filter(([, v]) => v.origin) : mine).map(([k]) => k);
+  return list.find((a) => a.sessionId && sids.includes(a.sessionId)) ?? null;
+}
+
+/** 메신저가 한 줄을 보낼 때 필요한 것: 받을 이름(서버가 확인한, 지금 돌고 있는 원본 담당의 이름)과 글 파일. 이름이 null이면 받을 담당이 안 떠 있다는 뜻이니 보내지 말고 fail로 알린다(담당을 띄우는 일은 서버가 한다) */
+export function showRow(scanRoot: string, seq: number): { row: OutboxRow; textFile: string; sendTo: string | null } {
   const row = loadOutbox(scanRoot).find((r) => r.seq === seq);
   if (!row) throw new Error(`상자에 줄 ${seq}이 없다`);
   const root = projectRoot(scanRoot);
-  const tf = textFile(scanRoot, seq);
-  let exists = false;
-  try { fs.statSync(transcriptOf(root, row.session)); exists = true; } catch { /* 대화가 아직 없음 */ }
-  const base = exists ? `claude --bg --resume ${row.session}` : `claude --bg --session-id ${row.session} --name ${q(ownerName(root, row.request))}`;
-  const bgCommand = `${base} ${launchArgs(root).map(q).join(' ')} "$(cat ${q(tf)})"`;
-  return { row, textFile: tf, conversationExists: exists, sendTo: openNameOf(row.session), bgCommand, bgVia: exists ? 'bg-resume' : 'bg-new' };
+  return { row, textFile: textFile(scanRoot, seq), sendTo: runningOwner(root, row.request)?.name ?? null };
 }
 
-/** 메신저가 `outbox launch`로 부른다(서버는 부르지 않는다): 열린 창이 아닌 담당에게 `claude --bg`로 글을 보낸다. 대화가 있으면 이어 띄우고 없으면 새로 만든다. 셸을 거치지 않고 인자로 직접 실행하므로 메신저의 허용 목록(node 입구 파일만)으로 된다. 결과는 줄에 기록한다 */
-export function launchRow(scanRoot: string, seq: number): OutboxRow {
-  const { row, textFile: tf, conversationExists, bgVia } = showRow(scanRoot, seq);
+/** 서버가 담당을 띄우는 단 하나의 길. 요청당 잠금을 잡고, 잠근 채로 담당 기록과 떠 있는 세션을 다시 읽어 ① 돌고 있으면 띄우지 않고 그 요청의 대기 줄을 "보낼 수 있음"으로 바꾸며 ② 안 떠 있을 때만 `claude --bg`로(대화가 있으면 이어서) 띄워 대기 줄의 글을 처음 글로 넘긴다. 번호를 맞추는 동안은 담당 기록에 '맞추는 중'을 적어, 새 담당이 whoami로 자신을 확인할 때 짧게 기다리게 한다 */
+export function ownerUp(scanRoot: string, id: number): 'running' | 'launched' | 'busy' | 'skipped' | 'failed' {
   const root = projectRoot(scanRoot);
-  const head = conversationExists ? ['--bg', '--resume', row.session] : ['--bg', '--session-id', row.session, '--name', ownerName(root, row.request)];
-  // 백그라운드로 만든 세션(~/.claude/jobs에 기록이 있음)은 허용 도구 등 옵션을 이미 저장하고 있다. `--resume`에 옵션을 또 붙이면 이어받지 않고 복사본이 생기므로 옵션 없이 부른다. 그 밖의 세션(열어 두었다 닫은 세션)과 새 세션에는 옵션을 건다
-  const savedJob = conversationExists && fs.existsSync(path.join(os.homedir(), '.claude', 'jobs', row.session.slice(0, 8)));
-  const startedAt = Date.now();
-  const run = spawnSync('claude', [...head, ...(savedJob ? [] : launchArgs(root)), fs.readFileSync(tf, 'utf8')], { cwd: root, encoding: 'utf8', timeout: 60_000 });
-  fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${row.request} ${row.session} claude --bg ${conversationExists ? '--resume' : '--session-id'} 종료코드=${run.status}\n`);
-  // claude --bg는 미리 정한 번호를 쓰지 않고 자기 번호를 붙인다. 출력의 짧은 번호로 실제 번호를 찾아 담당 기록과 줄을 맞춘다
-  const short = /backgrounded\s*·\s*([0-9a-f]+)/.exec(`${run.stdout ?? ''}\n${run.stderr ?? ''}`)?.[1];
-  // 방금 만든 세션은 목록에 바로 안 나올 수 있어 나타날 때까지 최대 10초 다시 본다
-  // 출력에서 번호를 못 읽는 경우(메신저 안에서 돌릴 때가 그렇다)에는 담당 이름이고 이 호출 뒤에 시작한 백그라운드 세션을 찾는다
-  let real: string | undefined;
-  for (let i = 0; run.status === 0 && !real && i < 20; i++) {
-    if (i) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
-    const list = agentsList() ?? [];
-    real = short ? list.find((a) => a.id === short || a.sessionId?.startsWith(short))?.sessionId
-      : list.filter((a) => a.kind === 'background' && a.name === ownerName(root, row.request) && (a.startedAt ?? 0) >= startedAt - 2000).sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0]?.sessionId;
-  }
-  if (run.status === 0) fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${row.request} claude --bg 출력 번호=${short ?? '못 읽음'} 실제 세션=${real ?? '목록에 없음'}\n`);
-  if (real && real !== row.session) {
-    rebindOwner(root, row.session, real);
-    save(scanRoot, loadOutbox(scanRoot).map((r) => (r.session === row.session ? { ...r, session: real } : r)));
-  }
-  return run.status === 0 ? doneRow(scanRoot, seq, bgVia) : failRow(scanRoot, seq, `claude --bg 실패(종료코드 ${run.status}): ${(run.stderr || run.stdout || run.error?.message || '').trim().slice(0, 200)}`);
+  if (!tryLock(scanRoot, `owner-${id}`, 90_000)) return 'busy';
+  try {
+    const row = [...loadOutbox(scanRoot)].reverse().find((r) => r.request === id && r.state === 'pending' && r.ready === false);
+    if (!row) return 'skipped';
+    const list = agentsList();
+    if (!list) return 'skipped';
+    const running = runningOwner(root, id, list);
+    if (running) {
+      mutate(scanRoot, (rows) => { for (const r of rows) if (r.request === id && r.state === 'pending') r.ready = true; });
+      fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} 담당이 이미 돌고 있어(${running.sessionId}) 새로 띄우지 않고 글만 보내도록 함\n`);
+      try { afterEnqueue?.(); } catch { /* 메신저 확인이 실패해도 줄은 보낼 수 있게 바뀌었다 */ }
+      return 'running';
+    }
+    // 안 떠 있다: 이 한 곳에서만 띄운다. 번호는 서버가 정한 원본(prepareOwner가 적은 것)을 쓴다
+    const sid = row.session;
+    let exists = false;
+    try { fs.statSync(transcriptOf(root, sid)); exists = true; } catch { /* 대화가 아직 없음 */ }
+    const head = exists ? ['--bg', '--resume', sid] : ['--bg', '--session-id', sid, '--name', ownerName(root, id)];
+    // 백그라운드로 만든 세션(~/.claude/jobs에 기록이 있음)은 허용 도구 등 옵션을 이미 저장하고 있다. `--resume`에 옵션을 또 붙이면 이어받지 않고 복사본이 생기므로 옵션 없이 부른다. 그 밖의 세션과 새 세션에는 옵션을 건다
+    const savedJob = exists && fs.existsSync(path.join(os.homedir(), '.claude', 'jobs', sid.slice(0, 8)));
+    const startedAt = Date.now();
+    markRebinding(root, sid, true);
+    const run = spawnSync('claude', [...head, ...(savedJob ? [] : launchArgs(root, id, scanRoot)), fs.readFileSync(textFile(scanRoot, row.seq), 'utf8')], { cwd: root, encoding: 'utf8', timeout: 60_000 });
+    fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} ${sid} claude --bg ${exists ? '--resume' : '--session-id'} 종료코드=${run.status}\n`);
+    // claude --bg는 미리 정한 번호를 쓰지 않고 자기 번호를 붙인다. 출력의 짧은 번호(없으면 이 호출 뒤에 시작한 같은 이름의 백그라운드 세션)로 실제 번호를 찾아 담당 기록과 줄을 맞춘다
+    const short = /backgrounded\s*·\s*([0-9a-f]+)/.exec(`${run.stdout ?? ''}\n${run.stderr ?? ''}`)?.[1];
+    let real: string | undefined;
+    for (let i = 0; run.status === 0 && !real && i < 20; i++) {
+      if (i) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+      const now = agentsList() ?? [];
+      real = short ? now.find((a) => a.id === short || a.sessionId?.startsWith(short))?.sessionId
+        : now.filter((a) => a.kind === 'background' && a.name === ownerName(root, id) && (a.startedAt ?? 0) >= startedAt - 2000).sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0]?.sessionId;
+    }
+    if (real && real !== sid) {
+      rebindOwner(root, sid, real);
+      mutate(scanRoot, (rows) => { for (const r of rows) if (r.session === sid) r.session = real as string; });
+    } else markRebinding(root, sid, false);
+    fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} claude --bg 출력 번호=${short ?? '못 읽음'} 실제 세션=${real ?? '목록에 없음'}\n`);
+    if (run.status === 0) { doneRow(scanRoot, row.seq, exists ? 'bg-resume' : 'bg-new'); return 'launched'; }
+    failRow(scanRoot, row.seq, `claude --bg 실패(종료코드 ${run.status}): ${(run.stderr || run.stdout || run.error?.message || '').trim().slice(0, 200)}`);
+    return 'failed';
+  } catch (e) {
+    fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} 담당 띄우기 오류: ${(e as Error).message}\n`);
+    return 'failed';
+  } finally { unlock(scanRoot, `owner-${id}`); }
+}
+
+/** 서버(또는 request 명령)가 줄을 적은 직후, 담당 확인·띄우기를 따로 도는 프로세스로 시킨다(서버 요청 처리를 막지 않으려고. 일은 ownerUp 한 곳에서 잠금 아래 한다). 꺼져 있거나 시험용이면 하지 않는다 */
+export function kickOwnerUp(scanRoot: string, id: number): void {
+  try {
+    if (process.env.SPEC_TEST_DIR || process.env.SPEC_NO_KICK || !readConfig(projectRoot(scanRoot)).wake) return;
+    spawn(process.execPath, [SPEC_MJS, 'request', 'owner-up', '--id', String(id), '--src', scanRoot], { detached: true, stdio: 'ignore' }).unref();
+  } catch { /* 못 해도 1분 점검이 다시 시킨다 */ }
+}
+
+/** 담당 확인이 안 된 채 20초 넘게 남은 대기 줄이 있으면 다시 시킨다(1분 점검이 부른다) */
+export function kickWaiting(scanRoot: string, now = Date.now()): number {
+  const waiting = loadOutbox(scanRoot).filter((r) => r.state === 'pending' && r.ready === false && now - Date.parse(r.at) > 20_000);
+  for (const id of new Set(waiting.map((r) => r.request))) kickOwnerUp(scanRoot, id);
+  return waiting.length;
 }
 
 /** 메신저 세션의 이름. 프로젝트 이름을 앞에 붙여 여러 프로젝트를 함께 써도 헷갈리지 않게 한다 */
@@ -206,11 +310,13 @@ export function ensureMessenger(scanRoot: string, now = Date.now()): 'started' |
     const list = agentsList();
     if (!list) { fs.appendFileSync(logFile(root), `${new Date().toISOString()} 메신저 확인 실패(claude agents --json을 못 읽음)\n`); return 'skipped'; }
     const name = messengerName(root);
-    const mine = list.find((a) => a.name === name && a.kind === 'background');
+    const mine = list.filter((a) => a.name === name && a.kind === 'background').sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0))[0];
     const src = path.relative(root, scanRoot) || '.';
     const first = `${SPEC_MJS.replace(/spec\.mjs$/, 'messenger.md')}를 읽고 그대로 따르세요. SPEC=${SPEC_MJS} (이 절대경로를 그대로 쓰세요), SRC=${src}, 작업 폴더 ${root}.`;
     const run = (args: string[]): void => { spawn('claude', args, { cwd: root, detached: true, stdio: 'ignore' }).unref(); };
     if (!mine) {
+      // 띄운 직후 60초는 '띄우는 중'이라 목록에 아직 안 보여도 또 띄우지 않는다(잠금 파일을 먼저 만든 한 쪽만 띄운다)
+      if (!tryLock(scanRoot, 'messenger-start', 60_000)) return 'ok';
       run(['--bg', '--name', name, '--model', 'haiku', '--allowedTools', 'Read', `Bash(node ${SPEC_MJS}:*)`, 'Monitor', 'SendMessage', 'ToolSearch', '--', first]);
       fs.appendFileSync(logFile(root), `${new Date().toISOString()} 메신저가 없어 claude --bg로 띄움(${name})\n`);
       return 'started';

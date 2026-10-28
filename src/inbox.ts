@@ -21,7 +21,7 @@ interface HookInput {
   tool_response?: unknown;
 }
 /** 담당 세션 기록: 세션 번호 → 맡은 요청과 어디까지 알렸는지 */
-type Sessions = Record<string, { request: number; seen: string }>;
+type Sessions = Record<string, { request: number; seen: string; origin?: boolean; rebinding?: string }>;
 
 /** 알릴 사용자 기록 종류와, 에이전트가 이어서 할 일 */
 const NEXT: Record<string, (id: number, note: string) => string> = {
@@ -64,7 +64,10 @@ export async function main(): Promise<number> {
       // 요청을 접수(add)만 한 세션은 담당이 아니다. 접수한 세션이 담당으로 적히면 요청을 시작할 때 "담당이 이미 있다"고 보아 담당 세션이 만들어지지 않는다
       const bound = cmd.match(/spec\.mjs\s+request\s+agent\b[^\n]*?--id[ =](\d+)/)?.[1];
       const req = bound ? requests.find((r) => r.id === Number(bound)) : undefined;
-      if (req) { sessions[sid] = { request: req.id, seen: req.events[req.events.length - 1]?.at ?? new Date().toISOString() }; save(); return 0; }
+      // 서버가 만든 원본 담당이 따로 있으면(번호를 맞추는 중이 아닐 때) 다른 세션이 스스로 담당이 되지 못한다: 복사본이 원본 행세를 하지 못하게
+      const origin = req ? Object.entries(sessions as Record<string, { request: number; origin?: boolean; rebinding?: string }>).filter(([, v]) => v.request === req.id && v.origin) : [];
+      if (req && origin.length && !origin.some(([k, v]) => k === sid || (v.rebinding && Date.now() - Date.parse(v.rebinding) < 3 * 60 * 1000))) return 0;
+      if (req) { sessions[sid] = { ...sessions[sid], request: req.id, seen: req.events[req.events.length - 1]?.at ?? new Date().toISOString() }; save(); return 0; }
     }
     const mine = sessions[sid];
     const req = mine ? requests.find((r) => r.id === mine.request) : undefined;

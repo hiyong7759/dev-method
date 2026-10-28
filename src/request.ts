@@ -403,6 +403,18 @@ export function recordUntracked(scanRoot: string, hash: string, title: string): 
   return record(scanRoot, r, 'user', 'recorded', `커밋 ${hash}을 요청으로 기록함`);
 }
 
+/** 담당 중복 점검·거절 같은 도구가 한 일을 요청의 최근 기록에 한 줄 남긴다. 종류는 'agent'(막힘·반영으로 세지 않는 기록)로 쓰고, 같은 글이 10분 안에 또 오면 적지 않는다 */
+function noteTool(scanRoot: string, id: number, note: string): Request | null {
+  const r = loadOne(scanRoot, id);
+  const last = [...r.events].reverse().find((e) => e.note === note);
+  if (last && Date.now() - Date.parse(last.at) < 10 * 60 * 1000) return null;
+  return record(scanRoot, r, 'agent', 'agent', note);
+}
+/** 원본이 아닌 담당(복사본)의 시도를 거절했다고 남긴다. 붉은 막힘 표시는 하지 않는다 */
+export const noteCopyRefused = (scanRoot: string, id: number, what: string): Request | null => noteTool(scanRoot, id, `복사본이 거절됨: ${what}`);
+/** 서버 점검이 중복을 정리했다고 남긴다 */
+export const noteCleanup = (scanRoot: string, id: number, what: string): Request | null => noteTool(scanRoot, id, `담당 중복 정리: ${what}`);
+
 /** 담당 세션이 막혔음을 남긴다(허용 목록 밖 명령 등으로 검증 없이 끝날 뻔한 일을 사용자가 알게). 다음 에이전트 기록이 생기면 풀린다 */
 export function noteBlocked(scanRoot: string, id: number, note: string): Request {
   const r = loadOne(scanRoot, id);
@@ -576,7 +588,32 @@ export async function main(argv: string[]): Promise<number | undefined> {
   const scanRoot = path.resolve(opts.src || 'src');
   const id = Number(opts.id);
   try {
-    if (pos[0] === 'add') {
+    // 담당 세션(환경에 요청 번호가 있음)이 원본이 아니면 요청 상태를 바꾸는 명령을 거절한다(owner-check). 읽기·확인 명령(whoami·list·shot 등)은 막지 않는다
+    if (['design', 'impl', 'test', 'ask', 'blocked', 'ack', 'start', 'session', 'wake', 'land', 'agent'].includes(pos[0])) (await import('./owner-check.js')).assertOriginal(scanRoot);
+    if (pos[0] === 'whoami') {
+      // 담당 세션이 시작할 때 부른다: 내가 이 요청의 묶인 원본 담당인가. 번호를 맞추는 중이면 짧게 기다린다. 복사본이면 종료 코드 1
+      const oc = await import('./owner-check.js');
+      const root = projectRoot(scanRoot), sid = oc.mySession();
+      const v = oc.verdictWaiting(root, id, sid);
+      console.log(`${v}: ${oc.explain(v, id, root, sid)}`);
+      if (v === 'copy' || v === 'unknown') { noteCopyRefused(scanRoot, id, `${sid?.slice(0, 8) ?? '번호 모름'}가 시작 확인에서 복사본으로 판정`); return 1; }
+      return v === 'syncing' ? 1 : 0;
+    } else if (pos[0] === 'adopt') {
+      // 어긋났을 때 사용자·메인이 푼다: 이 요청의 원본 담당을 지정한 세션 하나로 정한다(그 요청의 다른 담당 기록은 지운다)
+      if (!opts.session) throw new Error('원본으로 지정할 세션 번호(--session)가 필요하다');
+      if (process.env.SPEC_OWNER_REQUEST) throw new Error('담당 세션은 원본을 바꿀 수 없다(사용자·메인 세션만 쓴다)');
+      const removed = (await import('./session.js')).adoptOwner(projectRoot(scanRoot), id, opts.session);
+      console.log(`요청 #${id}: 원본 담당을 ${opts.session}로 지정했다(지운 기록: ${removed.join(', ') || '없음'})`);
+    } else if (pos[0] === 'guard') {
+      // 담당 세션의 PreToolUse 훅이 쓴다(표준입력으로 훅 JSON). 원본이 아니면 사유를 표준오류로 내고 종료 코드 2
+      let input: { session_id?: string; tool_name?: string; tool_input?: { command?: string } } = {};
+      try { input = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { return 0; }
+      const why = (await import('./owner-check.js')).hookDecision(input);
+      if (why) { console.error(`[spec-view] 막음: ${why}`); return 2; }
+    } else if (pos[0] === 'owner-up') {
+      // 서버가 줄을 적은 직후 따로 돌리는 담당 확인·띄우기(잠금 아래 한 곳)
+      console.log(`요청 #${id}: 담당 확인 결과 ${(await import('./outbox.js')).ownerUp(scanRoot, id)}`);
+    } else if (pos[0] === 'add') {
       if (!csv(opts.screens).length && !csv(opts.scenarios).length && !opts['no-test']?.trim()) throw new Error('화면(--screens)도 시나리오(--scenarios)도 없는 요청은 `--no-test "이유"`로 테스트가 왜 필요 없는지 적어야 등록된다');
       const r = addRequest(scanRoot, { title: opts.title, origin: opts.origin, channel: opts.channel, screens: csv(opts.screens), infos: csv(opts.infos), scenarios: csv(opts.scenarios), steps: csv(opts.steps), impactOnly: csv(opts.impact), agent: opts.agent, source: opts.source, relatedTo: opts.related ? Number(opts.related) : undefined, noTest: opts['no-test'], detail: opts.detail, mode: opts.mode, reason: opts.reason });
       console.log(r.detail?.mode === 'direct' ? `요청 #${r.id}: 바로 작업으로 등록 (설계 없음 승인으로 기록, 구현 단계. 담당 세션은 만들지 않으니 이 세션이 이어서 고친다)` : `요청 #${r.id}: 등록 (설계서 보기 "관리"에서 보인다)`);
@@ -632,10 +669,11 @@ export async function main(argv: string[]): Promise<number | undefined> {
       if (sub === 'wait') { const s = await ob.waitPending(scanRoot, Number(opts.timeout || 600) * 1000); console.log(s.length ? `대기 줄: ${s.join(', ')}` : '대기 줄 없음'); }
       else if (sub === 'list') { for (const r of ob.loadOutbox(scanRoot).slice(-20)) console.log(`줄 ${r.seq} #${r.request} ${r.kind === 'start' ? '시작' : '결정'} ${r.state}${r.reason ? ` · ${r.reason}` : ''}`); }
       else if (sub === 'show') console.log(JSON.stringify(ob.showRow(scanRoot, seq), null, 2));
+      else if (sub === 'take') { const r = ob.takeRow(scanRoot, seq, opts.by || ''); console.log(r.ok ? `줄 ${seq}: 가져감(이 줄은 내가 보낸다. 20초마다 outbox beat로 살아 있다고 표시한다)` : `줄 ${seq}: 못 가져감 — ${r.reason}(이 줄은 건드리지 않는다)`); if (!r.ok) return 1; }
+      else if (sub === 'beat') { if (!ob.beatRow(scanRoot, seq, opts.by || '')) { console.log(`줄 ${seq}: 내가 가져간 줄이 아니다`); return 1; } console.log(`줄 ${seq}: 살아 있음 표시`); }
       else if (sub === 'done') { const r = ob.doneRow(scanRoot, seq, opts.via as 'send' | 'bg-resume' | 'bg-new'); console.log(`줄 ${r.seq}: 보냄(${r.via})`); }
-      else if (sub === 'launch') { const r = ob.launchRow(scanRoot, seq); console.log(r.state === 'sent' ? `줄 ${r.seq}: claude --bg로 보냄(${r.via})` : `줄 ${r.seq}: 못 보냄(${r.reason})`); }
       else if (sub === 'fail') { const r = ob.failRow(scanRoot, seq, opts.reason ?? '이유 없음'); console.log(`줄 ${r.seq}: 못 보냄(${r.reason}) — 화면에 전달 안 됨으로 보인다`); }
-      else throw new Error('사용: request outbox wait|list|show --row N|done --row N --via 길|fail --row N --reason 이유');
+      else throw new Error('사용: request outbox wait|list|show --row N|take --row N --by 번호|beat --row N --by 번호|done --row N --via send|fail --row N --reason 이유');
     } else if (pos[0] === 'shot') {
       const { captureLive } = await import('./shot.js');
       const r = await captureLive(scanRoot, id, opts.screen, { url: opts.url, selector: opts.selector });
@@ -683,7 +721,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  wake --id N                      (사용자 결정이 담당 세션에 전달되지 않았을 때 마지막 결정 줄을 상자에서 대기로 되돌린다. 보내는 것은 메신저)',
         '  session --id N                   (시작은 했는데 담당 세션이 안 만들어진 요청의 시작 글을 상자에 다시 적는다. 설정 wake가 켜져 있어야 한다)',
         '  ack --id N                       (담당 세션이 결정·시작 글을 받았다고 응답한다. 사용자 화면의 "읽음"은 이 명령으로만 찍힌다)',
-        '  outbox wait|list|show --row N|launch --row N|done --row N --via send|bg-resume|bg-new|fail --row N --reason "이유"   (메신저 세션 전용: 상자의 글을 담당 세션에 보내고 결과를 남긴다)',
+        '  outbox wait|list|show --row N|take --row N --by 번호|beat --row N --by 번호|done --row N --via send|fail --row N --reason "이유"   (메신저 세션 전용: 상자의 글을 담당 세션에 보내고 결과를 남긴다)',
         '  shot --id N --screen 화면이름 --url 주소 [--selector css]   (바꾸기 전 운영 화면을 손대지 않고 그대로 찍어 현행 그림으로 저장. 설계를 올릴 때 이 그림이 현행으로 붙는다)',
         '  design --id N --file 설계.json [--files 경로1,경로2]   (설계 JSON에 files: [{path, why}]로 건드릴 파일을 적는다(필수). 또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
