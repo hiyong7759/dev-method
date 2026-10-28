@@ -554,7 +554,7 @@ export interface TermTab {
   command: string;
   /** 일하는 중(요청이 안 끝남)이면 true, 끝난 담당이면 false */
   live: boolean;
-  /** 사용자에게 묻거나 막혀서 사용자 차례인가 */
+  /** 사용자에게 묻거나 막혔거나 승인 대기라서 사용자 차례인가 */
   askingUser: boolean;
 }
 /** 터미널 영역이 받는 탭 목록 */
