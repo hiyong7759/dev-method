@@ -1,7 +1,7 @@
 /**
  * @spec design-status-view 시안 현황 화면
  * @why 시안(Claude Design 캔버스)과 구현이 서로 맞는지 판마다 보여 주어, 사용자도 에이전트도 어느 쪽이 최신인지 한눈에 알고 어긋난 곳을 먼저 손보게 한다.
- * @contract model.designs를 그대로 그린다(상태는 .spec/design-map.json과 소스의 커밋 기록으로 도구가 계산한다). 손볼 것이 위에 오고, 이상 없는 판은 아래에 접어 둔다. 이 화면은 읽기 전용이다.
+ * @contract model.designs를 그대로 그린다(상태는 .spec/design-map.json에 남겨 둔 비교 결과다). 손볼 것이 위에 오고, 확정·이상 없는 판은 아래에 접어 두며, 폐기한 판은 '폐기 기록' 칩에서 이유와 함께 본다. 이 화면은 읽기 전용이다.
  */
 import { h, pageHead, filterChips, chip, buls, type BulKind, type Tone } from './util.js';
 import type { Kid } from './util.js';
@@ -34,7 +34,7 @@ function row(d: DesignView, canvas: string): HTMLElement {
     h('div', { class: 'dno' }, d.no),
     h('div', { class: 'rbody' },
       h('div', { class: 'rtitle' }, d.title),
-      h('div', { class: 'rmeta' }, markChip(d.mark, `${MARK[d.mark].name}${d.detail ? ` · ${d.detail}` : ''}`), d.screens.map((n) => h('a', { class: 'tag c', href: hash('screen', n) }, n))),
+      h('div', { class: 'rmeta' }, markChip(d.mark, d.state === 'retired' ? d.detail : `${d.pinned ? '📌 ' : ''}${MARK[d.mark].name}${d.detail ? ` · ${d.detail}` : ''}`), d.screens.map((n) => h('a', { class: 'tag c', href: hash('screen', n) }, n))),
       d.verifyLater.length ? h('div', { class: 'later' }, h('b', null, `나중에 확인할 것 ${d.verifyLater.length}건`), d.verifyLater.map((t) => h('div', null, `· ${t}`))) : null),
     h('div', { class: 'ract' }, canvas ? h('a', { class: 'open', href: canvas, target: '_blank', rel: 'noopener' }, '시안 열기 ↗') : null));
 }
@@ -51,18 +51,20 @@ function row(d: DesignView, canvas: string): HTMLElement {
 export function designStatusView(root: HTMLElement, { model, kind }: { model: Model; kind: string }): void {
   const all = [...model.designs].sort((a, b) => WEIGHT[b.mark] - WEIGHT[a.mark] || a.no.localeCompare(b.no, 'ko', { numeric: true }));
   const KINDS: { key: string; label: string; bul?: BulKind; list: DesignView[] }[] = [
-    { key: '', label: '전체', list: all },
+    { key: '', label: '전체', list: all.filter((d) => d.state !== 'retired') },
     { key: 'fix', label: '손볼 것', bul: 'rev', list: all.filter((d) => d.mark === '≠' || d.mark === '△' || d.mark === '◇') },
-    { key: 'ok', label: '구현과 같음', bul: 'scr', list: all.filter((d) => d.mark === '✓') },
-    { key: 'ref', label: '참고용·대조 안 됨', bul: 'int', list: all.filter((d) => d.mark === '·' || d.mark === '?') },
+    { key: 'ok', label: '확정·구현과 같음', bul: 'scr', list: all.filter((d) => d.mark === '✓') },
+    { key: 'ref', label: '참고용·대조 안 됨', bul: 'int', list: all.filter((d) => d.state !== 'retired' && (d.mark === '·' || d.mark === '?')) },
+    { key: 'gone', label: '폐기 기록', bul: 'fin', list: all.filter((d) => d.state === 'retired') },
   ];
   const cur = KINDS.find((k) => k.key === kind) ?? KINDS[0];
   // 전체 보기에서는 이상 없는 판(나중에 확인할 것도 없는 것)을 아래에 접는다
   const quiet = (d: DesignView): boolean => !d.stale && d.state !== 'draft' && !d.verifyLater.length;
-  const shown = cur.key === '' ? cur.list.filter((d) => !quiet(d)) : cur.list, folded = cur.key === '' ? cur.list.filter(quiet) : [];
+  const live = (l: DesignView[]): DesignView[] => l.filter((d) => d.state !== 'retired');
+  const shown = cur.key === '' ? live(cur.list).filter((d) => !quiet(d)) : cur.list, folded = cur.key === '' ? live(cur.list).filter(quiet) : [];
   const legend: Kid = (Object.keys(MARK) as DesignView['mark'][]).filter((m) => m !== '·').map((m) => markChip(m));
   root.append(h('div', { class: 'wrap' },
-    pageHead({ title: '시안 현황', lead: '시안(Claude Design 캔버스)과 구현이 서로 맞는지 판마다 보여 줍니다. 고쳐야 할 것이 위에 옵니다. 판을 소스에 맞춰 두면 “구현과 같음”이 되고, 그 뒤로 소스가 바뀌면 “소스가 더 최신”으로 바뀝니다.' }),
+    pageHead({ title: '시안 현황', lead: '시안(Claude Design 캔버스)과 구현이 서로 맞는지 판마다 보여 줍니다. 고쳐야 할 것이 위에 옵니다. 여기에는 비교해서 남겨 둔 결과만 보입니다. 구현과 같다고 확정한 판(📌)은 대응 소스가 바뀌기 전까지 다시 보지 않고, 필요 없어진 판은 이유만 폐기 기록에 남습니다.' }),
     filterChips(KINDS.map((k) => ({ key: k.key, label: k.label, bul: k.bul, count: k.list.length })), cur.key, (k) => nav(hash('manage', 'designs', { kind: k || undefined }))),
     h('div', { class: 'legend' }, legend),
     h('div', { class: 'rlist' }, shown.length ? shown.map((d) => row(d, model.designCanvas)) : h('div', { class: 'empty-note' }, model.designs.length ? '해당하는 판이 없습니다.' : '시안 대응표(.spec/design-map.json)가 없습니다.')),

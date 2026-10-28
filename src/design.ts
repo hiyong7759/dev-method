@@ -2,7 +2,8 @@
  * @spec design-map 시안과 소스 중 무엇이 최신인지 알려 주기
  * @why 시안(Claude Design 캔버스)과 구현된 화면이 따로 바뀌면 나중에 어느 쪽이 최종인지 알 수 없다. 시안 판마다 "구현과 같음 / 소스가 더 최신 / 아직 구현 전 / 대조 안 됨"을 한눈에 말해 주어, 사람도 에이전트도 같은 표로 최신을 가린다.
  * @basis 시안 판과 대응하는 소스 파일을 .spec/design-map.json에 적어 둔다. "구현과 같음"은 그 판을 소스에 맞춰 둔 시점의 커밋(syncedAt)을 적은 것이고, 그 뒤로 대응 소스가 커밋으로 바뀌었으면 "소스가 더 최신"이다. 시안 판 제목 앞에도 같은 표시를 붙인다.
- * @contract 명령: status(표 보기), sync <판>(지금 소스와 같다고 기록), differs <판>(대조해 다르다고 기록), draft <판> --request N(아직 구현 전인 시안), later <판> "글"(나중에 데이터가 생기면 확인할 것 기록), check(커밋 때 경고만 내고 막지 않는다). 대응 소스가 없는 판(참고용)은 "참고"로 둔다.
+ * @contract 명령: status(표 보기), sync <판>(지금 소스와 같다고 기록), differs <판>(대조해 다르다고 기록), draft <판> --request N(아직 구현 전인 시안), later <판> "글"(나중에 데이터가 생기면 확인할 것 기록), check(커밋 때 경고만 내고 막지 않는다), pin <판>(구현과 같은 판을 확정해 못 박는다. 그 뒤 대응 소스가 바뀔 때만 다시 비교한다), retire <판> --reason 이유(폐기: 판을 대응표에서 빼고 번호·이유·날짜 한 줄만 폐기 기록에 남긴다). 대응 소스가 없는 판(참고용)은 "참고"로 둔다.
+ * @basis 판의 생애: 새로 나옴(draft·unchecked) → 한 번 비교 → 확정(pinned) / 구현과 다름(differs) / 폐기(retired). 폐기 기준: ① 구현이 끝나 소스 주석이 현행 설계가 된 판 ② 다른 판이 대신하는 판 ③ 대응 소스도 요청도 없고 확정하지 않은 참고용 판. 실제로 지우는 것은 사용자가 판마다 확인한 뒤에만 한다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,8 +33,24 @@ export interface Board {
   syncedOn?: string;
   /** 데이터가 생기면 시안과 다시 대조할 것들 */
   verifyLater?: string[];
+  /** 확정해 못 박은 판(구현과 같음을 확인한 뒤 pin). 대응 소스가 바뀌기 전까지 다시 보지 않는다 */
+  pinned?: boolean;
 }
-interface DesignMap { boards: Board[] }
+/**
+ * 폐기한 판의 기록(판 본체는 대응표에서 뺀다)
+ * @why 판을 지운 뒤에도 무엇을 왜 지웠는지 남겨, 같은 시안을 다시 만들거나 "그 판은 어디 갔나" 헤매지 않게 한다.
+ */
+export interface Retired {
+  /** 지운 판의 번호 */
+  no: string;
+  /** 지운 판의 이름 */
+  title: string;
+  /** 지운 이유 */
+  reason: string;
+  /** 지운 날(YYYY-MM-DD) */
+  on: string;
+}
+interface DesignMap { boards: Board[]; retired?: Retired[] }
 
 /** 판의 최신 여부 표시: 한 글자 기호 + 말 */
 export interface Freshness {
@@ -88,16 +105,21 @@ export function freshness(root: string, b: Board): Freshness {
   if (b.state === 'differs') return { mark: '≠', text: `대조해 보니 다른 곳이 있다${later} (설계 시안 또는 소스를 맞춘다)`, detail: '', stale: true };
   if (b.state === 'unchecked' || !b.syncedAt) return { mark: '?', text: '대조 안 됨 — 소스와 같은지 확인하지 않았다', detail: '', stale: true };
   const n = commitsSince(root, b);
+  if (n && b.pinned) return { mark: '△', text: `확정한 뒤 소스가 ${n}번 바뀜 — 다시 비교한다`, detail: `확정 뒤 ${n}번 바뀜`, stale: true };
   if (n) return { mark: '△', text: `소스가 더 최신 — ${b.syncedAt} 뒤로 ${n}번 바뀜, 시안을 갱신한다`, detail: `${b.syncedAt} 뒤로 ${n}번 바뀜`, stale: true };
+  if (b.pinned) return { mark: '✓', text: `확정 — 못 박음 (커밋 ${b.syncedAt} · ${b.syncedOn ?? ''})${later}`, detail: `확정 · 커밋 ${b.syncedAt} · ${(b.syncedOn ?? '').slice(5).replace('-', '/')}`, stale: false };
   return { mark: '✓', text: `구현과 같음 (커밋 ${b.syncedAt} · ${b.syncedOn ?? ''})${later}`, detail: `커밋 ${b.syncedAt} · ${(b.syncedOn ?? '').slice(5).replace('-', '/')}`, stale: false };
 }
 
 /** 설계서 보기에 보일 판 목록(모델에 담긴다) */
 export function designViews(root: string): DesignView[] {
-  return readMap(root).boards.map((b) => { const f = freshness(root, b); return { no: b.no, title: b.title, mark: f.mark, detail: f.detail, stale: f.stale, state: b.state, screens: b.screens ?? [], verifyLater: b.verifyLater ?? [] }; });
+  const m = readMap(root);
+  const live = m.boards.map((b): DesignView => { const f = freshness(root, b); return { no: b.no, title: b.title, mark: f.mark, detail: f.detail, stale: f.stale, state: b.state, pinned: !!b.pinned && !f.stale, screens: b.screens ?? [], verifyLater: b.verifyLater ?? [] }; });
+  const gone = (m.retired ?? []).map((r): DesignView => ({ no: r.no, title: r.title, mark: '·', detail: `폐기 ${r.on.slice(5).replace('-', '/')} · ${r.reason}`, stale: false, state: 'retired', pinned: false, screens: [], verifyLater: [] }));
+  return [...live, ...gone];
 }
 
-/** 명령: design status | sync <판> | draft <판> --request N | later <판> "글" | check [프로젝트] */
+/** 명령: design status | sync <판> | pin <판> | retire <판> --reason 이유 | draft <판> --request N | later <판> "글" | check [프로젝트] */
 export async function main(argv: string[]): Promise<number | undefined> {
   const { pos, opts } = parseArgs(argv, []);
   const [sub, a, b] = pos;
@@ -121,15 +143,25 @@ export async function main(argv: string[]): Promise<number | undefined> {
     const dirty = bd.files.filter((f) => git(root, ['status', '--porcelain', '--', f]));
     if (dirty.length) { console.error(`아직 커밋하지 않은 소스가 있다: ${dirty.join(', ')} — 커밋한 뒤 맞춘다`); return 1; }
     bd.state = 'confirmed'; bd.syncedAt = git(root, ['rev-parse', '--short', 'HEAD']); bd.syncedOn = new Date().toISOString().slice(0, 10); delete bd.request;
+  } else if (sub === 'pin') {
+    if (bd.state !== 'confirmed' || !bd.syncedAt) { console.error('구현과 같다고 확인한 판만 확정한다. 먼저 sync로 맞춘다'); return 1; }
+    bd.pinned = true;
+  } else if (sub === 'retire') {
+    if (!opts.reason) { console.error('--reason 폐기 이유가 필요하다'); return 1; }
+    map.boards = map.boards.filter((x) => x !== bd);
+    map.retired = [...(map.retired ?? []), { no: bd.no, title: bd.title, reason: String(opts.reason), on: new Date().toISOString().slice(0, 10) }];
+    writeMap(root, map);
+    console.log(`${bd.no} ${bd.title}: 폐기 기록에 남겼다(캔버스의 판 파일은 Artifact 도구로 따로 지운다)`);
+    return 0;
   } else if (sub === 'differs') {
-    bd.state = 'differs';
+    bd.state = 'differs'; delete bd.pinned;
   } else if (sub === 'draft') {
     if (!opts.request) { console.error('--request 번호가 필요하다'); return 1; }
     bd.state = 'draft'; bd.request = Number(opts.request);
   } else if (sub === 'later') {
     if (!b) { console.error('나중에 확인할 글이 필요하다'); return 1; }
     bd.verifyLater = [...(bd.verifyLater ?? []), b];
-  } else { console.error('사용: design status | sync <판> | differs <판> | draft <판> --request N | later <판> "글" | check'); return 1; }
+  } else { console.error('사용: design status | sync <판> | pin <판> | retire <판> --reason 이유 | differs <판> | draft <판> --request N | later <판> "글" | check'); return 1; }
   writeMap(root, map);
   console.log(`${bd.no} ${bd.title}: ${((f) => `${f.mark} ${f.text}`)(freshness(root, bd))}`);
   return 0;
