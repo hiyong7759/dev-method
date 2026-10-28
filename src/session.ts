@@ -13,6 +13,7 @@ import { readConfig } from './config.js';
 import { kst } from './kst.js';
 import { loadRequests, noteSessionStarted, STAGE_LABEL, STEP } from './request.js';
 import { projectRoot, specDir } from './project.js';
+import { withLock } from './lock.js';
 import { isStart, STALL_AFTER_MIN } from './delivery.js';
 import type { Request, SessionCost } from './types.js';
 
@@ -116,36 +117,27 @@ function hasStarting(root: string, id: number): boolean {
 
 /** 요청의 담당 기록을 모두 지운다(담당을 정한 적 없는 세션이 담당으로 남은 옛 기록을 걷어 낼 때) */
 function unregisterOwners(root: string, id: number): void {
-  try {
-    const all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')) as Record<string, { request: number }>;
-    for (const sid of Object.keys(all)) if (all[sid].request === id) delete all[sid];
-    fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
-  } catch { /* 기록이 없으면 지울 것도 없다 */ }
+  updateOwners(root, (all) => { for (const sid of Object.keys(all)) if (all[sid].request === id) delete all[sid]; });
 }
 
 /** 세션이 어느 요청의 담당인지 적는다(훅이 적는 것과 같은 모양) */
 function registerOwner(root: string, sid: string, id: number): void {
-  let all: Record<string, OwnerEntry> = {};
-  try { all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')); } catch { /* 처음이면 새로 */ }
   // starting: 이 서버가 정한 시각. 담당 등록이 끝나기 전의 세션을 옛 기록으로 오해해 걷어 내지 않는 근거다. origin: 서버가 만든 원본 담당 표시(owner-check가 "내가 원본인가"를 가리는 기준)
-  all[sid] = { request: id, seen: '', starting: new Date().toISOString(), origin: true };
-  fs.mkdirSync(path.join(root, '.spec'), { recursive: true });
-  fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
+  updateOwners(root, (all) => { all[sid] = { request: id, seen: '', starting: new Date().toISOString(), origin: true }; });
 }
 
 /** 담당 번호를 바꾼다. `claude --bg`는 미리 정한 세션 번호를 그대로 쓰지 않고 자기 번호를 붙이므로, 만든 뒤 실제 번호로 갈아 끼운다(그대로 두면 같은 요청에 담당이 둘로 남고, 이어 띄울 때 대화를 못 찾아 새 세션이 생긴다). 훅이 이미 실제 번호를 적었으면 옛 번호만 지운다 */
 export function rebindOwner(root: string, oldSid: string, newSid: string): void {
   if (oldSid === newSid) return;
-  try {
-    const all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')) as Record<string, OwnerEntry>;
-    if (!all[oldSid]) return;
+  const done = updateOwners(root, (all) => {
+    if (!all[oldSid]) return false;
     const moved = { ...all[oldSid] };
     delete moved.rebinding;
     all[newSid] = all[newSid] ? { ...all[newSid], origin: moved.origin ?? all[newSid].origin } : moved;
     delete all[oldSid];
-    fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
-    fs.appendFileSync(logFile(root), `${new Date().toISOString()} 담당 번호를 ${oldSid} → ${newSid}로 바꿈(claude --bg가 붙인 실제 번호)\n`);
-  } catch { /* 기록이 없으면 바꿀 것도 없다 */ }
+    return true;
+  });
+  if (done) { try { fs.appendFileSync(logFile(root), `${new Date().toISOString()} 담당 번호를 ${oldSid} → ${newSid}로 바꿈(claude --bg가 붙인 실제 번호)\n`); } catch { /* 기록 실패가 번호 바꾸기를 되돌리지 않는다 */ } }
 }
 
 /** 담당 기록의 한 칸. origin: 서버가 만든 원본 담당, rebinding: claude --bg가 실제 번호를 붙이는 중이라 번호를 맞추기 전이라는 시각(owner-check가 이 사이에는 "맞추는 중"으로 본다) */
@@ -171,23 +163,27 @@ function saveOwners(root: string, all: Record<string, OwnerEntry>): void {
   fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
 }
 
+/** 담당 기록을 잠금 아래에서 읽고 고쳐 쓴다. 서버·별도 프로세스·담당 세션의 훅이 같은 파일을 동시에 고쳐도 서로의 변경(원본 표시·맞추는 중 표시)을 옛 사본으로 덮지 않게 한다. 잠금을 못 잡으면 null(아무것도 바꾸지 않는다) */
+export function updateOwners<T>(root: string, fn: (all: Record<string, OwnerEntry>) => T): T | null {
+  const out = withLock(root, 'sessions-file', () => { const all = loadOwners(root); const r = fn(all); saveOwners(root, all); return { r }; }, { waitMs: 5000 });
+  return out ? out.r : null;
+}
+
 /** 담당을 띄우기 직전에 "번호를 맞추는 중"으로 적고, 맞춘 뒤(rebindOwner)나 실패했을 때(false) 해제한다 */
 export function markRebinding(root: string, sid: string, on: boolean): void {
-  const all = loadOwners(root);
-  if (!all[sid]) return;
-  if (on) all[sid].rebinding = new Date().toISOString(); else delete all[sid].rebinding;
-  saveOwners(root, all);
+  updateOwners(root, (all) => { if (!all[sid]) return; if (on) all[sid].rebinding = new Date().toISOString(); else delete all[sid].rebinding; });
 }
 
 /** 수동 지정: 요청의 원본 담당을 이 세션 하나로 정한다(어긋났을 때 사용자·메인이 푼다). 그 요청의 다른 담당 기록은 지운다. 지운 번호들을 돌려준다 */
 export function adoptOwner(root: string, id: number, sid: string): string[] {
-  const all = loadOwners(root);
-  const removed = Object.keys(all).filter((k) => all[k].request === id && k !== sid);
-  for (const k of removed) delete all[k];
-  all[sid] = { ...(all[sid] ?? { seen: new Date().toISOString() }), request: id, origin: true };
-  delete all[sid].rebinding;
-  saveOwners(root, all);
-  fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} 원본 담당을 ${sid}로 수동 지정(지운 기록: ${removed.join(', ') || '없음'})\n`);
+  const removed = updateOwners(root, (all) => {
+    const gone = Object.keys(all).filter((k) => all[k].request === id && k !== sid);
+    for (const k of gone) delete all[k];
+    all[sid] = { ...(all[sid] ?? { seen: new Date().toISOString() }), request: id, origin: true };
+    delete all[sid].rebinding;
+    return gone;
+  }) ?? [];
+  try { fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} 원본 담당을 ${sid}로 수동 지정(지운 기록: ${removed.join(', ') || '없음'})\n`); } catch { /* 기록 실패는 지정을 되돌리지 않는다 */ }
   return removed;
 }
 

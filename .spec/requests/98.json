@@ -1,0 +1,131 @@
+{
+  "id": 98,
+  "title": "원칙을 지금 구조에 맞게 고친다: 짝 코딩 → 두 문턱 승인, 설계 = 소스 → 설계 → 소스",
+  "source": "user",
+  "origin": {
+    "text": "내 기존 생각을 폐기할께 변화된 현재 구조에 맞게 원칙들을 다시한번 손봐야겠다 지금이 좋긴해 / 초안대로 가자",
+    "channel": "대화",
+    "at": "2026-10-28T08:08:53.389Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "noTest": "규칙 문서 문구만 바꾸며 화면·정보·동작이 바뀌지 않는다",
+  "stage": "test",
+  "step": "requested",
+  "events": [
+    {
+      "at": "2026-10-28T08:08:53.389Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-28T08:09:54.789Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-28T08:09:54.897Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "초안대로 가자"
+    },
+    {
+      "at": "2026-10-28T08:09:54.913Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(b74219c9)"
+    },
+    {
+      "at": "2026-10-28T08:10:11.309Z",
+      "by": "agent",
+      "kind": "asking",
+      "note": "질문: 요청 #98의 문장 수정은 이미 커밋 126fcda(17:09:27 KST)로 들어가 있는데, 설계 없음 승인(17:09:54 KST)보다 27초 앞서 만들어져 구현 기록으로 받아지지 않습니다. 원문 승인('초안대로 가자')은 그 커밋 내용에 대한 것이었으니, 이 커밋을 구현으로 인정하고 테스트(없음) 단계로 넘겨도 될까요? 아니면 승인 뒤 새 커밋으로 다시 올릴까요?"
+    },
+    {
+      "at": "2026-10-28T09:30:51.947Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 414d17d"
+    },
+    {
+      "at": "2026-10-28T09:31:22.518Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    }
+  ],
+  "design": {
+    "understanding": "",
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0,
+    "files": [
+      {
+        "path": "CORE.md",
+        "why": ""
+      },
+      {
+        "path": "docs/delegate.md",
+        "why": ""
+      },
+      {
+        "path": "docs/source-comments.md",
+        "why": ""
+      },
+      {
+        "path": "skills/spec-view/rules/request.md",
+        "why": ""
+      }
+    ],
+    "brief": [
+      "원칙 문장 6곳을 지금 구조에 맞게 고친다",
+      "짝 코딩 → 설계·테스트 두 문턱 승인",
+      "설계 = 소스 → 만들기 전 설계 승인, 구현 뒤엔 주석+코드가 현행 설계"
+    ]
+  },
+  "files": [
+    {
+      "path": "CORE.md",
+      "why": ""
+    },
+    {
+      "path": "docs/delegate.md",
+      "why": ""
+    },
+    {
+      "path": "docs/source-comments.md",
+      "why": ""
+    },
+    {
+      "path": "skills/spec-view/rules/request.md",
+      "why": ""
+    }
+  ],
+  "commits": [
+    "414d17d"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false,
+    "brief": [
+      "CORE.md·delegate.md·source-comments.md·request.md에서 어긋나던 6곳을 승인한 초안 문구로 바꿨다",
+      "짝 코딩 → 설계·테스트 두 문턱 승인, 설계 = 소스 → 설계 → 소스",
+      "화면·동작 변화 없음"
+    ],
+    "sigs": {}
+  }
+}

@@ -81,3 +81,30 @@ test('담당 띄우기는 요청당 잠금 아래 한 번만 한다(잠금이 �
   assert.equal(ownerUp(src, 1), 'busy');
   void os;
 });
+
+test('낡은 잠금은 한 쪽만 가져가고, 이름표가 다르면 남의 잠금을 풀지 못한다', () => {
+  const { src } = tempProject({ wake: true });
+  assert.equal(tryLock(src, 'x', 1000, 'A'), true);
+  assert.equal(tryLock(src, 'x', 1000, 'B'), false, '살아 있는 잠금은 못 가져간다');
+  const f = path.join(src, '..', '.spec', 'locks', 'x');
+  const old = new Date(Date.now() - 5000);
+  fs.utimesSync(f, old, old);
+  assert.equal(tryLock(src, 'x', 1000, 'B'), true, '낡은 잠금은 가져간다');
+  assert.equal(tryLock(src, 'x', 1000, 'C'), false, '가져간 직후에는 다른 쪽이 못 잡는다');
+  unlock(src, 'x', 'A');
+  assert.ok(fs.existsSync(f), 'A는 이미 남에게 넘어간 잠금을 지우지 못한다');
+  unlock(src, 'x', 'B');
+  assert.ok(!fs.existsSync(f), '잡은 쪽(B)은 푼다');
+});
+
+test('담당 기록은 잠금 아래에서 고쳐서, 다른 변경을 옛 사본으로 덮지 않는다', async () => {
+  const { root } = tempProject({ wake: true });
+  const { updateOwners, loadOwners } = await import('../src/session.js');
+  updateOwners(root, (all) => { all.ORIG = { request: 3, seen: '', origin: true }; });
+  updateOwners(root, (all) => { all.COPY = { request: 4, seen: '' }; });
+  updateOwners(root, (all) => { all.ORIG.rebinding = 'x'; });
+  const all = loadOwners(root);
+  assert.equal(all.ORIG.origin, true);
+  assert.equal(all.ORIG.rebinding, 'x');
+  assert.equal(all.COPY.request, 4);
+});

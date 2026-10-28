@@ -13,7 +13,7 @@ import type { Via } from './delivery.js';
 import { loadRequests } from './request.js';
 import { brandOf } from './brand.js';
 import { launchArgs, loadOwners, logFile, markRebinding, newOwnerMessage, decisionMessage, ownerName, ownersOf, prepareOwner, rebindOwner, SPEC_MJS, transcriptOf } from './session.js';
-import { beat, tryLock, unlock, withLock } from './lock.js';
+import { beat, newHolder, tryLock, unlock, withLock } from './lock.js';
 import { projectRoot, specDir } from './project.js';
 import type { Request } from './types.js';
 
@@ -148,6 +148,7 @@ export function requeueOutbox(scanRoot: string, id: number): OutboxRow | null {
     const req = loadRequests(scanRoot).find((r) => r.id === id) as Request | undefined;
     if (!last || !req || (lastDecision(req) && (last.kind === 'start') !== isStart(req))) return enqueueOutbox(scanRoot, id);
     markRequeued(scanRoot, id);
+    unlock(scanRoot, `take-${last.seq}`);
     const again = mutate(scanRoot, (all) => { const row = all.find((r) => r.seq === last.seq); if (!row) return null; row.state = 'pending'; row.ready = false; delete row.reason; delete row.via; delete row.takenBy; delete row.beatAt; return row; });
     if (again) kickOwnerUp(scanRoot, id);
     return again;
@@ -230,7 +231,8 @@ export function showRow(scanRoot: string, seq: number): { row: OutboxRow; textFi
 /** 서버가 담당을 띄우는 단 하나의 길. 요청당 잠금을 잡고, 잠근 채로 담당 기록과 떠 있는 세션을 다시 읽어 ① 돌고 있으면 띄우지 않고 그 요청의 대기 줄을 "보낼 수 있음"으로 바꾸며 ② 안 떠 있을 때만 `claude --bg`로(대화가 있으면 이어서) 띄워 대기 줄의 글을 처음 글로 넘긴다. 번호를 맞추는 동안은 담당 기록에 '맞추는 중'을 적어, 새 담당이 whoami로 자신을 확인할 때 짧게 기다리게 한다 */
 export function ownerUp(scanRoot: string, id: number): 'running' | 'launched' | 'busy' | 'skipped' | 'failed' {
   const root = projectRoot(scanRoot);
-  if (!tryLock(scanRoot, `owner-${id}`, 90_000)) return 'busy';
+  const holder = newHolder();
+  if (!tryLock(scanRoot, `owner-${id}`, 90_000, holder)) return 'busy';
   try {
     const row = [...loadOutbox(scanRoot)].reverse().find((r) => r.request === id && r.state === 'pending' && r.ready === false);
     if (!row) return 'skipped';
@@ -252,6 +254,7 @@ export function ownerUp(scanRoot: string, id: number): 'running' | 'launched' | 
     const savedJob = exists && fs.existsSync(path.join(os.homedir(), '.claude', 'jobs', sid.slice(0, 8)));
     const startedAt = Date.now();
     markRebinding(root, sid, true);
+    beat(scanRoot, `owner-${id}`);
     const run = spawnSync('claude', [...head, ...(savedJob ? [] : launchArgs(root, id, scanRoot)), fs.readFileSync(textFile(scanRoot, row.seq), 'utf8')], { cwd: root, encoding: 'utf8', timeout: 60_000 });
     fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} ${sid} claude --bg ${exists ? '--resume' : '--session-id'} 종료코드=${run.status}\n`);
     // claude --bg는 미리 정한 번호를 쓰지 않고 자기 번호를 붙인다. 출력의 짧은 번호(없으면 이 호출 뒤에 시작한 같은 이름의 백그라운드 세션)로 실제 번호를 찾아 담당 기록과 줄을 맞춘다
@@ -259,6 +262,7 @@ export function ownerUp(scanRoot: string, id: number): 'running' | 'launched' | 
     let real: string | undefined;
     for (let i = 0; run.status === 0 && !real && i < 20; i++) {
       if (i) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+      beat(scanRoot, `owner-${id}`);
       const now = agentsList() ?? [];
       real = short ? now.find((a) => a.id === short || a.sessionId?.startsWith(short))?.sessionId
         : now.filter((a) => a.kind === 'background' && a.name === ownerName(root, id) && (a.startedAt ?? 0) >= startedAt - 2000).sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0]?.sessionId;
@@ -266,7 +270,8 @@ export function ownerUp(scanRoot: string, id: number): 'running' | 'launched' | 
     if (real && real !== sid) {
       rebindOwner(root, sid, real);
       mutate(scanRoot, (rows) => { for (const r of rows) if (r.session === sid) r.session = real as string; });
-    } else markRebinding(root, sid, false);
+    } else if (real) markRebinding(root, sid, false);
+    // 실제 번호를 못 찾았으면 '맞추는 중' 표시를 그대로 둔다(3분 뒤 저절로 풀린다). 지우면 곧 시작할 진짜 원본이 whoami에서 복사본으로 판정된다. 그 사이 담당이 whoami를 부르면 owner-check가 떠 있는 같은 이름 세션이 하나뿐일 때 스스로 맞춘다
     fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} claude --bg 출력 번호=${short ?? '못 읽음'} 실제 세션=${real ?? '목록에 없음'}\n`);
     if (run.status === 0) { doneRow(scanRoot, row.seq, exists ? 'bg-resume' : 'bg-new'); return 'launched'; }
     failRow(scanRoot, row.seq, `claude --bg 실패(종료코드 ${run.status}): ${(run.stderr || run.stdout || run.error?.message || '').trim().slice(0, 200)}`);
@@ -274,7 +279,7 @@ export function ownerUp(scanRoot: string, id: number): 'running' | 'launched' | 
   } catch (e) {
     fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} 담당 띄우기 오류: ${(e as Error).message}\n`);
     return 'failed';
-  } finally { unlock(scanRoot, `owner-${id}`); }
+  } finally { unlock(scanRoot, `owner-${id}`, holder); }
 }
 
 /** 서버(또는 request 명령)가 줄을 적은 직후, 담당 확인·띄우기를 따로 도는 프로세스로 시킨다(서버 요청 처리를 막지 않으려고. 일은 ownerUp 한 곳에서 잠금 아래 한다). 꺼져 있거나 시험용이면 하지 않는다 */

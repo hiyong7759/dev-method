@@ -2,10 +2,10 @@
  * @spec owner-check 요청 담당이 원본인지 가리는 단 하나의 검사
  * @why 같은 요청의 담당 세션이 복사돼 둘이 되면 브랜치·워크트리가 겹쳐 만들어진다. "원본인가"를 사람·에이전트의 판단에 맡기지 않고 이 검사 하나가 가리고, 시작 확인(whoami)·훅·커밋·요청 명령이 모두 이것을 부른다.
  * @basis 서버가 만든 원본 담당은 담당 기록(.spec/sessions.json)에 origin 표시로 남는다. 담당 세션은 서버가 띄울 때 환경 변수 SPEC_OWNER_REQUEST(요청 번호)·SPEC_OWNER_SCAN(설계서 소스 폴더)을 받는다. 환경에 그 값이 없는 세션(메인 에이전트·사람이 연 창)은 담당이 아니므로 검사 대상이 아니다.
- * @contract 판정: original(묶인 원본) / syncing(서버가 claude --bg의 실제 번호를 맞추는 중이라 아직 모름) / copy(원본이 아님) / unbound(요청에 묶인 담당 기록이 없음, 통과) / unknown(세션 번호를 모름, 거절). 원본 표시가 있는 기록이 하나도 없는 옛 요청은 기록에 있는 세션이면 원본으로 본다. 막는 대상은 원본이 아닌 담당 세션의 워크트리 만들기·브랜치 만들기·커밋·요청 상태 변경이다. 막을 때는 요청에 '복사본이 거절됨' 한 줄만 남기고(막힘 표시는 하지 않는다. 복사본은 상태를 못 바꾼다) 같은 글을 10분 안에는 다시 적지 않는다.
+ * @contract 판정: original(묶인 원본) / syncing(서버가 claude --bg의 실제 번호를 맞추는 중이라 아직 모름) / copy(원본이 아님) / unbound(요청에 묶인 담당 기록이 없음, 통과) / unknown(세션 번호를 모름, 거절). 원본 표시가 있는 기록이 하나도 없는 옛 요청은 기록에 있는 세션이면 원본으로 본다. 막는 대상은 원본이 아닌 담당 세션의 워크트리 만들기·브랜치 만들기·커밋·요청 상태 변경이다. 번호를 맞추는 중이 끝나지 않았거나 복사본으로 나와도, 그 요청 담당 이름으로 떠 있는 세션이 이 하나뿐이고 '맞추는 중' 표시가 남아 있으면 이 세션을 원본으로 맞춘다(서버가 실제 번호를 못 찾은 경우). 막을 때는 요청에 '복사본이 거절됨' 한 줄만 남기고(막힘 표시는 하지 않는다. 복사본은 상태를 못 바꾼다) 같은 글을 10분 안에는 다시 적지 않는다.
  */
 import { agentsList } from './outbox.js';
-import { loadOwners, ownerName } from './session.js';
+import { adoptOwner, loadOwners, ownerName } from './session.js';
 import { loadRequests, noteCopyRefused } from './request.js';
 import { projectRoot } from './project.js';
 
@@ -33,7 +33,19 @@ export function otherRunning(root: string, id: number, sid: string): string[] {
   try { return (agentsList() ?? []).filter((a) => a.name === ownerName(root, id) && a.sessionId && a.sessionId !== sid).map((a) => a.sessionId as string); } catch { return []; }
 }
 
-/** syncing이면 번호가 맞춰질 때까지 짧게 다시 본다(최대 waitMs). 서버가 실제 번호로 바꾸는 데 시간이 걸려 진짜 원본이 복사본으로 판정되는 일을 막는다 */
+/** 서버가 실제 번호를 못 찾아(목록 읽기 실패 등) '맞추는 중'으로 남았을 때의 스스로 맞추기: 이 세션이 떠 있는 세션 목록에 있고, 그 요청 담당 이름으로 떠 있는 세션이 이 하나뿐이면 이 세션을 원본으로 맞춘다. 복사본이 둘 이상 떠 있으면 어느 쪽이 원본인지 모르므로 하지 않는다 */
+function healIfOnlyRunning(root: string, id: number, sid: string): boolean {
+  try {
+    const mine = (agentsList() ?? []).filter((a) => a.sessionId && a.name === ownerName(root, id));
+    if (mine.length !== 1 || mine[0].sessionId !== sid) return false;
+    const origin = Object.entries(loadOwners(root)).find(([, v]) => v.request === id && v.origin && v.rebinding);
+    if (!origin) return false;
+    adoptOwner(root, id, sid);
+    return true;
+  } catch { return false; }
+}
+
+/** syncing이면 번호가 맞춰질 때까지 짧게 다시 본다(최대 waitMs). 서버가 실제 번호로 바꾸는 데 시간이 걸려 진짜 원본이 복사본으로 판정되는 일을 막는다. 그래도 맞춰지지 않으면 위 스스로 맞추기를 한 번 해 본다 */
 export function verdictWaiting(root: string, id: number, sid: string | undefined, waitMs = 15_000): Verdict {
   const end = Date.now() + waitMs;
   let v = verdictOf(root, id, sid);
@@ -41,6 +53,7 @@ export function verdictWaiting(root: string, id: number, sid: string | undefined
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
     v = verdictOf(root, id, sid);
   }
+  if ((v === 'syncing' || v === 'copy') && sid && healIfOnlyRunning(root, id, sid)) v = verdictOf(root, id, sid);
   return v;
 }
 
@@ -59,12 +72,19 @@ export function explain(v: Verdict, id: number, root: string, sid: string | unde
   return `복사본입니다(요청 #${id}의 원본은 ${origin || '다른 세션'}). 일을 하지 말고 멈추세요. 원본이 맞는데 어긋난 것이면 사용자·메인 세션이 \`request adopt --id ${id} --session ${sid ?? '번호'}\`로 지정합니다${tail}`;
 }
 
+/** 원본이 아닌 담당이 못 하는 request 명령(요청 상태·기록을 바꾸는 것). 읽기·확인 명령(whoami·list·shot·watch 등)은 막지 않는다. 훅(Bash 명령)과 request 명령 입구가 같은 목록을 쓴다 */
+export const STATE_COMMANDS = ['design', 'impl', 'test', 'ask', 'blocked', 'ack', 'start', 'session', 'wake', 'land', 'agent', 'also', 'found', 'scope', 'redesign', 'cancel', 'merge', 'add', 'approve-design', 'approve-test', 'reject-design', 'test-problem'];
+
+/** git 앞쪽에 올 수 있는 전역 옵션(-C 경로, -c 설정, --no-pager 등)을 건너뛰고 하위 명령을 찾는다 */
+const GIT = String.raw`git(?:\s+(?:-C\s+\S+|-c\s+\S+|--(?:no-pager|paginate|bare|no-replace-objects|literal-pathspecs)|--(?:git-dir|work-tree|namespace|exec-path)(?:=|\s+)\S+|-p|-P))*\s+`;
+/** 브랜치·워크트리를 만들거나 기록(커밋·합치기·되감기 등)을 쓰는 git 명령 */
+const GIT_WRITE = new RegExp(`\\b${GIT}(?:worktree\\s+(?:add|move|remove|prune)\\b|checkout\\s+(?:\\S+\\s+)*?(?:-b|-B|--orphan|-t|--track)\\b|switch\\s+(?:\\S+\\s+)*?(?:-c|-C|--create|--force-create|--orphan)\\b|branch\\s+(?!(?:-d|-D|--delete|--list|-l|-a|-r|-v|-vv|--show-current|--contains|--merged|--no-merged)\\b)\\S|(?:commit|commit-tree|cherry-pick|revert|merge|rebase|am|tag|update-ref|push)\\b)`);
+
 /** 담당 세션이 원본이 아니면 거절해야 하는 명령인가 */
 export function needsOriginal(tool: string, command: string): boolean {
   if (tool === 'EnterWorktree') return true;
   if (tool !== 'Bash') return false;
-  return /\bgit\s+(?:-C\s+\S+\s+)?(?:worktree\s+add\b|checkout\s+-[bB]\b|switch\s+-[cC]\b|branch\s+(?!-d\b|-D\b|--list|-a\b|-v\b|--show|--contains)[^-\s]|commit\b)/.test(command)
-    || /spec\.mjs\s+(?:request\s+(?:design|impl|test|ask|blocked|ack|land|start|session|wake|agent)|finish)\b/.test(command);
+  return GIT_WRITE.test(command) || new RegExp(`spec\\.mjs\\s+(?:request\\s+(?:${STATE_COMMANDS.join('|')})|finish)\\b`).test(command);
 }
 
 /** 훅 한 번의 판단: 거절해야 하면 사유를, 통과면 null */

@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { assertOriginal, hookDecision, needsOriginal, verdictOf } from '../src/owner-check.js';
+import { openNotes } from '../src/request.js';
+import type { Request } from '../src/types.js';
 import { adoptOwner, loadOwners, markRebinding, rebindOwner } from '../src/session.js';
 import { tempProject } from './helpers.js';
 
@@ -73,4 +75,19 @@ test('요청 명령 앞 검사: 원본이 아니면 던지고, 담당 환경이 
   assert.throws(() => assertOriginal(src, env('COPY')), /복사본/);
   assert.doesNotThrow(() => assertOriginal(src, env('ORIG')));
   assert.doesNotThrow(() => assertOriginal(src, {}));
+});
+
+test('복사본이 변형된 git 명령(전역 옵션·긴 옵션)으로 브랜치·커밋을 만들어도 막히고, 읽기 명령은 막히지 않는다', () => {
+  const block = ['git commit -m x', 'git -c user.name=x commit -m y', 'git --no-pager commit', 'git -C /tmp/r commit -am z', 'git branch -m a b', 'git branch newb', 'git checkout -b x', 'git checkout --orphan x', 'git checkout main -b x', 'git switch -c x', 'git switch --create x', 'git worktree add ../w', 'git push origin main', 'git merge x', 'git rebase main', 'git cherry-pick abc', 'cd x && git commit -m q', 'node a/spec.mjs request design --id 1', 'node a/spec.mjs request found --id 1 --text x', 'node a/spec.mjs request redesign --id 1', 'node a/spec.mjs request approve-test --id 1 --quote x', 'node a/spec.mjs finish --src s'];
+  const pass = ['git status', 'git log --oneline', 'git diff', 'git branch --list', 'git branch -a', 'git branch --show-current', 'git branch -d old', 'git checkout main', 'git checkout -- file', 'git switch main', 'git show HEAD', 'git stash list', 'node a/spec.mjs request whoami --id 1', 'node a/spec.mjs request list', 'echo commit', 'npm test', 'git worktree list'];
+  for (const c of block) assert.equal(needsOriginal('Bash', c), true, `막아야 한다: ${c}`);
+  for (const c of pass) assert.equal(needsOriginal('Bash', c), false, `통과해야 한다: ${c}`);
+});
+
+test('도구가 남긴 복사본 거절·담당 중복 정리 기록은 진짜 막힘 표시를 지우지 않는다', () => {
+  const ev = (by: string, kind: string, note: string, at: string): Request['events'][number] => ({ at, by, kind, note } as Request['events'][number]);
+  const r = { events: [ev('agent', 'blocked', '막힘: 허용 목록 밖 명령', '2026-10-28T01:00:00Z'), ev('agent', 'agent', '복사본이 거절됨: 3367490d가 명령 시도', '2026-10-28T01:01:00Z'), ev('agent', 'agent', '담당 중복 정리: 요청 #1의 담당이 둘 이상이라', '2026-10-28T01:02:00Z')] } as unknown as Request;
+  assert.ok(openNotes(r).blocked, '도구 기록만 뒤에 있으면 막힘이 그대로 보인다');
+  r.events.push(ev('agent', 'impl', '구현 커밋 abc', '2026-10-28T01:03:00Z'));
+  assert.equal(openNotes(r).blocked, undefined, '담당이 실제로 일한 기록이 생기면 풀린다');
 });

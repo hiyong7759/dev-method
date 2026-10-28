@@ -431,14 +431,17 @@ export function noteAsking(scanRoot: string, id: number, text: string): Request 
   return record(scanRoot, r, 'agent', 'asking', `질문: ${text.trim()}`);
 }
 
-/** 막힘·질문이 지금도 살아 있는지: 막힘은 그 뒤 다른 에이전트 기록이 없을 때, 질문은 그 뒤 사용자 기록이 없을 때만 */
+/** 도구(복사본 거절·담당 중복 정리)가 남긴 기록인가: 담당 에이전트가 한 일이 아니라서 막힘을 풀거나 활동으로 세지 않는다 */
+export const isToolNote = (e: { note: string }): boolean => /^(복사본이 거절됨|담당 중복 정리):/.test(e.note);
+
+/** 막힘·질문이 지금도 살아 있는지: 막힘은 그 뒤 다른 에이전트 기록이 없을 때(도구가 남긴 기록은 세지 않는다), 질문은 그 뒤 사용자 기록이 없을 때만 */
 export function openNotes(r: Request): { blocked?: { at: string; note: string }; asking?: { at: string; text: string } } {
   const ev = r.events;
   const lastOf = (kind: string): number => ev.map((e, i) => (e.kind === kind ? i : -1)).filter((i) => i >= 0).pop() ?? -1;
   const b = lastOf('blocked'), a = lastOf('asking');
   const strip = (n: string, p: string): string => n.replace(p, '');
   return {
-    ...(b >= 0 && !ev.slice(b + 1).some((e) => e.by === 'agent') ? { blocked: { at: ev[b].at, note: strip(ev[b].note, '막힘: ') } } : {}),
+    ...(b >= 0 && !ev.slice(b + 1).some((e) => e.by === 'agent' && !isToolNote(e)) ? { blocked: { at: ev[b].at, note: strip(ev[b].note, '막힘: ') } } : {}),
     ...(a >= 0 && !ev.slice(a + 1).some((e) => e.by === 'user') ? { asking: { at: ev[a].at, text: strip(ev[a].note, '질문: ') } } : {}),
   };
 }
@@ -589,7 +592,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
   const id = Number(opts.id);
   try {
     // 담당 세션(환경에 요청 번호가 있음)이 원본이 아니면 요청 상태를 바꾸는 명령을 거절한다(owner-check). 읽기·확인 명령(whoami·list·shot 등)은 막지 않는다
-    if (['design', 'impl', 'test', 'ask', 'blocked', 'ack', 'start', 'session', 'wake', 'land', 'agent'].includes(pos[0])) (await import('./owner-check.js')).assertOriginal(scanRoot);
+    { const oc = await import('./owner-check.js'); if (oc.STATE_COMMANDS.includes(pos[0])) oc.assertOriginal(scanRoot); }
     if (pos[0] === 'whoami') {
       // 담당 세션이 시작할 때 부른다: 내가 이 요청의 묶인 원본 담당인가. 번호를 맞추는 중이면 짧게 기다린다. 복사본이면 종료 코드 1
       const oc = await import('./owner-check.js');

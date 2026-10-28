@@ -8,6 +8,8 @@ import path from 'node:path';
 import { configFile } from './config.js';
 import { kst } from './kst.js';
 import { loadRequests } from './request.js';
+import { updateOwners } from './session.js';
+import type { OwnerEntry } from './session.js';
 
 /** 훅이 넘기는 JSON 중 쓰는 것 */
 interface HookInput {
@@ -57,7 +59,8 @@ export async function main(): Promise<number> {
     let sessions: Sessions = {};
     try { sessions = JSON.parse(fs.readFileSync(file, 'utf8')) as Sessions; } catch { /* 처음 */ }
     const requests = loadRequests(root);
-    const save = (): void => { fs.writeFileSync(file, JSON.stringify(sessions, null, 2) + '\n'); };
+    // 파일 전체를 옛 사본으로 덮지 않는다: 잠금 아래에서 다시 읽어 이 세션의 칸(sid)만 바꾼다(서버가 방금 적은 원본 표시·맞추는 중 표시를 지우지 않게)
+    const save = (): void => { updateOwners(root, (all) => { if (sessions[sid]) all[sid] = { ...all[sid], ...sessions[sid] } as OwnerEntry; }); };
     // 이 세션이 담당으로 정하면(request agent) 그 요청의 담당으로 적는다(그때까지의 기록은 이미 아는 것으로 본다)
     if (input.hook_event_name === 'PostToolUse' && input.tool_name === 'Bash') {
       const cmd = input.tool_input?.command ?? '';
