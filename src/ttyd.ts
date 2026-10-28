@@ -186,6 +186,8 @@ const parseUrl = (url: string): { id: number; rest: string } | null => { const m
 export const isTermUrl = (url: string): boolean => url.startsWith(PREFIX) && !!parseUrl(url.split('?')[0]);
 
 /** ttyd가 보기에 접속한 쪽(우리 중계)의 주소와 출처. 소켓이라 실제 주소는 없으므로 같은 값을 쓴다 */
+/** 웹소켓 정상 종료 틀(코드 1000) */
+const CLOSE_NORMAL = Buffer.from([0x88, 0x02, 0x03, 0xe8]);
 const UP_HOST = '127.0.0.1';
 const UP_ORIGIN = `http://${UP_HOST}`;
 
@@ -227,6 +229,7 @@ export function termUpgrade(scanRoot: string, req: IncomingMessage, socket: net.
   });
   let closed = false;
   const done = (): void => { if (closed) return; closed = true; b.closers.delete(done); b.conns = Math.max(0, b.conns - 1); b.idleSince = Date.now(); armIdle(scanRoot, p.id, b); socket.destroy(); t.destroy(); };
-  b.closers.add(done);
+  // 나중 연결에 밀려 닫을 때는 정상 종료 신호(1000)를 먼저 보낸다: 신호 없이 끊으면 먼저 창이 스스로 다시 연결해 두 창이 서로 빼앗는다. 신호를 받으면 먼저 창은 "Press Enter to Reconnect"로 멈춘다
+  b.closers.add(() => { if (closed) return; socket.write(CLOSE_NORMAL, done); });
   t.on('error', done); t.on('close', done); socket.on('error', done); socket.on('close', done);
 }

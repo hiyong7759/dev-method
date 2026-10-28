@@ -156,12 +156,12 @@ test('탭의 사용자 차례 표시가 설계·테스트 승인 대기도 포�
 const initFrame = (): Buffer => { const p = Buffer.from('{"AuthToken":"","columns":80,"rows":24}'); const m = crypto.randomBytes(4); return Buffer.concat([Buffer.from([0x81, 0x80 | p.length]), m, Buffer.from(p.map((x, i) => x ^ m[i % 4]))]); };
 
 /** 웹소켓 연결 하나를 열고 (열린 뒤) 닫히는지 알려 주는 쪽을 돌려준다 */
-const openWs = (port: number, id: number): Promise<{ sock: net.Socket; closed: Promise<void> }> => new Promise((ok, no) => {
+const openWs = (port: number, id: number): Promise<{ sock: net.Socket; closed: Promise<void>; got: () => string }> => new Promise((ok, no) => {
   const sock = net.connect(port, '127.0.0.1');
   const closed = new Promise<void>((c) => sock.on('close', () => c()));
   sock.on('error', no);
   let got = '';
-  sock.on('data', (d) => { got += d.toString('latin1'); if (got.includes('\r\n\r\n')) { sock.removeAllListeners('data'); sock.on('data', () => {}); sock.write(initFrame()); ok({ sock, closed }); } });
+  sock.on('data', (d) => { got += d.toString('latin1'); if (got.includes('\r\n\r\n')) { sock.removeAllListeners('data'); sock.on('data', (d) => { got += d.toString('latin1'); }); sock.write(initFrame()); ok({ sock, closed, got: () => got }); } });
   sock.on('connect', () => sock.write(`GET /__spec/term/${id}/ws HTTP/1.1\r\nHost: localhost:${port}\r\nOrigin: http://localhost:${port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${crypto.randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: tty\r\n\r\n`));
 });
 const countSleep = (): number => execFileSync('ps', ['-axo', 'command='], { encoding: 'utf8' }).split('\n').filter((l) => /sleep 30333/.test(l) && !/ps -axo/.test(l)).length;
@@ -195,6 +195,7 @@ test('같은 담당에는 연결이 하나만 남는다: 접었다 바로 펴도
     // 창이 둘: 나중 창이 오면 먼저 창은 닫힌다
     const c = await openWs(port, r.id);
     await Promise.race([b.closed, wait(2000).then(() => assert.fail('먼저 연결이 닫히지 않았다'))]);
+    assert.ok(b.got().includes('\x88\x02\x03\xe8'), '먼저 창은 정상 종료 신호를 받아 스스로 다시 연결하지 않는다')
     await wait(1200);
     assert.equal(countSleep(), 1, '창이 둘이어도 attach는 하나');
     c.sock.destroy();
