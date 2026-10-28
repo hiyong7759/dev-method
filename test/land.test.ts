@@ -66,3 +66,22 @@ test('다른 파일이 충돌하면 합치기를 되돌리고 알린다', () => 
   assert.equal(fs.readFileSync(path.join(root, 'a.txt'), 'utf8'), 'main\n');
   assert.equal(git(root, 'status', '--porcelain', '--untracked-files=no').trim(), '');
 });
+
+test('커밋 없는 빈 브랜치는 main이 앞서가도 합쳐짐이 아니다', () => {
+  const { root } = repoWithWorktree();
+  fs.writeFileSync(path.join(root, 'c.txt'), 'c\n');
+  git(root, 'add', '-A'); git(root, 'commit', '-q', '-m', 'main moves');
+  assert.equal(worktreeOf(root, 1)?.merged, false);
+});
+
+test('합치기 커밋 없이 합쳐진 옛 브랜치(요청 기록의 커밋이 main에 있음)는 합쳐짐이다', () => {
+  const { root, wt } = repoWithWorktree();
+  fs.writeFileSync(path.join(wt, 'b.txt'), 'b\n');
+  git(wt, 'add', '-A'); git(wt, 'commit', '-q', '-m', 'branch');
+  const c = git(wt, 'rev-parse', '--short', 'HEAD').trim();
+  fs.mkdirSync(path.join(root, '.spec', 'requests'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.spec', 'requests', '1.json'), JSON.stringify({ id: 1, commits: [c] }));
+  assert.equal(worktreeOf(root, 1)?.merged, false, '아직 main에 없다');
+  git(root, 'merge', '--ff-only', 'worktree-req-1');
+  assert.equal(worktreeOf(root, 1)?.merged, true);
+});
