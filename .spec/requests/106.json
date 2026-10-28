@@ -24,8 +24,8 @@
     "mode": "direct",
     "reason": "화면·정보가 바뀌지 않는 성능 고장 수리이고 사용자가 원인 분석 뒤 바로 고치라는 흐름"
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "test",
+  "step": "requested",
   "events": [
     {
       "at": "2026-10-28T11:37:38.397Z",
@@ -38,6 +38,18 @@
       "by": "user",
       "kind": "design-approved",
       "note": "바로 작업으로 등록(설계 없음 승인으로 봄)"
+    },
+    {
+      "at": "2026-10-28T11:38:46.833Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 a820642"
+    },
+    {
+      "at": "2026-10-28T12:08:31.878Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
     }
   ],
   "design": {
@@ -47,5 +59,18 @@
     "screens": [],
     "none": true,
     "rejected": 0
+  },
+  "commits": [
+    "a820642"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false,
+    "brief": [
+      "서버가 화면 요청마다 git을 20번쯤 새로 실행하던 것을 짧게 기억해 응답이 6초에서 0.11초로 줄었다",
+      "이번 한 경우의 임시 조치이고 근본 구조 전환은 요청 #107"
+    ],
+    "sigs": {}
   }
 }
