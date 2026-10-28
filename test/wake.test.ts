@@ -7,11 +7,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { startRequest } from '../src/wake.js';
-import { doneRow, enqueueOutbox, ensureMessenger, failRow, launchRow, loadOutbox, messengerName, pendingRows, requeueOutbox, showRow } from '../src/outbox.js';
+import { doneRow, enqueueOutbox, ensureMessenger, failRow, loadOutbox, messengerName, ownerUp, pendingRows, requeueOutbox, showRow } from '../src/outbox.js';
 import { activityOf, ownerName, ownersOf, transcriptOf } from '../src/session.js';
 import { deliveryOf } from '../src/delivery.js';
 import { addRequest, approveDesign, approveTest, loadRequests, requestTest, setAgent, submitDesign } from '../src/request.js';
 import { tempProject } from './helpers.js';
+
+// 줄을 적을 때 서버가 따로 돌리는 담당 확인(owner-up) 프로세스는 시험에서 띄우지 않고, 시험이 ownerUp을 직접 부른다
+process.env.SPEC_NO_KICK = '1';
 
 /** 서버가 claude를 부르면 기록이 남는 가짜 claude와 가짜 홈을 환경에 건다. 돌려주는 restore가 원래대로 되돌린다 */
 function fakeEnv(): { calls: string; home: string; agents: string; restore: () => void } {
@@ -66,10 +69,14 @@ test('담당이 이미 있으면 그 세션 앞으로 결정 글을 적고, 같�
     const { root, src } = tempProject({ wake: true }); approved(src); own(root, 'S1', 1); setAgent(src, 1, '담당이름');
     const a = enqueueOutbox(src, 1)!;
     assert.equal(a.session, 'S1');
+    assert.equal(a.ready, false, '받을 담당을 서버가 확인하기 전에는 메신저가 가져갈 수 없다');
+    assert.deepEqual(pendingRows(src), []);
+    assert.equal(ownerUp(src, 1), 'running', '담당이 돌고 있으면 새로 띄우지 않는다');
+    assert.deepEqual(pendingRows(src).map((r) => r.seq), [a.seq]);
     assert.equal(showRow(src, a.seq).sendTo, '열린창', '열린 창에는 세션 번호로 찾은 지금 이름으로 보낸다(담당 이름이 아니다)');
     assert.match(fs.readFileSync(showRow(src, a.seq).textFile, 'utf8'), /사용자가 결정했습니다/);
     const b = enqueueOutbox(src, 1)!;
-    assert.deepEqual(pendingRows(src).map((r) => r.seq), [b.seq], '대기 줄은 하나만 남는다');
+    assert.deepEqual(loadOutbox(src).filter((r) => r.state === 'pending').map((r) => r.seq), [b.seq], '대기 줄은 하나만 남는다');
     assert.equal(fs.existsSync(env.calls), false);
   } finally { env.restore(); }
 });
@@ -83,26 +90,16 @@ test('이미 담당을 등록해 일하는 중이면 시작 글은 적지 않고
   assert.equal(enqueueOutbox(src, 1), null);
 });
 
-test('보낼 길을 알려 준다: 대화가 없으면 claude --bg --session-id, 있으면 --resume. 허용·금지 도구와 비밀 읽기 차단 훅을 건다', () => {
+test('담당이 떠 있지 않으면 서버(ownerUp)가 claude --bg로 띄운다: 대화가 없으면 --session-id, 있으면 --resume. 허용·금지 도구, 비밀 읽기 차단 훅, 원본 검증 훅과 환경을 건다', () => {
   const env = fakeEnv();
   try {
-    const { root, src } = tempProject({ wake: true }); approved(src); own(root, 'S1', 1); setAgent(src, 1, '담당이름');
-    const row = enqueueOutbox(src, 1)!;
-    const fresh = showRow(src, row.seq);
-    assert.equal(fresh.conversationExists, false);
-    own(root, 'S9', 1); // 열려 있지 않은 세션은 보낼 이름이 없다(곧바로 claude --bg)
-    assert.equal(showRow(src, enqueueOutbox(src, 1)!.seq).sendTo, null);
-    own(root, 'S1', 1);
-    const row2 = enqueueOutbox(src, 1)!;
-    assert.match(fresh.bgCommand, /^claude --bg --session-id S1 --name /);
-    assert.equal(fresh.bgVia, 'bg-new');
-    fs.mkdirSync(path.dirname(transcriptOf(root, 'S1')), { recursive: true });
-    fs.writeFileSync(transcriptOf(root, 'S1'), '');
-    const resumed = showRow(src, row2.seq);
-    assert.match(resumed.bgCommand, /^claude --bg --resume S1 /);
-    assert.equal(resumed.bgVia, 'bg-resume');
-    for (const want of ['--allowedTools', '--disallowedTools', '--settings', 'claude-block-secret-read.sh', '--model']) assert.ok(resumed.bgCommand.includes(want), want);
-    assert.equal(fs.existsSync(env.calls), false);
+    const { root, src } = tempProject({ wake: true }); approved(src); own(root, 'S9', 1); setAgent(src, 1, '담당이름');
+    enqueueOutbox(src, 1);
+    assert.equal(ownerUp(src, 1), 'launched', 'S9는 열려 있지 않다');
+    const first = fs.readFileSync(env.calls, 'utf8');
+    assert.match(first, /--bg --session-id S9 --name /);
+    for (const want of ['--allowedTools', '--disallowedTools', '--settings', 'claude-block-secret-read.sh', 'claude-block-nonowner.sh', 'SPEC_OWNER_REQUEST', '--model']) assert.ok(first.includes(want), want);
+    assert.equal(loadOutbox(src)[0].via, 'bg-new');
   } finally { env.restore(); }
 });
 
@@ -134,7 +131,8 @@ test('claude --bg가 붙인 실제 세션 번호로 담당 기록과 줄을 바�
     const row = enqueueOutbox(src, 1)!;
     assert.equal(row.session, 'PRE');
     fs.writeFileSync(path.join(env.home, 'late.txt'), '3'); // 만든 세션이 목록에 몇 번 늦게 나타나도 실제 번호를 찾는다
-    const done = launchRow(src, row.seq);
+    assert.equal(ownerUp(src, 1), 'launched');
+    const done = loadOutbox(src).find((r) => r.seq === row.seq)!;
     assert.equal(done.state, 'sent');
     assert.equal(done.via, 'bg-new', '대화가 없어 새로 만들었다');
     assert.match(fs.readFileSync(env.calls, 'utf8'), /--bg --session-id PRE /);
@@ -143,16 +141,19 @@ test('claude --bg가 붙인 실제 세션 번호로 담당 기록과 줄을 바�
     // 실제 번호의 대화가 있으면 다음에는 새로 만들지 않고 그 번호로 이어 띄운다
     fs.mkdirSync(path.dirname(transcriptOf(root, 'abcd1234-real')), { recursive: true });
     fs.writeFileSync(transcriptOf(root, 'abcd1234-real'), '');
+    fs.writeFileSync(env.agents, '[]'); // 방금 띄운 담당이 지금은 떠 있지 않다고 본다
     const again = enqueueOutbox(src, 1)!;
     assert.equal(again.session, 'abcd1234-real');
-    assert.equal(launchRow(src, again.seq).via, 'bg-resume');
+    assert.equal(ownerUp(src, 1), 'launched');
+    assert.equal(loadOutbox(src).find((r) => r.seq === again.seq)!.via, 'bg-resume');
     assert.match(fs.readFileSync(env.calls, 'utf8'), /--bg --resume abcd1234-real /);
     assert.deepEqual(ownersOf(root, 1), ['abcd1234-real'], '이어 띄워도 담당이 늘지 않는다');
     assert.match(fs.readFileSync(env.calls, 'utf8').split(/^(?=--bg )/m).at(-1)!, /--allowedTools/, '저장된 옵션이 없는 세션에는 옵션을 건다');
     // 백그라운드로 만든 세션(jobs 기록 있음)에 옵션을 붙여 --resume하면 복사본이 생기므로 옵션 없이 부른다
     fs.mkdirSync(path.join(env.home, '.claude', 'jobs', 'abcd1234'), { recursive: true });
     const third = enqueueOutbox(src, 1)!;
-    launchRow(src, third.seq);
+    ownerUp(src, 1);
+    void third;
     const last = fs.readFileSync(env.calls, 'utf8').split(/^(?=--bg )/m).at(-1)!;
     assert.match(last, /^--bg --resume abcd1234-real /);
     assert.ok(!last.includes('--allowedTools'), '옵션 없이 이어 띄운다');
@@ -169,7 +170,8 @@ test('claude --bg가 번호를 출력하지 않아도(메신저 안에서 돌릴
       { id: 'old', sessionId: 'OLD', name: ownerName(root, 1), kind: 'background', startedAt: Date.now() - 60 * 60_000 },
       { id: 'new1', sessionId: 'NEW-REAL', name: ownerName(root, 1), kind: 'background', startedAt: Date.now() + 5000 },
     ]));
-    assert.equal(launchRow(src, row.seq).state, 'sent');
+    assert.equal(ownerUp(src, 1), 'launched');
+    assert.equal(loadOutbox(src).find((r) => r.seq === row.seq)!.state, 'sent');
     assert.deepEqual(ownersOf(root, 1), ['NEW-REAL'], '옛 세션이 아니라 방금 만든 세션으로 바뀐다');
   } finally { env.restore(); }
 });
@@ -189,10 +191,11 @@ test('메신저 기동: 없으면 claude --bg로 띄우고, 쉬는데 대기 줄
     assert.equal(ensureMessenger(src, t + 1000), 'skipped', '30초 안에는 다시 확인하지 않는다');
     enqueueOutbox(src, 1);
     t += 31_000;
-    fs.writeFileSync(env.agents, JSON.stringify([{ id: 'm1', sessionId: 'M1', name, kind: 'background', status: 'busy' }]));
+    fs.writeFileSync(env.agents, JSON.stringify([{ id: 'm1', sessionId: 'M1', name, kind: 'background', status: 'busy' }, { id: 's1', sessionId: 'S1', name: '열린창', kind: 'background', status: 'idle' }]));
+    assert.equal(ownerUp(src, 1), 'running', '서버가 담당이 돌고 있음을 확인하면 줄을 보낼 수 있게 된다');
     assert.equal(ensureMessenger(src, t), 'ok', '일하는 중이면 건드리지 않는다');
     t += 31_000;
-    fs.writeFileSync(env.agents, JSON.stringify([{ id: 'm1', sessionId: 'M1', name, kind: 'background', status: 'waiting' }]));
+    fs.writeFileSync(env.agents, JSON.stringify([{ id: "m1", sessionId: "M1", name, kind: "background", status: "waiting" }, { id: "s1", sessionId: "S1", name: "열린창", kind: "background", status: "idle" }]));
     assert.equal(ensureMessenger(src, t), 'ok', '권한 확인 중이어도 건드리지 않는다');
     t += 31_000;
     fs.writeFileSync(env.agents, JSON.stringify([{ id: 'm1', sessionId: 'M1', name, kind: 'background', status: 'idle' }]));
@@ -218,12 +221,13 @@ test('서버 소스 어디에도 claude를 실행해 글을 보내는 길(헤드
   for (const f of all) {
     const text = fs.readFileSync(path.join(dir, f), 'utf8');
     assert.ok(!/claude -p /.test(text), `${f}에 claude -p 실행이 있다`);
-    // 예외: 읽기 전용 조회(claude agents)와, 메신저가 부르는 outbox.ts의 launchRow(claude --bg). 서버 파일은 outbox.ts를 부르더라도 launchRow를 부르지 않는다(아래)
-    if (f !== 'outbox.ts') assert.ok(!/spawn(Sync)?\(\s*'claude'/.test(text), `${f}가 claude를 실행한다`);
+    // 예외: 읽기 전용 조회(claude agents)와, 서버의 담당 띄우기 한 곳(outbox.ts의 ownerUp: claude --bg)과 안전망의 멈춤(reconcile.ts: claude stop). 메신저는 claude를 띄우지 않는다
+    if (f !== 'outbox.ts' && f !== 'reconcile.ts') assert.ok(!/spawn(Sync)?\(\s*'claude'/.test(text), `${f}가 claude를 실행한다`);
+    if (f === 'reconcile.ts') assert.ok(!/spawn(Sync)?\(\s*'claude',\s*\[\s*'(?!stop')/.test(text), `${f}가 stop 말고 claude를 실행한다`);
     else assert.ok(!/spawn(Sync)?\(\s*'claude',\s*\[\s*'(?!agents')(?!\.\.\.head)/.test(text), `${f}가 허용되지 않은 claude 실행을 한다`);
-    // 서버(middleware·serve·wake)가 담당에게 글을 보내는 launchRow를 부르지 않는다. 서버가 부르는 claude는 메신저 기동(ensureMessenger)뿐이다
-    if (['middleware.ts', 'serve.ts', 'wake.ts', 'inbox.ts'].includes(f)) assert.ok(!text.includes('launchRow'), `${f}가 launchRow를 부른다`);
-    if (f !== 'outbox.ts' && f !== 'request.ts') assert.ok(!text.includes('launchRow'), `${f}가 launchRow를 부른다(서버는 부르지 않는다)`);
+    // 담당을 띄우는 길은 outbox.ts의 ownerUp 하나뿐이다(request owner-up 명령이 부른다). 다른 파일이 부르면 담당 띄우기가 여러 곳으로 흩어진다
+    if (f !== 'outbox.ts' && f !== 'request.ts') assert.ok(!text.includes('ownerUp('), `${f}가 ownerUp을 부른다(담당 띄우기는 한 곳)`);
+    assert.ok(!text.includes('launchRow'), `${f}에 옛 launchRow가 남았다`);
     assert.ok(!/execFile(Sync)?\(\s*'claude'/.test(text), `${f}가 claude를 실행한다`);
   }
 });

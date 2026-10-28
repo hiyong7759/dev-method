@@ -10,7 +10,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { specHandler } from './middleware.js';
-import { ensureMessenger, setAfterEnqueue } from './outbox.js';
+import { ensureMessenger, kickWaiting, setAfterEnqueue } from './outbox.js';
+import { reconcile } from './reconcile.js';
 import { openWindowsForNotices } from './notify.js';
 import { handOver, staleServer } from './stale.js';
 import { projectRoot } from './project.js';
@@ -98,6 +99,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
   if (!process.env.SPEC_TEST_DIR) setInterval(() => { try { for (const p of openWindowsForNotices(scanRoot, itermShouldOpen(scanRoot))) fs.appendFileSync(path.join(root, '.spec', 'wake.log'), `${new Date().toISOString()} 터미널 창 ${p}\n`); } catch { /* 알림이 서버를 멈추지 않게 */ } }, 5_000).unref();
   setInterval(() => {
     ensureMessenger(scanRoot);
+    // 마지막 안전장치: 앞 겹이 뚫려 담당·메신저가 겹쳤을 때만 정리한다. 담당 확인이 안 된 채 남은 대기 줄은 다시 시킨다
+    try { reconcile(scanRoot); kickWaiting(scanRoot); } catch { /* 점검이 서버를 멈추지 않게 */ }
     if (!staleServer()) return;
     handOver(root);
     setTimeout(() => process.exit(0), 300);

@@ -1,7 +1,7 @@
 /**
  * @spec owner-session 요청 담당 세션 찾기와 보낼 글 만들기
  * @why 요청을 시작하거나 사용자가 결정하면 그 요청 하나만 맡는 담당 세션에 일을 알려야 한다. 어떤 경우에도 claude -p(헤드리스)로 보내지 않으므로, 서버는 보낼 글과 받을 세션만 정해 outbox.ts에 적고 실제로 보내는 일은 메신저 세션이 한다. 이 파일은 그 글과 세션 번호를 만든다.
- * @contract 담당 세션은 .spec/sessions.json(세션 번호 → 요청 번호)에서 찾는다. 담당이 없으면 새 세션 번호를 미리 정해 담당으로 적고(시작 중으로 표시), 메신저가 `claude --bg --session-id`로 그 번호의 대화형 백그라운드 세션을 만든다. 요청 하나에 담당이 이미 있으면 새로 만들지 않는다. 담당 등록 전의 "시작 중" 세션(30분 안)은 옛 기록으로 걷어 내지 않는다. 새 세션·이어 띄우는 세션에는 node를 입구 파일(spec.mjs)로만 허용하고, 읽기 금지 경로와 비밀 파일 이름이 든 명령을 막는 훅을 함께 건다(launchArgs). 글에는 '그 일'의 끝(구현은 테스트 요청까지)과 막힘·질문을 남기는 명령, 쓰면 막히는 명령, 받았음을 알리는 `request ack` 명령을 적는다. 지난 비용 기록(.spec/session-costs.json)은 읽기만 하고 새로 적지 않는다(헤드리스 결과에서 읽던 값이라 이제 얻을 수 없다).
+ * @contract 담당 세션은 .spec/sessions.json(세션 번호 → 요청 번호)에서 찾는다. 담당이 없으면 새 세션 번호를 미리 정해 담당으로 적고(시작 중으로 표시), 서버(outbox.ts의 ownerUp, 요청당 잠금 아래 한 곳)가 `claude --bg --session-id`로 그 번호의 대화형 백그라운드 세션을 만든다. 요청 하나에 담당이 이미 있으면 새로 만들지 않는다. 담당 등록 전의 "시작 중" 세션(30분 안)은 옛 기록으로 걷어 내지 않는다. 새 세션·이어 띄우는 세션에는 node를 입구 파일(spec.mjs)로만 허용하고, 읽기 금지 경로와 비밀 파일 이름이 든 명령을 막는 훅, 그리고 담당에게는 요청 번호 환경(SPEC_OWNER_REQUEST·SPEC_OWNER_SCAN)과 원본이 아니면 워크트리·브랜치·커밋·요청 상태 변경을 막는 훅을 함께 건다(launchArgs, 판단은 owner-check.ts). 담당 기록에는 서버가 만든 원본 표시(origin)와 번호를 맞추는 중 표시(rebinding)가 남는다. 글에는 '그 일'의 끝(구현은 테스트 요청까지)과 막힘·질문을 남기는 명령, 쓰면 막히는 명령, 받았음을 알리는 `request ack` 명령을 적는다. 지난 비용 기록(.spec/session-costs.json)은 읽기만 하고 새로 적지 않는다(헤드리스 결과에서 읽던 값이라 이제 얻을 수 없다).
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -125,10 +125,10 @@ function unregisterOwners(root: string, id: number): void {
 
 /** 세션이 어느 요청의 담당인지 적는다(훅이 적는 것과 같은 모양) */
 function registerOwner(root: string, sid: string, id: number): void {
-  let all: Record<string, { request: number; seen: string; starting?: string }> = {};
+  let all: Record<string, OwnerEntry> = {};
   try { all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')); } catch { /* 처음이면 새로 */ }
-  // starting: 이 서버가 정한 시각. 담당 등록이 끝나기 전의 세션을 옛 기록으로 오해해 걷어 내지 않는 근거다
-  all[sid] = { request: id, seen: '', starting: new Date().toISOString() };
+  // starting: 이 서버가 정한 시각. 담당 등록이 끝나기 전의 세션을 옛 기록으로 오해해 걷어 내지 않는 근거다. origin: 서버가 만든 원본 담당 표시(owner-check가 "내가 원본인가"를 가리는 기준)
+  all[sid] = { request: id, seen: '', starting: new Date().toISOString(), origin: true };
   fs.mkdirSync(path.join(root, '.spec'), { recursive: true });
   fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
 }
@@ -137,21 +137,76 @@ function registerOwner(root: string, sid: string, id: number): void {
 export function rebindOwner(root: string, oldSid: string, newSid: string): void {
   if (oldSid === newSid) return;
   try {
-    const all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')) as Record<string, { request: number; seen: string; starting?: string }>;
+    const all = JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')) as Record<string, OwnerEntry>;
     if (!all[oldSid]) return;
-    all[newSid] = all[newSid] ?? all[oldSid];
+    const moved = { ...all[oldSid] };
+    delete moved.rebinding;
+    all[newSid] = all[newSid] ? { ...all[newSid], origin: moved.origin ?? all[newSid].origin } : moved;
     delete all[oldSid];
     fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
     fs.appendFileSync(logFile(root), `${new Date().toISOString()} 담당 번호를 ${oldSid} → ${newSid}로 바꿈(claude --bg가 붙인 실제 번호)\n`);
   } catch { /* 기록이 없으면 바꿀 것도 없다 */ }
 }
 
+/** 담당 기록의 한 칸. origin: 서버가 만든 원본 담당, rebinding: claude --bg가 실제 번호를 붙이는 중이라 번호를 맞추기 전이라는 시각(owner-check가 이 사이에는 "맞추는 중"으로 본다) */
+export interface OwnerEntry {
+  /** 이 세션이 맡은 요청 번호 */
+  request: number;
+  /** 사용자 기록을 어디까지 알렸나(마지막으로 본 기록 시각) */
+  seen: string;
+  /** 서버가 번호를 정해 아직 시작 중인 시각(등록 전 세션을 옛 기록으로 오해하지 않는 근거) */
+  starting?: string;
+  /** 서버가 만든 원본 담당 표시(owner-check가 "내가 원본인가"를 가리는 기준) */
+  origin?: boolean;
+  /** claude --bg가 실제 번호를 붙이는 중인 시각(번호를 맞추기 전까지 원본을 복사본으로 오판하지 않게) */
+  rebinding?: string;
+}
+
+/** 담당 기록 전체 */
+export function loadOwners(root: string): Record<string, OwnerEntry> {
+  try { return JSON.parse(fs.readFileSync(sessionsFile(root), 'utf8')) as Record<string, OwnerEntry>; } catch { return {}; }
+}
+function saveOwners(root: string, all: Record<string, OwnerEntry>): void {
+  fs.mkdirSync(path.join(root, '.spec'), { recursive: true });
+  fs.writeFileSync(sessionsFile(root), JSON.stringify(all, null, 2) + '\n');
+}
+
+/** 담당을 띄우기 직전에 "번호를 맞추는 중"으로 적고, 맞춘 뒤(rebindOwner)나 실패했을 때(false) 해제한다 */
+export function markRebinding(root: string, sid: string, on: boolean): void {
+  const all = loadOwners(root);
+  if (!all[sid]) return;
+  if (on) all[sid].rebinding = new Date().toISOString(); else delete all[sid].rebinding;
+  saveOwners(root, all);
+}
+
+/** 수동 지정: 요청의 원본 담당을 이 세션 하나로 정한다(어긋났을 때 사용자·메인이 푼다). 그 요청의 다른 담당 기록은 지운다. 지운 번호들을 돌려준다 */
+export function adoptOwner(root: string, id: number, sid: string): string[] {
+  const all = loadOwners(root);
+  const removed = Object.keys(all).filter((k) => all[k].request === id && k !== sid);
+  for (const k of removed) delete all[k];
+  all[sid] = { ...(all[sid] ?? { seen: new Date().toISOString() }), request: id, origin: true };
+  delete all[sid].rebinding;
+  saveOwners(root, all);
+  fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} 원본 담당을 ${sid}로 수동 지정(지운 기록: ${removed.join(', ') || '없음'})\n`);
+  return removed;
+}
+
 /** 담당 세션의 명령에 비밀 파일 이름이 들어 있으면 막는 훅 */
 const SECRET_HOOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'hooks', 'claude-block-secret-read.sh');
+/** 원본이 아닌 담당의 워크트리·브랜치·커밋·상태 변경을 막는 훅 */
+const OWNER_HOOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'hooks', 'claude-block-nonowner.sh');
 
 /** 메신저가 `claude --bg`로 세션을 만들거나 이어 띄울 때 붙이는 인자(글은 뺀 것). 허용·금지 도구와 비밀 읽기 차단 훅을 그대로 걸고, 설정에 autoCompact가 있으면 세션이 스스로 압축하게 한다(메시지로 보낸 /compact는 실행되지 않고 헤드리스는 쓰지 않으므로, 컨텍스트가 커지는 것은 세션 안의 자동 압축으로 막는다) */
-export function launchArgs(root?: string): string[] {
-  const hookCfg = JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: `bash ${SECRET_HOOK}` }] }] } });
+export function launchArgs(root?: string, requestId?: number, scanRoot?: string): string[] {
+  // 담당 세션에는 요청 번호·설계서 소스 폴더를 환경으로 넘기고, 원본이 아니면 워크트리·브랜치·커밋·요청 상태 변경을 막는 훅을 건다(owner-check)
+  const owner = requestId && scanRoot;
+  const hookCfg = JSON.stringify({
+    ...(owner ? { env: { SPEC_OWNER_REQUEST: String(requestId), SPEC_OWNER_SCAN: scanRoot } } : {}),
+    hooks: { PreToolUse: [
+      { matcher: 'Bash', hooks: [{ type: 'command', command: `bash ${SECRET_HOOK}` }] },
+      ...(owner ? [{ matcher: 'Bash|EnterWorktree', hooks: [{ type: 'command', command: `bash ${OWNER_HOOK}` }] }] : []),
+    ] },
+  });
   const ac = root ? readConfig(root).autoCompact : undefined;
   // claude는 10만~100만 토큰만 받는다. 범위 밖이면 옵션을 빼서 세션이 뜨지 않는 일이 없게 한다
   const compact = ac && ac >= 100_000 && ac <= 1_000_000 ? ['--autocompact', String(Math.round(ac))] : [];
@@ -167,7 +222,7 @@ function briefOf(req: Request | undefined): string {
 
 /** 담당 세션이 막히지 않고 끝까지 하게 하는 지시: 검사 방법, 쓰지 말 명령, 막힘·질문을 남기는 명령, 받았음을 알리는 명령. 새 담당 글과 결정 글에 모두 넣는다 */
 function guideOf(id: number, src: string): string {
-  return `타입 검사는 \`npm run typecheck\`로 합니다. npx tsc, bash install.sh, 시험 폴더의 .git/hooks, 다른 폴더로 cd한 뒤의 git은 허용 목록 밖이라 막히니 쓰지 마세요. 비밀 값이 든 파일(.spec 아래 local 설정과 환경 변수 파일)은 읽지 마세요. 허용 목록 밖이라 막히면 검증 없이 끝내지 말고 \`node ${SPEC_MJS} request blocked --id ${id} --note "막힌 명령과 이유" --src ${src}\`로 사실을 남기세요. 사용자에게 허락·결정을 물어야 하면 대화에만 묻지 말고 \`node ${SPEC_MJS} request ask --id ${id} --text "질문" --src ${src}\`도 부르세요(요청 상태와 내 차례 화면에 보입니다). 이 글을 받았으면 일을 시작하기 전에 \`node ${SPEC_MJS} request ack --id ${id} --src ${src}\`를 한 번 부르세요(사용자 화면의 "읽음"은 이 명령으로만 찍힙니다).`;
+  return `타입 검사는 \`npm run typecheck\`로 합니다. npx tsc, bash install.sh, 시험 폴더의 .git/hooks, 다른 폴더로 cd한 뒤의 git은 허용 목록 밖이라 막히니 쓰지 마세요. 비밀 값이 든 파일(.spec 아래 local 설정과 환경 변수 파일)은 읽지 마세요. 허용 목록 밖이라 막히면 검증 없이 끝내지 말고 \`node ${SPEC_MJS} request blocked --id ${id} --note "막힌 명령과 이유" --src ${src}\`로 사실을 남기세요. 사용자에게 허락·결정을 물어야 하면 대화에만 묻지 말고 \`node ${SPEC_MJS} request ask --id ${id} --text "질문" --src ${src}\`도 부르세요(요청 상태와 내 차례 화면에 보입니다). 이 글을 받았으면 일을 시작하기 전에 먼저 \`node ${SPEC_MJS} request whoami --id ${id} --src ${src}\`로 내가 이 요청의 원본 담당인지 확인하세요(복사본이라고 나오면 아무 일도 하지 말고 멈추세요). 원본이면 \`node ${SPEC_MJS} request ack --id ${id} --src ${src}\`를 한 번 부르세요(사용자 화면의 "읽음"은 이 명령으로만 찍힙니다).`;
 }
 
 /** "그 일"의 끝: 어디까지 하고 멈추는지 */
@@ -207,7 +262,8 @@ export function prepareOwner(scanRoot: string, id: number): { sid: string; creat
   const root = projectRoot(scanRoot);
   const log = logFile(root);
   const req = loadRequests(scanRoot).find((r) => r.id === id);
-  const owners = ownersOf(root, id);
+  const all = loadOwners(root);
+  const owners = ownersOf(root, id).sort((a, b) => Number(!!all[b]?.origin) - Number(!!all[a]?.origin));
   if (owners.length) {
     // 담당을 정한 적 없는(request agent를 안 부른) 요청의 옛 담당 기록은 요청을 접수한 세션이 남긴 것이라 담당이 아니다
     if (req?.agent.name || hasStarting(root, id)) return { sid: owners[0], created: false };

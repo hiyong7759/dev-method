@@ -42,6 +42,8 @@ export async function main(argv: string[]): Promise<number | undefined> {
   const root = path.resolve(pos[0] || '.');
   if (!fs.existsSync(configFile(root))) return 0;
   const src = path.resolve(root, readConfig(root).src || 'src');
+  // 담당 세션이 원본이 아니면(복사본) 커밋하지 못한다. 담당 세션이 아니면(환경에 요청 번호가 없으면) 검사하지 않는다
+  try { (await import('./owner-check.js')).assertOriginal(process.env.SPEC_OWNER_SCAN || src); } catch (e) { console.error(`[spec-view] 커밋 거절: ${(e as Error).message}`); return 1; }
   // 테스트 계정이 든 .spec/local.json이 커밋에 올라가지 않게 막는다
   const staged = spawnSync('git', ['diff', '--cached', '--name-only'], { cwd: root, encoding: 'utf8' }).stdout.split('\n');
   if (staged.some((f) => /(^|\/)\.spec\/local\.json$/.test(f))) { console.error('[spec-view] .spec/local.json에는 테스트 계정이 들어 있어 커밋할 수 없다. git reset HEAD .spec/local.json 으로 뺀다'); return 1; }
