@@ -143,6 +143,126 @@
       "outOfScope": false,
       "recommend": "analyze",
       "why": "실제로 재현해 맞는지 본 뒤 요청으로 묶는다"
+    },
+    {
+      "id": "agent:13",
+      "title": "복사본 거절·담당 정리 기록이 진짜 '막힘' 표시를 지운다(#96)",
+      "detail": "src/request.ts: 막힘은 그 뒤 by가 agent인 기록이 하나라도 있으면 풀리는데, #96이 남기는 '복사본이 거절됨'·'담당 중복 정리' 기록이 by:agent다. 메인 세션이 코드로 확인함. 원본이 막혀 있어도 복사본 시도 한 번이면 붉은 막힘이 사라진다",
+      "label": "세션",
+      "from": "별도 세션 코드 리뷰 시험(2026-10-28 KST)",
+      "where": [],
+      "at": "2026-10-28T08:33:31.594Z",
+      "outOfScope": false,
+      "recommend": "analyze",
+      "why": "코드 읽기로 지적됨. 재현은 안 함"
+    },
+    {
+      "id": "agent:14",
+      "title": "담당 띄우기 잠금이 90초 뒤 풀려 두 번 띄울 수 있고, 먼저 끝난 쪽이 뒤 쪽 잠금을 지운다(#96)",
+      "detail": "src/outbox.ts ownerUp은 잠금 중 beat를 안 하고 번호 찾기 루프가 90초를 넘길 수 있으며, src/lock.ts unlock은 소유자를 확인하지 않는다. 막으려던 복사본이 생길 수 있는 경로",
+      "label": "세션",
+      "from": "별도 세션 코드 리뷰 시험(2026-10-28 KST)",
+      "where": [],
+      "at": "2026-10-28T08:33:31.703Z",
+      "outOfScope": false,
+      "recommend": "analyze",
+      "why": "코드 읽기로 지적됨. 재현은 안 함"
+    },
+    {
+      "id": "agent:15",
+      "title": "낡은 잠금 풀기에 경쟁이 있어 둘이 동시에 잡을 수 있다(#96)",
+      "detail": "src/lock.ts tryLock: 낡음 확인 → rm → wx 생성이 원자적이지 않아, 둘이 같은 낡은 잠금을 보면 한쪽이 상대의 새 잠금을 지운다. 죽은 쪽 잠금을 복구하는 순간에만 발생",
+      "label": "세션",
+      "from": "별도 세션 코드 리뷰 시험(2026-10-28 KST)",
+      "where": [],
+      "at": "2026-10-28T08:33:31.806Z",
+      "outOfScope": false,
+      "recommend": "analyze",
+      "why": "코드 읽기로 지적됨. 재현은 안 함"
+    },
+    {
+      "id": "agent:16",
+      "title": "sessions.json을 잠금 없이 읽고 고쳐 써서 원본 표시가 덮어씌워질 수 있다(#96)",
+      "detail": "session.ts·inbox.ts 등 여러 프로세스가 파일 전체를 읽어 고쳐 쓴다. 옛 사본으로 저장하면 방금 옮긴 origin·rebinding이 사라져 진짜 원본이 복사본으로 판정되어 막힐 수 있다",
+      "label": "세션",
+      "from": "별도 세션 코드 리뷰 시험(2026-10-28 KST)",
+      "where": [],
+      "at": "2026-10-28T08:33:31.910Z",
+      "outOfScope": false,
+      "recommend": "analyze",
+      "why": "코드 읽기로 지적됨. 재현은 안 함"
+    },
+    {
+      "id": "agent:17",
+      "title": "실제 번호를 못 찾으면 진짜 원본이 복사본이 되고 담당이 또 띄워진다(#96)",
+      "detail": "src/outbox.ts ownerUp: 20회 안에 실제 번호를 못 찾으면 번호 맞추기를 해제하고 '보냄' 처리한다. 그 세션이 whoami를 부르면 copy로 판정돼 스스로 멈춘다",
+      "label": "세션",
+      "from": "별도 세션 코드 리뷰 시험(2026-10-28 KST)",
+      "where": [],
+      "at": "2026-10-28T08:33:32.011Z",
+      "outOfScope": false,
+      "recommend": "analyze",
+      "why": "코드 읽기로 지적됨. 재현은 안 함"
+    },
+    {
+      "id": "agent:18",
+      "title": "원본이 아닌 담당을 막는 훅·요청 가드에 구멍이 있다(#96)",
+      "detail": "owner-check.ts 정규식이 git -c, --no-pager, branch -m, checkout --orphan, switch --create를 못 막고, 요청 가드 목록에 fixed·also·found·redesign·cancel·approve-* 등이 없다. 훅이 실제 세션에서 막는 것은 확인했으나 이 변형들은 시험 안 함",
+      "label": "세션",
+      "from": "별도 세션 코드 리뷰 시험(2026-10-28 KST)",
+      "where": [],
+      "at": "2026-10-28T08:33:32.121Z",
+      "outOfScope": false,
+      "recommend": "analyze",
+      "why": "코드 읽기로 지적됨. 재현은 안 함"
+    },
+    {
+      "id": "agent:19",
+      "title": "복사본이 번호 맞추는 3분 안에 담당으로 등록될 수 있다(#96)",
+      "detail": "src/inbox.ts: rebinding 표시가 있는 3분 동안은 다른 세션의 request agent 등록을 막지 않는다",
+      "label": "세션",
+      "from": "별도 세션 코드 리뷰 시험(2026-10-28 KST)",
+      "where": [],
+      "at": "2026-10-28T08:33:32.233Z",
+      "outOfScope": false,
+      "recommend": "analyze",
+      "why": "코드 읽기로 지적됨. 재현은 안 함"
+    },
+    {
+      "id": "agent:20",
+      "title": "새 요청의 '시작'과 뒤따르는 설계 제출 알림이 건너뛰어질 수 있다(#92)",
+      "detail": "src/notify.ts: 처음 보는 요청은 사건을 알리지 않고 읽은 자리만 끝으로 옮긴다. 서버·watch가 떠 있는 동안 새로 생긴 요청의 시작·첫 설계 제출이 5초 폴링 사이에 오면 창 열기·알림 대상이 되지 않을 수 있다",
+      "label": "알림",
+      "from": "별도 세션 코드 리뷰 시험(2026-10-28 KST)",
+      "where": [],
+      "at": "2026-10-28T08:33:32.344Z",
+      "outOfScope": false,
+      "recommend": "analyze",
+      "why": "코드 읽기로 지적됨. 재현은 안 함"
+    },
+    {
+      "id": "agent:21",
+      "title": "테스트 승인 단추가 시나리오 하나만 확인해도 켜진다(#62)",
+      "detail": "src/viewer/comment.ts drawBar: 따라가는 시나리오 하나의 단계만 검사하고, 요청 상세와 서버 approveTest는 체크를 확인하지 않는다. 시나리오가 여럿이면 나머지는 확인하지 않아도 승인된다",
+      "label": "화면",
+      "from": "별도 세션 코드 리뷰 시험(2026-10-28 KST)",
+      "where": [],
+      "at": "2026-10-28T08:33:32.453Z",
+      "outOfScope": false,
+      "recommend": "analyze",
+      "why": "코드 읽기로 지적됨. 재현은 안 함"
+    },
+    {
+      "id": "agent:22",
+      "title": "담은 코멘트가 요청과 무관하게 섞여 이 요청의 반려에 딸려 나간다(#62)",
+      "detail": "comment-basket.ts: 담은 목록이 브라우저에 하나뿐이고 sendBasket이 전체를 보낸다. 평소 화면에서 담은 코멘트나 다른 요청 경로의 코멘트가 반려 묶음에 섞인다. 승인해도 담은 코멘트가 남는다",
+      "label": "화면",
+      "from": "별도 세션 코드 리뷰 시험(2026-10-28 KST)",
+      "where": [],
+      "at": "2026-10-28T08:33:32.559Z",
+      "outOfScope": false,
+      "recommend": "analyze",
+      "why": "코드 읽기로 지적됨. 재현은 안 함"
     }
   ],
   "decisions": {
@@ -182,7 +302,109 @@
       "at": "2026-10-24T12:50:00.000Z"
     }
   },
-  "notes": {},
+  "notes": {
+    "agent:1": [
+      {
+        "by": "agent",
+        "text": "x",
+        "at": "2026-10-28T08:33:55.896Z"
+      },
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 서버에서 실제로 재현함(2026-10-28 KST). 스크롤·펼침 소실, 알약 잔존, 숫자 정지, 두 번 그림, 담당 활동 시각 때문에 알약이 계속 뜸을 모두 확인",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:08.073Z"
+      }
+    ],
+    "agent:2": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 서버에서 실제로 재현함(2026-10-28 KST). 스크롤·펼침 소실, 알약 잔존, 숫자 정지, 두 번 그림, 담당 활동 시각 때문에 알약이 계속 뜸을 모두 확인",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:12.956Z"
+      }
+    ],
+    "agent:3": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 서버에서 실제로 재현함(2026-10-28 KST). 스크롤·펼침 소실, 알약 잔존, 숫자 정지, 두 번 그림, 담당 활동 시각 때문에 알약이 계속 뜸을 모두 확인",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:17.856Z"
+      }
+    ],
+    "agent:4": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 서버에서 실제로 재현함(2026-10-28 KST). 스크롤·펼침 소실, 알약 잔존, 숫자 정지, 두 번 그림, 담당 활동 시각 때문에 알약이 계속 뜸을 모두 확인",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:22.784Z"
+      }
+    ],
+    "agent:5": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 서버에서 실제로 재현함(2026-10-28 KST). 스크롤·펼침 소실, 알약 잔존, 숫자 정지, 두 번 그림, 담당 활동 시각 때문에 알약이 계속 뜸을 모두 확인",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:27.682Z"
+      }
+    ],
+    "agent:6": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 프로젝트에서 재현함(2026-10-28 KST). 7번(접어도 연결 유지)은 서버 쪽만 확인했고 브라우저가 숨긴 iframe의 연결을 유지하는지는 확인 못 함",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:32.597Z"
+      }
+    ],
+    "agent:7": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 프로젝트에서 재현함(2026-10-28 KST). 7번(접어도 연결 유지)은 서버 쪽만 확인했고 브라우저가 숨긴 iframe의 연결을 유지하는지는 확인 못 함",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:37.510Z"
+      }
+    ],
+    "agent:8": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 프로젝트에서 재현함(2026-10-28 KST). 7번(접어도 연결 유지)은 서버 쪽만 확인했고 브라우저가 숨긴 iframe의 연결을 유지하는지는 확인 못 함",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:42.433Z"
+      }
+    ],
+    "agent:9": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 프로젝트에서 재현함(2026-10-28 KST). 7번(접어도 연결 유지)은 서버 쪽만 확인했고 브라우저가 숨긴 iframe의 연결을 유지하는지는 확인 못 함",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:47.343Z"
+      }
+    ],
+    "agent:10": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 프로젝트에서 재현함(2026-10-28 KST). 7번(접어도 연결 유지)은 서버 쪽만 확인했고 브라우저가 숨긴 iframe의 연결을 유지하는지는 확인 못 함",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:52.258Z"
+      }
+    ],
+    "agent:11": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 프로젝트에서 재현함(2026-10-28 KST). 7번(접어도 연결 유지)은 서버 쪽만 확인했고 브라우저가 숨긴 iframe의 연결을 유지하는지는 확인 못 함",
+        "recommend": "registered",
+        "at": "2026-10-28T08:34:57.221Z"
+      }
+    ],
+    "agent:12": [
+      {
+        "by": "agent",
+        "text": "Sonnet 별도 세션이 임시 프로젝트에서 재현함(2026-10-28 KST). 7번(접어도 연결 유지)은 서버 쪽만 확인했고 브라우저가 숨긴 iframe의 연결을 유지하는지는 확인 못 함",
+        "recommend": "registered",
+        "at": "2026-10-28T08:35:02.187Z"
+      }
+    ]
+  },
   "numbers": {
     "review:DesignView.board": 1,
     "review:DesignView.request": 2,
@@ -255,6 +477,16 @@
     "agent:9": 69,
     "agent:10": 70,
     "agent:11": 71,
-    "agent:12": 72
+    "agent:12": 72,
+    "agent:13": 73,
+    "agent:14": 74,
+    "agent:15": 75,
+    "agent:16": 76,
+    "agent:17": 77,
+    "agent:18": 78,
+    "agent:19": 79,
+    "agent:20": 80,
+    "agent:21": 81,
+    "agent:22": 82
   }
 }
