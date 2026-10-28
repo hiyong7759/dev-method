@@ -254,3 +254,23 @@ export function prepareOwner(scanRoot: string, id: number): { sid: string; creat
   fs.appendFileSync(log, `${new Date().toISOString()} #${id} ${sid} 담당 세션 번호를 새로 정함(메신저가 만든다)\n`);
   return { sid, created: true };
 }
+
+/** 점검 세션 이름: 개발한 담당과 다른 세션이라는 것이 이름에서 보이게 한다 */
+export const reviewerName = (root: string, id: number): string => `${brandOf(root).name} #${id} 점검`;
+
+/** 점검 세션이 쓸 수 있는 도구: 읽기와 확인 명령뿐이다. 소스를 고치는 도구(Edit·Write)는 주지 않고 아래에서 금지한다 */
+const REVIEW_ALLOWED = ['Read', 'Glob', 'Grep', `Bash(node ${SPEC_MJS}:*)`, 'Bash(npm run typecheck:*)', 'Bash(npm test:*)', 'Bash(ego-browser:*)', 'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git show:*)'];
+
+/** 점검 세션을 `claude --bg`로 띄울 때 붙이는 인자(글은 뺀 것). 소스 고치기 도구는 금지하고 비밀 읽기 차단 훅을 건다 */
+export function reviewerArgs(): string[] {
+  const hookCfg = JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: `bash ${SECRET_HOOK}` }] }] } });
+  return ['--model', MODEL, '--allowedTools', ...REVIEW_ALLOWED, '--disallowedTools', ...READ_BANNED, 'Edit', 'Write', 'NotebookEdit', '--settings', hookCfg];
+}
+
+/** 점검 세션이 받는 첫 글: 지시문(reviewer.md)을 읽고 이 요청 하나만 점검해 보고하게 한다 */
+export function reviewerMessage(scanRoot: string, root: string, id: number): string {
+  const src = path.relative(root, scanRoot) || '.';
+  const req = loadRequests(scanRoot).find((r) => r.id === id);
+  const pn = brandOf(root).name;
+  return `[${pn} 요청 #${id} 점검] 당신은 ${pn} 프로젝트의 요청 #${id} "${req?.title ?? ''}"을 점검하는 별도 세션입니다. 개발한 담당이 아니고 소스를 고치지 못합니다. 먼저 ${path.resolve(path.dirname(SPEC_MJS), 'reviewer.md')}를 읽고 그대로 따르세요. SPEC=${SPEC_MJS}, SRC=${src}, 요청 번호=${id}. 점검이 끝나면 \`node ${SPEC_MJS} request review-report --id ${id} --file 보고.json --src ${src}\`로 보고하고 멈추세요. 비밀 값이 든 파일(.spec 아래 local 설정과 환경 변수 파일)은 읽지 마세요.${briefOf(req)}`;
+}

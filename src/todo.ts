@@ -19,7 +19,7 @@ export function describeTodo(m: Model): string {
   const queued = open.filter((r) => r.stage === 'design' && r.step === 'queued');
   const designing = open.filter((r) => r.stage === 'design' && r.step !== 'queued' && r.step !== 'submitted');
   const impl = open.filter((r) => r.stage === 'impl');
-  const fixing = open.filter((r) => r.stage === 'test' && r.step === 'fix');
+  const fixing = open.filter((r) => r.stage === 'test' && r.turn === 'agent');
   const waitingComments = m.comments.filter((c) => c.status === 'waiting');
   const reports = m.reports.filter((r) => !r.decision && !r.tool && r.stage !== '확인 중');
   const analyzing = m.reports.filter((r) => !r.decision && r.stage === '확인 중');

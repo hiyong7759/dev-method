@@ -8,12 +8,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { specDir, projectRoot } from './project.js';
+import { readConfig } from './config.js';
 import { parseArgs, csv, errorText } from './cli.js';
 import { addReport } from './report.js';
 import { restartForTest, seedProblem, syncRequest, cleanupRequest } from './testdata.js';
 import { extractSpecs } from './extract.js';
 import { buildScenarios } from './scenarios.js';
-import type { Actor, DesignChange, DesignPoint, DesignScreen, Delivery, Request, RequestDesign, RequestSource, RequestStage, RequestView } from './types.js';
+import type { Actor, DesignChange, DesignPoint, DesignScreen, Delivery, Request, RequestDesign, RequestSource, RequestStage, RequestView, TestNote } from './types.js';
 
 /** 화면에 보이는 단계 이름. 사람이 읽는 말이라 여기서만 정한다 */
 export const STAGE_LABEL: Record<RequestStage, string> = { design: '설계', impl: '구현', test: '테스트', done: '완료', cancelled: '취소' };
@@ -26,6 +27,9 @@ export const STEP: Record<string, { label: string; turn: Actor | null }> = {
   'design:revise': { label: '설계 다시 작성 중', turn: 'agent' },
   'impl:working': { label: '구현 중', turn: 'agent' },
   'impl:waiting': { label: '대기', turn: 'agent' },
+  'test:review': { label: '점검 중', turn: 'agent' },
+  'test:review-fix': { label: '점검 뒤 고치는 중', turn: 'agent' },
+  'test:review-stalled': { label: '점검 안 됨', turn: 'user' },
   'test:requested': { label: '테스트 승인 대기', turn: 'user' },
   'test:fix': { label: '고치는 중', turn: 'agent' },
   'done:done': { label: '완료', turn: null },
@@ -320,8 +324,15 @@ export function requestTest(scanRoot: string, id: number, brief?: string[]): Req
   const noData = seedProblem(scanRoot, r);
   if (noData) throw new Error(`요청 #${id}의 테스트를 올릴 수 없다: ${noData}`);
   const again = r.stage === 'test';
-  move(r, 'test', 'requested');
+  const fromReviewFix = r.stage === 'test' && r.step === 'review-fix';
   r.test = r.test ?? { checks: {}, found: [], none: false };
+  // 점검을 켠 프로젝트는 사용자에게 바로 가지 않고 먼저 별도 점검 세션이 확인한다. 점검 통과(reviewReport)가 사용자 차례를 만든다
+  const review = reviewOn(scanRoot);
+  if (review) {
+    const prev = r.test.review;
+    r.test.review = { round: (prev?.round ?? 0) + 1, state: 'running', startedAt: new Date().toISOString(), autoFixes: fromReviewFix ? prev?.autoFixes ?? 0 : 0, seen: [], failures: [] };
+    move(r, 'test', 'review');
+  } else move(r, 'test', 'requested');
   if (brief?.length) r.test.brief = brief;
   // 설계가 바뀐 뒤 다시 올릴 때: 제목과 확인 기준이 그대로인 단계의 체크는 두고, 바뀌었거나 없어진 단계의 체크는 푼다
   const sigs = stepSigs(scanRoot, r);
@@ -329,7 +340,88 @@ export function requestTest(scanRoot: string, id: number, brief?: string[]): Req
     if (r.test.sigs) for (const k of Object.keys(r.test.checks)) if (sigs[k] !== r.test.sigs[k]) delete r.test.checks[k];
     r.test.sigs = sigs;
   }
+  if (review) return record(scanRoot, r, 'agent', 'review-started', `${again ? '고친 뒤 테스트를 다시 올림' : '구현을 마치고 테스트를 올림'} · 별도 점검 세션이 먼저 확인한다(${r.test.review!.round}번째)`);
   return record(scanRoot, r, 'agent', 'test-requested', again ? '고친 뒤 테스트 다시 요청' : '구현을 마치고 테스트 요청');
+}
+
+/** 이 프로젝트가 테스트를 올릴 때 별도 점검 세션을 거치게 했는가(.spec/config.json의 review) */
+export function reviewOn(scanRoot: string): boolean {
+  try { return readConfig(projectRoot(scanRoot)).review === true; } catch { return false; }
+}
+
+/** 점검이 끝나(또는 사용자가 건너뛰어) 사용자 차례가 되게 한다 */
+function toUserTurn(scanRoot: string, r: Request, note: string): Request {
+  move(r, 'test', 'requested');
+  return record(scanRoot, r, 'agent', 'test-requested', note);
+}
+
+/** 점검 세션이 보고한 것 */
+export interface ReviewReport {
+  /** 점검이 이미 본 것들 */
+  seen?: { what: string; ok?: boolean; detail?: string; shot?: string }[];
+  /** 고쳐야 하는 실패들 */
+  failures?: { what: string; detail?: string }[];
+  /** 지난번에 사용자가 짚은 곳을 점검이 다시 찍은 것: 짚은 것 번호 → 캡처 파일 */
+  rechecks?: { note: string; shot: string }[];
+}
+
+/** 점검 세션이 결과를 보고한다. 실패가 있으면 담당에게 되돌려 고치게 하고(자동 2번까지), 없거나 2번을 고쳐도 남으면 사용자 차례가 된다 */
+export function reviewReport(scanRoot: string, id: number, rep: ReviewReport): Request {
+  const r = loadOne(scanRoot, id);
+  const rv = r.test?.review;
+  if (r.stage !== 'test' || r.step !== 'review' || !rv) throw new Error(`요청 #${id}은 점검 중이 아니다(지금: ${STAGE_LABEL[r.stage]} · ${STEP[`${r.stage}:${r.step}`]?.label ?? r.step})`);
+  rv.seen = (rep.seen ?? []).map((x) => ({ what: String(x.what ?? '').trim(), ok: x.ok !== false, detail: String(x.detail ?? '').trim(), ...(x.shot ? { shot: x.shot } : {}) })).filter((x) => x.what);
+  rv.failures = (rep.failures ?? []).map((x) => ({ what: String(x.what ?? '').trim(), detail: String(x.detail ?? '').trim() })).filter((x) => x.what);
+  for (const c of rep.rechecks ?? []) {
+    const n = r.test!.notes?.find((x) => x.id === c.note);
+    if (n && c.shot) n.afterShot = copyShot(scanRoot, c.shot, `r${id}-n${n.id}-after`);
+  }
+  if (rv.failures.length && rv.autoFixes < MAX_AUTO_FIXES) {
+    rv.autoFixes += 1; rv.state = 'fixing';
+    move(r, 'test', 'review-fix');
+    return record(scanRoot, r, 'agent', 'review-failed', `점검이 문제 ${rv.failures.length}건을 찾았다(자동 고침 ${rv.autoFixes}/${MAX_AUTO_FIXES}번째). 같은 요청에서 고친 뒤 request test로 다시 올린다: ${rv.failures.map((f, i) => `${i + 1}. ${f.what}${f.detail ? ` — ${f.detail}` : ''}`).join(' / ')}`);
+  }
+  rv.state = 'passed'; rv.doneAt = new Date().toISOString();
+  return toUserTurn(scanRoot, r, rv.failures.length ? `점검이 고치지 못한 것 ${rv.failures.length}건을 남기고 확인하세요(자동 고침 ${MAX_AUTO_FIXES}번 뒤에도 남음)` : '점검 통과 · 확인하세요');
+}
+
+/** 점검이 실패를 찾았을 때 담당이 자동으로 고치는 최대 횟수 */
+export const MAX_AUTO_FIXES = 2;
+/** 점검 세션이 이 시간 넘게 소식이 없으면 점검 안 됨으로 본다(밀리초) */
+export const REVIEW_STALL_MS = 30 * 60 * 1000;
+
+/** 사용자가 점검 없이 확인하기로 한다(점검 중이거나 점검 안 됨일 때) */
+export function reviewSkip(scanRoot: string, id: number): Request {
+  const r = loadOne(scanRoot, id);
+  const rv = r.test?.review;
+  if (r.stage !== 'test' || !rv || (r.step !== 'review' && r.step !== 'review-stalled')) throw new Error('점검 중이거나 점검 안 됨인 테스트가 아니다');
+  rv.state = 'skipped'; rv.doneAt = new Date().toISOString();
+  return toUserTurn(scanRoot, r, '사용자가 점검 없이 직접 확인하기로 함');
+}
+
+/** 점검 안 됨이던 것을 다시 점검 중으로 돌린다(새 점검 세션을 띄우는 것은 서버) */
+export function reviewRetry(scanRoot: string, id: number): Request {
+  const r = loadOne(scanRoot, id);
+  const rv = r.test?.review;
+  if (r.stage !== 'test' || !rv || r.step !== 'review-stalled') throw new Error('점검 안 됨인 테스트가 아니다');
+  rv.state = 'running'; rv.startedAt = new Date().toISOString(); delete rv.session;
+  move(r, 'test', 'review');
+  return record(scanRoot, r, 'user', 'review-started', `사용자가 다시 점검하도록 함(${rv.round}번째)`);
+}
+
+/** 점검 중인 요청 중 점검 세션이 너무 오래 소식이 없는 것을 점검 안 됨으로 바꾼다. 바꾼 요청 번호들을 돌려준다(1분 점검이 부른다) */
+export function markStalledReviews(scanRoot: string, now = Date.now()): number[] {
+  const out: number[] = [];
+  for (const q of loadRequests(scanRoot)) {
+    const rv = q.test?.review;
+    if (q.stage !== 'test' || q.step !== 'review' || !rv || now - Date.parse(rv.startedAt) < REVIEW_STALL_MS) continue;
+    const r = loadOne(scanRoot, q.id);
+    r.test!.review!.state = 'stalled';
+    move(r, 'test', 'review-stalled');
+    record(scanRoot, r, 'agent', 'review-stalled', `점검이 ${Math.round(REVIEW_STALL_MS / 60000)}분 넘게 소식이 없어 점검 안 됨으로 바꿈. 사용자가 다시 점검하거나 점검 없이 확인한다`);
+    out.push(q.id);
+  }
+  return out;
 }
 
 /** 범위의 시나리오 단계마다 내용 서명(제목+확인 기준): "시나리오#단계" → 서명. 소스를 읽지 못하면 null */
@@ -490,6 +582,12 @@ export function approveTest(scanRoot: string, id: number, none: boolean, quote?:
   if (r.stage !== 'test' || r.step !== 'requested') throw new Error('승인 대기 중인 테스트가 아니다');
   if (none && r.scope.screens.length) throw new Error('범위에 화면이 있는 요청은 "테스트 없음"으로 승인할 수 없다. 시나리오가 있어야 한다');
   r.test = r.test ?? { checks: {}, found: [], none: false };
+  // 점검을 거친 테스트는 사용자가 짚은 것이 하나도 안 남았을 때만 승인할 수 있다(짚은 것은 반려로 보내거나 지운다. 고쳐졌다고 답한 것은 괜찮다)
+  if (r.test.review) {
+    const left = pendingNotes(r).length + (r.test.notes ?? []).filter((n) => n.status === 'returned').length;
+    if (left) throw new Error(`짚은 것 ${left}건이 남아 있어 승인할 수 없다. 반려로 보내거나 지우거나 고쳐졌는지 답한다`);
+    r.test.touches = (r.test.touches ?? 0) + 1;
+  }
   r.test.none = none;
   move(r, 'done', 'done');
   // 끝난 요청의 테스트 데이터는 도구가 바로 지운다(대표 캡처와 데이터 한 줄만 요청에 남긴다)
@@ -500,9 +598,136 @@ export function approveTest(scanRoot: string, id: number, none: boolean, quote?:
 export function testProblem(scanRoot: string, id: number, note: string, quote?: string): Request {
   const r = loadOne(scanRoot, id);
   if (r.stage !== 'test' || r.step !== 'requested') throw new Error('승인 대기 중인 테스트가 아니다');
+  // 점검을 거친 테스트: 짚은 것(처음 짚은 것과 아직이다)을 모두 한 묶음으로 보낸다. 항목의 글·위치·캡처가 사유에 그대로 들어간다
+  if (r.test?.review) {
+    const sent = pendingNotes(r);
+    const extra = (note ?? '').trim();
+    if (!sent.length && !extra) throw new Error('짚은 것이 없다. 이상한 곳을 짚거나 문제를 한 줄 적어야 반려할 수 있다');
+    for (const n of sent) n.status = 'returned';
+    r.test.touches = (r.test.touches ?? 0) + 1;
+    move(r, 'test', 'fix');
+    return record(scanRoot, r, 'user', 'test-problem', `테스트 반려: ${[...sent.map((n, i) => noteLine(i + 1, n)), ...(extra ? [`그 밖: ${extra}`] : [])].join(' / ')}${quote ? ' (대화에서 한 반려를 인용해 기록함)' : ''}`, quote);
+  }
   if (!note?.trim()) throw new Error('무엇이 문제인지 한 줄 적어야 한다');
   move(r, 'test', 'fix');
   return record(scanRoot, r, 'user', 'test-problem', `테스트 반려: ${note.trim()}${quote ? ' (대화에서 한 반려를 인용해 기록함)' : ''}`, quote);
+}
+
+/** 반려로 보낼 짚은 것들: 아직 안 보낸 것(짚음)과 다시 봤더니 아직인 것 */
+const pendingNotes = (r: Request): TestNote[] => (r.test?.notes ?? []).filter((n) => n.status === 'open' || n.status === 'still');
+
+/** 짚은 것 한 건을 반려 사유의 한 줄로 쓴다(몇 번째, 어디, 무엇이, 캡처 파일) */
+function noteLine(i: number, n: TestNote): string {
+  const kind = n.kind === 'part' ? '부품' : n.kind === 'region' ? '영역' : '화면 전체';
+  return `${i}. [${kind}] ${n.label}: ${n.text}${n.src ? ` (소스 ${n.src})` : ''}${n.shot ? ` (캡처 .spec/shots/${n.shot})` : ''}${n.sentNow ? ' (이미 먼저 알렸음)' : ''}`;
+}
+
+/** 점검을 거친 테스트에서 사용자가 짚을 수 있는 상태(사용자 차례)인가. 짚은 것을 바꾸는 모든 일이 이 조건을 먼저 본다 */
+function noteTarget(scanRoot: string, id: number): Request {
+  const r = loadOne(scanRoot, id);
+  if (r.stage !== 'test' || r.step !== 'requested' || !r.test?.review) throw new Error('점검을 거쳐 사용자 확인을 기다리는 테스트가 아니다');
+  return r;
+}
+
+/** 짚은 것으로 받는 입력(서버가 열쇠·시각·진행을 정한다) */
+export interface NoteInput {
+  /** 짚은 방식(부품·영역·화면 전체) */
+  kind: TestNote['kind'];
+  /** 사람이 읽는 위치 이름 */
+  label: string;
+  /** 짚은 곳의 안쪽 화면 주소 */
+  url: string;
+  /** 사용자가 쓴 한 줄 */
+  text: string;
+  /** 짚은 부품의 소스 위치(알면) */
+  src?: string;
+  /** 짚은 영역(안쪽 화면 기준 좌표) */
+  box?: TestNote['box'];
+  /** 캡처(data:image/png;base64,…). 없으면 캡처 없이 저장한다 */
+  shot?: string;
+}
+
+/** 사용자가 이상한 곳을 짚고 한 줄을 쓴다. 바로 쌓인다(담기 단계 없음). 캡처는 따로 붙일 수 있다 */
+export function saveNote(scanRoot: string, id: number, input: NoteInput): TestNote {
+  const r = noteTarget(scanRoot, id);
+  const text = (input.text ?? '').trim();
+  if (!text) throw new Error('한 줄을 써야 짚은 것이 쌓인다');
+  if (!['part', 'region', 'screen'].includes(input.kind)) throw new Error('짚는 방식은 부품·영역·화면 전체 중 하나다');
+  const notes = r.test!.notes = r.test!.notes ?? [];
+  const note: TestNote = { id: String(Math.max(0, ...notes.map((n) => Number(n.id) || 0)) + 1), kind: input.kind, label: (input.label ?? '').trim() || '화면', url: input.url ?? '', text, at: new Date().toISOString(), round: r.test!.review!.round, status: 'open', ...(input.src ? { src: input.src } : {}), ...(input.box ? { box: input.box } : {}) };
+  if (input.shot) note.shot = writeNoteShot(scanRoot, id, note.id, input.shot);
+  notes.push(note);
+  r.test!.touches = (r.test!.touches ?? 0) + 1;
+  save(scanRoot, r);
+  return note;
+}
+
+/** 캡처(data 주소)를 .spec/shots에 파일로 쓰고 파일 이름을 돌려준다 */
+function writeNoteShot(scanRoot: string, id: number, noteId: string, dataUrl: string): string {
+  const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+  if (!m) throw new Error('캡처는 png data 주소여야 한다');
+  if (m[1].length > 12_000_000) throw new Error('캡처가 너무 크다');
+  const dest = path.join(specDir(scanRoot), 'shots');
+  fs.mkdirSync(dest, { recursive: true });
+  const name = `r${id}-n${noteId}.png`;
+  fs.writeFileSync(path.join(dest, name), Buffer.from(m[1], 'base64'));
+  return name;
+}
+
+/** 짚은 것에 캡처를 나중에 붙인다(저장은 캡처를 기다리지 않으므로 캡처가 뒤에서 온다) */
+export function attachNoteShot(scanRoot: string, id: number, noteId: string, dataUrl: string): TestNote {
+  const r = noteTarget(scanRoot, id);
+  const n = r.test!.notes?.find((x) => x.id === noteId);
+  if (!n) throw new Error('짚은 것을 찾지 못했다');
+  n.shot = writeNoteShot(scanRoot, id, noteId, dataUrl);
+  save(scanRoot, r);
+  return n;
+}
+
+/** 짚은 것의 글을 고친다(반려 전에만) */
+export function editNote(scanRoot: string, id: number, noteId: string, text: string): TestNote {
+  const r = noteTarget(scanRoot, id);
+  const n = r.test!.notes?.find((x) => x.id === noteId);
+  if (!n || n.status !== 'open') throw new Error('아직 안 보낸 짚은 것만 고칠 수 있다');
+  if (!text.trim()) throw new Error('글이 비어 있다. 지우려면 지우기를 쓴다');
+  n.text = text.trim();
+  r.test!.touches = (r.test!.touches ?? 0) + 1;
+  save(scanRoot, r);
+  return n;
+}
+
+/** 짚은 것을 지운다(반려 전에만) */
+export function deleteNote(scanRoot: string, id: number, noteId: string): Request {
+  const r = noteTarget(scanRoot, id);
+  const n = r.test!.notes?.find((x) => x.id === noteId);
+  if (!n || n.status !== 'open') throw new Error('아직 안 보낸 짚은 것만 지울 수 있다');
+  r.test!.notes = r.test!.notes!.filter((x) => x.id !== noteId);
+  r.test!.touches = (r.test!.touches ?? 0) + 1;
+  save(scanRoot, r);
+  return r;
+}
+
+/** 이것만 지금 보내기: 반려가 아니라 그 한 건을 담당에게 먼저 알린다(담당은 반려 전에는 소스를 고치지 않는다) */
+export function sendNoteNow(scanRoot: string, id: number, noteId: string): Request {
+  const r = noteTarget(scanRoot, id);
+  const n = r.test!.notes?.find((x) => x.id === noteId);
+  if (!n || n.status !== 'open') throw new Error('아직 안 보낸 짚은 것만 먼저 보낼 수 있다');
+  if (n.sentNow) throw new Error('이미 먼저 보낸 것이다');
+  n.sentNow = true;
+  r.test!.touches = (r.test!.touches ?? 0) + 1;
+  return record(scanRoot, r, 'user', 'test-note-now', `테스트 중 먼저 알림(반려 아님, 반려 전에는 소스를 고치지 않는다): ${noteLine(1, n)}`);
+}
+
+/** 고쳐져 돌아온 뒤 지난번에 짚은 것에 고쳐졌다 / 아직이다로 답한다 */
+export function answerNote(scanRoot: string, id: number, noteId: string, answer: 'fixed' | 'still'): TestNote {
+  const r = noteTarget(scanRoot, id);
+  const n = r.test!.notes?.find((x) => x.id === noteId);
+  if (!n || n.status !== 'returned') throw new Error('고쳐져 돌아온 짚은 것만 답할 수 있다');
+  if (answer !== 'fixed' && answer !== 'still') throw new Error('답은 고쳐졌다 또는 아직이다다');
+  n.status = answer;
+  r.test!.touches = (r.test!.touches ?? 0) + 1;
+  save(scanRoot, r);
+  return n;
 }
 /** 합칠 후보 하나: 어느 요청이고 왜 후보인지 */
 export interface MergeCandidate {
@@ -683,7 +908,20 @@ export async function main(argv: string[]): Promise<number | undefined> {
       const brief = parseBrief(opts.brief, '테스트 요청(--brief "줄1|줄2")');
       const bad = await restartForTest(scanRoot);
       if (bad) throw new Error(`요청 #${id}의 테스트를 올릴 수 없다: 서버가 새 코드로 안 떠 있다: ${bad}`);
-      const r = requestTest(scanRoot, id, brief); console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
+      const r = requestTest(scanRoot, id, brief);
+      if (r.step === 'review') {
+        (await import('./reviewer.js')).kickReviewer(scanRoot, id);
+        console.log(`요청 #${r.id}: 테스트를 올렸다(${r.test!.review!.round}번째). 별도 점검 세션이 먼저 확인한다. 점검이 실패를 찾으면 이 세션에 고칠 것이 오고, 통과하면 사용자에게 확인하세요가 간다. 그때까지 기다린다(이 동안 소스는 고치지 않는다)`);
+      } else console.log(`요청 #${r.id}: 테스트를 올렸다. 사용자가 승인하거나 문제를 알릴 때까지 기다린다`);
+    } else if (pos[0] === 'review-up') {
+      // 서버나 test 명령이 따로 도는 프로세스로 부른다: 점검 세션을 잠금 아래 한 곳에서 띄운다
+      console.log(`요청 #${id}: 점검 세션 확인 결과 ${(await import('./reviewer.js')).reviewerUp(scanRoot, id)}`);
+    } else if (pos[0] === 'review-report') {
+      // 점검 세션 전용: 확인한 것·실패·다시 찍은 캡처를 보고한다. 실패가 있으면 담당에게 되돌려 고치게 하고, 없으면 사용자에게 확인하세요가 간다
+      const rep = JSON.parse(fs.readFileSync(opts.file, 'utf8')) as ReviewReport;
+      const r = reviewReport(scanRoot, id, rep);
+      const row = r.step === 'review-fix' ? (await import('./outbox.js')).enqueueOutbox(scanRoot, id) : null;
+      console.log(`요청 #${r.id}: ${r.events[r.events.length - 1].note}${row ? ` (담당에게 보낼 글을 상자에 적었다: 줄 ${row.seq})` : ''}`);
     } else if (pos[0] === 'redesign') {
       const r = redesign(scanRoot, id, 'agent', opts.reason ?? '', opts.quote); console.log(`요청 #${r.id}: 설계 변경을 시작했다(사용자 요구를 인용해 기록). 설계를 고쳐 request design --id ${r.id}로 다시 올리고 사용자 승인을 받는다(이미 한 커밋과 이전 설계는 남는다)`);
     } else if (pos[0] === 'scope') {
@@ -724,7 +962,9 @@ export async function main(argv: string[]): Promise<number | undefined> {
         '  design --id N --file 설계.json [--files 경로1,경로2]   (설계 JSON에 files: [{path, why}]로 건드릴 파일을 적는다(필수). 또는 --none true: 정보도 화면도 안 바뀌어 "설계 없음"으로 올림. 이미 있는 화면은 현행 그림이 필요하고, 새 화면은 isNew: true)',
         '  impl --id N [--commit 해시]      (설계 승인 뒤에만)',
         '  redesign --id N --quote "사용자가 한 말" --reason "변경사항"   (구현·테스트 중 사용자가 설계 변경을 요구했을 때만 설계 단계로 돌린다. 인용이 없으면 못 한다. 이전 설계는 남고, 고친 설계는 다시 승인받는다)',
-        '  test --id N                      (구현을 마치고 테스트를 올림. 고친 뒤 다시 올릴 때도 같다)',
+        '  test --id N                      (구현을 마치고 테스트를 올림. 고친 뒤 다시 올릴 때도 같다. 설정 review가 켜져 있으면 별도 점검 세션이 먼저 확인한다)',
+        '  review-report --id N --file 보고.json   (점검 세션 전용: {seen:[{what,ok,detail,shot}], failures:[{what,detail}], rechecks:[{note,shot}]}를 보고한다)',
+        '  review-up --id N                 (점검 세션을 띄운다. 서버가 따로 부른다)',
         '  scope --id N [--scenarios 시나리오1,…] [--steps "시나리오#단계,…"] [--impact 영향만 볼 시나리오]   (범위에 시나리오를 연결. 화면이 있는 요청은 시나리오가 있어야 test를 올릴 수 있다)',
         '  also --id N --text "막혔던 일과 고친 일" [--where 화면이나 파일] [--commit 해시]   (구현하다 막혀서 같은 세션에서 함께 고친 일을 남긴다. 구현·테스트 단계에서만. 화면 모양·정보·사용 흐름이 바뀌는 일이면 남기지 말고 멈춰서 설계로 간다)',
         '  blocked --id N --note "막힌 명령과 이유"   (허용 목록 밖 명령 등으로 막혔을 때. 요청 목록·상세에 붉은 막힘으로 보이고, 다음 에이전트 기록이 생기면 풀린다)',

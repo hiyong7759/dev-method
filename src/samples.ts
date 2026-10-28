@@ -45,8 +45,16 @@ export function buildSamples(now = Date.now()): SampleSet {
   const one = { ...implRequest(9012, '[견본] 함께 고친 것 1건', now, 20), alsoFixed: also(now, 1) };
   const many = { ...implRequest(9013, '[견본] 함께 고친 것 여러 건(테스트 요청 카드에도 같은 목록이 보임)', now, 40), alsoFixed: also(now, 3), stage: 'test' as const, step: 'requested', test: { checks: {}, found: [], none: true } };
   many.events.push({ at: iso(now, 2), by: 'agent', kind: 'test-requested', note: '구현을 마치고 테스트 요청' });
+  // 테스트 화면과 요청 상세 입구의 모양(점검 중 / 점검 통과로 사용자 차례 / 고쳐져 돌아와 다시 확인)을 보는 견본
+  const seen = [{ what: '코드 리뷰 · 설계와 구현 비교', ok: true, detail: '빠진 것 없음' }, { what: '타입 검사 · 시험', ok: true, detail: '44개 통과' }, { what: '시나리오 단계 직접 확인', ok: true, detail: '12 / 12' }];
+  const testReq = (id: number, title: string, step: string, test: NonNullable<Request['test']>): Request => ({ ...implRequest(id, title, now, 60), stage: 'test' as const, step, test, events: [...implRequest(id, title, now, 60).events, { at: iso(now, 3), by: 'agent', kind: step === 'requested' ? 'test-requested' : 'review-started', note: step === 'requested' ? '점검 통과 · 확인하세요' : '구현을 마치고 테스트를 올림' }] });
+  const reviewing = testReq(9021, '[견본] 테스트 — 점검 중(사용자가 할 일 없음)', 'review', { checks: {}, found: [], none: false, review: { round: 1, state: 'running', startedAt: iso(now, 12), autoFixes: 0, seen: seen.slice(0, 2), failures: [] } });
+  const yourTurn = testReq(9022, '[견본] 테스트 — 점검 통과, 짚은 것 없음(확인하세요)', 'requested', { checks: {}, found: [], none: false, review: { round: 1, state: 'passed', startedAt: iso(now, 20), doneAt: iso(now, 3), autoFixes: 0, seen, failures: [] }, notes: [] });
+  const returned = testReq(9023, '[견본] 테스트 — 고쳐져 돌아와 지난번에 짚은 것을 다시 확인', 'requested', { checks: {}, found: [], none: false, review: { round: 2, state: 'passed', startedAt: iso(now, 20), doneAt: iso(now, 3), autoFixes: 0, seen, failures: [] }, notes: [
+    { id: '1', kind: 'part', label: '요청 상세 › 제목 줄', url: '/', text: '제목이 너무 길어 두 줄로 잘린다', at: iso(now, 50), round: 1, status: 'returned' },
+    { id: '2', kind: 'region', label: '요청 상세 › 그려서 지정한 영역', url: '/', text: '단계 줄 글자가 너무 작아 눈에 안 띈다', at: iso(now, 49), round: 1, status: 'returned' }] });
   return {
-    requests: [normal, edge, error, none, one, many],
+    requests: [normal, edge, error, none, one, many, reviewing, yourTurn, returned],
     deliveries: {
       9001: { decidedAt: iso(now, 1), sentAt: iso(now, 1), resent: 0, via: 'send' },
       9002: { decidedAt: iso(now, 30), failedAt: iso(now, 29), resent: 1, reason: '담당 세션이 닫혀 있고 claude --bg --resume이 실패함(견본)' },

@@ -279,6 +279,68 @@ export interface RequestTest {
   sigs?: Record<string, string>;
   /** 테스트 승인 때 도구가 테스트 데이터를 지우며 남긴 것: 시나리오마다 대표 캡처(저장소 안 파일 이름)와 무슨 데이터로 확인했는지 한 줄 */
   kept?: { scenario: string; label: string; how: string; shot: string }[];
+  /** 별도 점검 세션의 점검 기록(없으면 점검을 거치지 않은 옛 테스트라 확인표·코멘트 서랍 그대로 본다) */
+  review?: TestReview;
+  /** 사용자가 테스트 화면에서 짚은 것들(점검 기록이 있는 테스트에서만 쓴다) */
+  notes?: TestNote[];
+  /** 사용자가 테스트 화면에서 누른 횟수(짚기 저장·고치기·지우기·지금 보내기·답하기·승인·반려). 효과를 재려고 센다 */
+  touches?: number;
+}
+
+/** 점검 세션의 상태: 확인 중, 통과(사용자 차례), 실패라 담당이 고치는 중, 점검이 안 돌아 멈춤, 사용자가 점검 없이 진행하기로 함 */
+export type ReviewState = 'running' | 'passed' | 'fixing' | 'stalled' | 'skipped';
+
+/** 별도 점검 세션이 한 일과 결과 */
+export interface TestReview {
+  /** 몇 번째 점검인가(테스트를 올릴 때마다 늘어난다) */
+  round: number;
+  /** 지금 상태 */
+  state: ReviewState;
+  /** 점검을 시작한 시각 */
+  startedAt: string;
+  /** 점검이 끝난 시각 */
+  doneAt?: string;
+  /** 점검 세션 이름(띄웠으면) */
+  session?: string;
+  /** 점검이 실패를 찾아 담당이 자동으로 고친 횟수(2번을 넘으면 고치지 못한 것으로 사용자에게 올린다) */
+  autoFixes: number;
+  /** 점검이 이미 본 것들: 무엇을 어떻게 확인했고 통과했는지 */
+  seen: { what: string; ok: boolean; detail: string; shot?: string }[];
+  /** 아직 고쳐지지 않은 실패(담당이 고치는 중이거나 2번 고쳐도 남은 것) */
+  failures: { what: string; detail: string }[];
+}
+
+/** 짚은 것의 진행: 짚음(아직 반려 전), 반려로 담당에게 감, 고쳐졌다, 아직이다 */
+export type NoteStatus = 'open' | 'returned' | 'fixed' | 'still';
+
+/** 사용자가 테스트 화면의 실제 화면 위에서 짚은 한 건(부품·영역·화면 전체) */
+export interface TestNote {
+  /** 짚은 것을 가리키는 열쇠 */
+  id: string;
+  /** 짚은 방식 */
+  kind: 'part' | 'region' | 'screen';
+  /** 사람이 읽는 위치 이름(화면 이름 › 부품) */
+  label: string;
+  /** 짚은 곳의 화면 주소(안쪽 화면의 주소) */
+  url: string;
+  /** 짚은 부품의 소스 위치(알면) */
+  src?: string;
+  /** 짚은 영역(안쪽 화면 기준 좌표) */
+  box?: { x: number; y: number; w: number; h: number };
+  /** 짚는 순간 찍은 캡처(.spec/shots 안의 파일 이름, 아직 못 붙였으면 없음) */
+  shot?: string;
+  /** 사용자가 쓴 한 줄 */
+  text: string;
+  /** 짚은 시각 */
+  at: string;
+  /** 몇 번째 테스트 때 짚었나 */
+  round: number;
+  /** 진행 */
+  status: NoteStatus;
+  /** 이것만 지금 보내기로 담당에게 먼저 알렸나 */
+  sentNow?: boolean;
+  /** 담당이 고쳐 돌아온 뒤 점검이 같은 자리를 다시 찍은 캡처 */
+  afterShot?: string;
 }
 
 /** 시안 판 하나의 최신 여부(설계서 보기 "시안 현황"과 화면 패널에 보인다) */
@@ -1035,6 +1097,8 @@ export interface ProjectConfig {
   designCanvas?: string;
   /** true면 요청을 시작할 때 담당 세션을 새로 만들고, 사용자가 결정했을 때 닫혀 있는 담당 세션을 서버가 깨운다(비용이 들어 기본은 꺼짐) */
   wake?: boolean;
+  /** true면 테스트를 올릴 때 별도 점검 세션이 먼저 코드 리뷰·시험·화면 확인을 하고, 통과해야 사용자에게 확인하세요가 간다. 담당 세션을 띄우는 설정(wake)이 함께 켜져 있어야 점검 세션이 뜬다. 안 적으면 점검 없이 바로 사용자 차례다 */
+  review?: boolean;
   /** 화면 아래 터미널 영역(담당 세션을 탭으로 보여 줌)을 쓸지. 안 적으면 쓴다(ttyd가 있을 때). 쓰는 동안은 iTerm2 창을 자동으로 열지 않는다 */
   terminalDock?: boolean;
   /** iTerm2 창 자동 열기. 안 적으면 터미널 영역을 안 쓸 때만 연다 */

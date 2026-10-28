@@ -20,7 +20,8 @@ const KINDS: Record<string, { label: string; todo: string }> = {
   asking: { label: '질문', todo: '사용자에게 묻고 있습니다. 답해 주세요' },
   blocked: { label: '막힘', todo: '막혔습니다. 확인해 주세요' },
   'design-submitted': { label: '설계 제출', todo: '설계를 승인하거나 반려해 주세요' },
-  'test-requested': { label: '테스트 올림', todo: '테스트를 승인하거나 문제를 알려 주세요' },
+  'test-requested': { label: '테스트 올림', todo: '테스트를 확인하고 승인하거나 문제를 알려 주세요(점검을 거친 테스트는 테스트 화면에서 이상한 곳을 짚고 승인하거나 모아서 반려)' },
+  'review-stalled': { label: '점검 안 됨', todo: '점검이 안 돌았습니다. 다시 점검하거나 점검 없이 직접 확인해 주세요' },
 };
 
 /** 알릴 일 하나 */

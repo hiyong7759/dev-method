@@ -12,7 +12,7 @@ import { isStart, lastDecision, markDelivered, markRequeued, markUndelivered, op
 import type { Via } from './delivery.js';
 import { loadRequests } from './request.js';
 import { brandOf } from './brand.js';
-import { launchArgs, loadOwners, logFile, markRebinding, newOwnerMessage, decisionMessage, ownerName, ownersOf, prepareOwner, rebindOwner, SPEC_MJS, transcriptOf } from './session.js';
+import { launchArgs, loadOwners, logFile, markRebinding, newOwnerMessage, decisionMessage, ownerName, ownersOf, prepareOwner, rebindOwner, reviewerArgs, SPEC_MJS, transcriptOf } from './session.js';
 import { beat, newHolder, tryLock, unlock, withLock } from './lock.js';
 import { projectRoot, specDir } from './project.js';
 import { nextChange } from './watch.js';
@@ -274,6 +274,12 @@ export function ownerUp(scanRoot: string, id: number): 'running' | 'launched' | 
     fs.appendFileSync(logFile(root), `${new Date().toISOString()} #${id} 담당 띄우기 오류: ${(e as Error).message}\n`);
     return 'failed';
   } finally { unlock(scanRoot, `owner-${id}`, holder); }
+}
+
+/** 별도 점검 세션을 `claude --bg`로 띄운다(reviewer.ts의 reviewerUp이 잠금 아래에서 부른다). claude를 실행하는 곳을 한 파일에 모으려고 여기에 둔다. 종료 코드를 돌려준다 */
+export function launchReviewer(cwd: string, name: string, message: string): number | null {
+  const head = ['--bg', '--name', name];
+  return spawnSync('claude', [...head, ...reviewerArgs(), message], { cwd, encoding: 'utf8', timeout: 60_000 }).status;
 }
 
 /** 서버(또는 request 명령)가 줄을 적은 직후, 담당 확인·띄우기를 따로 도는 프로세스로 시킨다(서버 요청 처리를 막지 않으려고. 일은 ownerUp 한 곳에서 잠금 아래 한다). 꺼져 있거나 시험용이면 하지 않는다 */

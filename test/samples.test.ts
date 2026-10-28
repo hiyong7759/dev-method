@@ -32,7 +32,7 @@ test('견본은 실제 deliveries.json이 아니라 쓴 자리의 .spec에만 �
   const { src, root } = tempProject();
   const other = tempProject();
   writeSamples(path.join(root, '.spec'));
-  assert.equal(loadRequests(src).length, 6);
+  assert.equal(loadRequests(src).length, 9);
   assert.equal(loadRequests(other.src).length, 0);
   assert.equal(fs.existsSync(path.join(other.root, '.spec', 'deliveries.json')), false);
 });

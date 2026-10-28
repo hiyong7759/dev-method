@@ -45,6 +45,16 @@ export async function main(argv: string[]): Promise<number | undefined> {
       return 1;
     }
   }
+  // 사용자가 테스트 화면에서 확인하는 동안(점검을 거친 테스트 승인 대기)에는 소스를 커밋하지 못한다. 보던 화면이 저절로 바뀌지 않게 하려는 것이고, 고치는 일은 사용자가 반려한 뒤에 한다
+  if (req.stage === 'test' && req.step === 'requested' && req.test?.review) {
+    const staged = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().split('\n').filter(Boolean);
+    const source = staged.filter((f) => !f.startsWith('.spec/') && !/\.md$/i.test(f));
+    if (source.length) {
+      console.error(`[spec-view] 요청 #${req.id}은 사용자가 테스트 화면에서 확인하는 중이라 소스를 커밋할 수 없습니다(${source.slice(0, 3).join(', ')}${source.length > 3 ? ' …' : ''}). 사용자가 반려한 뒤에 고칩니다(보던 화면이 바뀌지 않게 하려는 규칙입니다).`);
+      console.error('            우회는 git commit --no-verify이고, 쓰면 이유를 메시지에 남깁니다.');
+      return 1;
+    }
+  }
   // 구현·테스트 단계에서는 승인된 설계의 files(건드릴 파일) 밖 소스를 커밋하지 못한다. 범위가 슬며시 넓어지는 것을 막는다.
   // 예외: .spec/ 아래, 문서(.md), 같은 요청의 also(함께 고친 일)로 남긴 파일. files가 없는 옛 요청은 검사하지 않는다
   if ((req.stage === 'impl' || req.stage === 'test') && req.files?.length) {
