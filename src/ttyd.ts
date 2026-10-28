@@ -1,7 +1,7 @@
 /**
  * @spec terminal-dock-server 화면 아래 터미널 영역의 서버 쪽(담당 세션별 브라우저 터미널)
  * @why 담당 세션을 화면의 일부로 보려면 브라우저에서 `claude attach`를 돌려야 한다. 그런데 브라우저 터미널(ttyd)은 인증이 없으면 이 컴퓨터에서 열리는 어떤 웹 페이지든 연결해 세션을 조작할 수 있다. 그래서 ttyd는 네트워크 포트가 아니라 나만 들어갈 수 있는 폴더(0700) 안의 유닉스 소켓으로만 열고, 브라우저는 설계서 보기 서버를 거쳐서만 닿게 한다.
- * @contract 탭은 담당이 있고 아직 끝나지 않은(설계·구현·테스트 단계) 요청마다 하나다. 끝나거나 취소된 요청은 "지난 담당"으로 돌려준다. ttyd는 탭을 처음 열 때 세션마다 하나만 띄운다(소유자만 열 수 있는 임시 폴더 0700 안의 유닉스 소켓 --interface, 쓰기 허용 -W). 포트도 비밀 값도 없으므로 실행 인자(ps)에 드러나는 값이 없고, 같은 컴퓨터의 다른 사용자도 소켓에 들어갈 수 없다(폴더 권한이 막는다). 중계는 ① 요청한 쪽이 이 컴퓨터 안이고 ② 받는 주소(Host)가 localhost·127.0.0.1·*.localhost이며(DNS 재바인딩 방지) ③ 웹소켓·POST는 보낸 쪽 출처(Origin)가 같은 주소일 때만 한다. 하나라도 어긋나면 403이다. 요청이 끝나면, 또는 연결이 5분 없으면, 서버가 꺼질 때 ttyd를 끈다(세션은 계속 돈다: 끄는 것은 접속 창구뿐). 뜬 ttyd의 번호는 .spec/ttyd-pids.log(커밋하지 않음)에 적어 서버가 새로 뜰 때 남은 것을 정리한다. 테스트 서버(SPEC_TEST_DIR)와 SPEC_NO_TERMINAL=1에서는 ttyd를 띄우지 않는다. 터미널 영역이 실제로 열릴 수 있는지(dockWorks: 설정이 켜져 있고, ttyd가 있고, 마지막 띄우기가 실패하지 않았음)는 한 곳에서 판단해, 못 열 때는 iTerm2 창 자동 열기가 대신한다.
+ * @contract 탭은 담당이 있고 아직 끝나지 않은(설계·구현·테스트 단계) 요청마다 하나다. 끝나거나 취소된 요청은 "지난 담당"으로 돌려준다. ttyd는 탭을 처음 열 때 세션마다 하나만 띄운다(소유자만 열 수 있는 임시 폴더 0700 안의 유닉스 소켓 --interface, 쓰기 허용 -W). 포트도 비밀 값도 없으므로 실행 인자(ps)에 드러나는 값이 없고, 같은 컴퓨터의 다른 사용자도 소켓에 들어갈 수 없다(폴더 권한이 막는다). 중계는 ① 요청한 쪽이 이 컴퓨터 안이고 ② 받는 주소(Host)가 localhost·127.0.0.1·*.localhost이며(DNS 재바인딩 방지) ③ 웹소켓·POST는 보낸 쪽 출처(Origin)가 같은 주소일 때만 한다. 하나라도 어긋나면 403이다. 요청이 끝나면, 또는 연결이 5분 없으면, 서버가 꺼질 때 ttyd를 끈다(세션은 계속 돈다: 끄는 것은 접속 창구뿐). 뜬 ttyd의 번호는 .spec/ttyd-pids.log(커밋하지 않음)에 적어 서버가 새로 뜰 때 남은 것을 정리한다. SPEC_NO_TERMINAL=1에서만 ttyd를 띄우지 않는다(자동 시험용 스위치). 테스트 데이터 서버(SPEC_TEST_DIR)에서도 실제 담당 세션의 터미널이 열린다: 탭의 요청 목록은 테스트 자리 .spec의 복사본을 따르고, 담당 세션 번호는 운영 .spec/sessions.json에서 찾는다(복사하지 않는 파일이라). 터미널 영역이 실제로 열릴 수 있는지(dockWorks: 설정이 켜져 있고, ttyd가 있고, 마지막 띄우기가 실패하지 않았음)는 한 곳에서 판단해, 못 열 때는 iTerm2 창 자동 열기가 대신한다.
  */
 import fs from 'node:fs';
 import net from 'node:net';
@@ -26,7 +26,8 @@ interface Box { proc: ChildProcess; dir: string; sock: string; sid: string; conn
 /** 요청 번호 → 떠 있는 ttyd */
 const boxes = new Map<number, Box>();
 
-const disabled = (): boolean => !!(process.env.SPEC_TEST_DIR || process.env.SPEC_NO_TERMINAL);
+/** SPEC_NO_TERMINAL=1만 터미널을 끄는 스위치다(자동 시험이 쓴다). 테스트 데이터 서버(SPEC_TEST_DIR)는 막지 않는다: 사용자가 승인 전에 실제 담당 세션의 터미널을 시험해야 하기 때문이다 */
+const disabled = (): boolean => !!process.env.SPEC_NO_TERMINAL;
 const ttydPath = (): string => { const r = spawnSync('which', ['ttyd'], { encoding: 'utf8' }); return r.status === 0 ? r.stdout.trim() : ''; };
 
 /** 지금 열 수 있는 탭들과 지난 담당들 */
@@ -51,7 +52,7 @@ const RETRY_MS = 60_000;
 /** 터미널 영역을 못 여는 이유. 열 수 있으면 빈 글 */
 function unavailableReason(root: string): string {
   if (readConfig(root).terminalDock === false) return '설정(terminalDock)에서 껐다';
-  if (disabled()) return '테스트 환경에서는 터미널을 띄우지 않는다';
+  if (disabled()) return '터미널을 끄는 스위치(SPEC_NO_TERMINAL)가 켜져 있다';
   if (!ttydPath()) return 'ttyd가 없다(brew install ttyd)';
   return lastFailure && Date.now() - lastFailureAt < RETRY_MS ? lastFailure : '';
 }
