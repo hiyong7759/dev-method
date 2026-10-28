@@ -81,6 +81,12 @@
       "kind": "design-approved",
       "note": "설계 승인 (대화에서 한 승인을 인용해 기록함)",
       "quote": "목표 설정하는 동안만 너한테 승인 처리를 위임하는 거고"
+    },
+    {
+      "at": "2026-10-28T16:37:07.220Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 010e84f"
     }
   ],
   "design": {
@@ -174,5 +180,8 @@
       "path": "test/ttyd.test.ts",
       "why": "고친 동작의 시험"
     }
+  ],
+  "commits": [
+    "010e84f"
   ]
 }
