@@ -1,7 +1,7 @@
 /**
  * @spec worktree-track 요청 담당 세션의 워크트리 추적
  * @why 요청마다 워크트리에서 일하므로, 사용자가 그 일이 어디까지 왔는지(작업 폴더·브랜치·main보다 앞선 커밋·저장 안 한 변경·main에 합쳐졌는지)를 요청 상세에서 바로 보게 한다.
- * @contract 읽기만 한다. 담당 세션 번호의 앞 8자리 폴더(~/.claude/jobs/<번호8>/state.json)에서 worktreePath·worktreeBranch를 읽고, git -C로 `기준..브랜치` 커밋 수·status를 묻는다. 합쳐짐은 앞선 커밋이 0이고 브랜치 끝이 기준 브랜치 끝과 다를 때(막 만든 빈 브랜치와 구분)다. 워크트리를 쓰지 않는 세션이거나 읽을 수 없으면 null(화면에는 "워크트리 없음"). 기준 브랜치는 main(없으면 master).
+ * @contract 읽기만 한다. 담당 세션 번호의 앞 8자리 폴더(~/.claude/jobs/<번호8>/state.json)에서 worktreePath·worktreeBranch를 읽고, git -C로 `기준..브랜치` 커밋 수·status를 묻는다. 합쳐짐은 브랜치 끝이 기준 브랜치의 조상이고 요청 기록(commits)의 커밋이 모두 기준 브랜치에 들어 있을 때다(합치기 커밋 유무와 무관, 커밋 없는 빈 브랜치는 합쳐짐이 아니다). 워크트리를 쓰지 않는 세션이거나 읽을 수 없으면 null(화면에는 "워크트리 없음"). 기준 브랜치는 main(없으면 master).
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -38,6 +38,16 @@ export function worktreeRefOf(root: string, id: number): { path: string; branch:
   return null;
 }
 
+/** 합쳐졌는가: 브랜치 끝이 main의 조상이고, 요청 기록에 남은 커밋이 있으며 모두 main에 들어 있다. 합치기 커밋 유무와 무관해 land 말고 다른 방식으로 합친 옛 브랜치도 맞고, 커밋 없는 빈 브랜치는 기록에 커밋이 없어 합쳐짐이 아니다(요청 모듈과 순환하지 않게 기록 파일을 직접 읽는다) */
+function mergedInto(root: string, id: number, base: string, branch: string): boolean {
+  try {
+    const commits = (JSON.parse(fs.readFileSync(path.join(root, '.spec', 'requests', `${id}.json`), 'utf8')) as { commits?: string[] }).commits ?? [];
+    if (!commits.length) return false;
+    const inMain = (c: string): boolean => { try { git(root, ['merge-base', '--is-ancestor', c, base]); return true; } catch { return false; } };
+    return inMain(branch) && commits.every(inMain);
+  } catch { return false; }
+}
+
 /** 요청의 워크트리 추적 정보 */
 export function worktreeOf(root: string, id: number): WorktreeInfo | null {
   // 서버는 같은 조회를 5초 기억한다(화면이 2.5초마다 요청해도 요청마다 git을 여러 번 부르지 않게)
@@ -53,8 +63,7 @@ function worktreeOfNow(root: string, id: number): WorktreeInfo | null {
     const ahead = Number(git(root, ['rev-list', '--count', `${base}..${ref.branch}`]).trim()) || 0;
     // 추적 중인 파일의 변경만 센다(node_modules·옛 기록 복사본 같은 추적 안 되는 파일은 합치는 데 방해가 안 되므로 뺀다)
     const dirty = exists ? git(ref.path, ['status', '--porcelain', '--untracked-files=no']).split('\n').filter(Boolean).length : 0;
-    // 합침 판정은 "main에 더 얹은 것이 없고 끝이 다르다"라서, 빠른 합치기(fast-forward)로 합치면 끝이 같아 아직으로 보인다. 합치기는 land(--no-ff)로만 한다
-    const merged = ahead === 0 && git(root, ['rev-parse', ref.branch]).trim() !== git(root, ['rev-parse', base]).trim();
+    const merged = mergedInto(root, id, base, ref.branch);
     return { path: ref.path, branch: ref.branch, ahead, dirty, merged, exists };
   } catch { return { ...ref, ahead: 0, dirty: 0, merged: false, exists }; }
 }
