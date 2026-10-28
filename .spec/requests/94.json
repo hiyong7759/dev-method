@@ -24,8 +24,8 @@
     "mode": "direct",
     "reason": "화면 모양·정보가 안 바뀌는 고장 수리(#86의 상세 처리를 목록에도 적용)"
   },
-  "stage": "impl",
-  "step": "working",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-27T14:27:22.572Z",
@@ -38,6 +38,68 @@
       "by": "user",
       "kind": "design-approved",
       "note": "바로 작업으로 등록(설계 없음 승인으로 봄)"
+    },
+    {
+      "at": "2026-10-27T14:28:27.915Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 c091863"
+    },
+    {
+      "at": "2026-10-27T14:28:49.975Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-28T04:50:15.686Z",
+      "by": "user",
+      "kind": "test-problem",
+      "note": "테스트 반려: app.ts 180줄이 view==='manage'만 막아 리포트·용어집·시안 현황(view=reports/glossary/designs)과 사용 흐름(flow)·정보 흐름(info)은 아직 2.5초마다 다시 그려진다. 화면(screen)처럼 제자리 갱신하는 곳을 뺀 모든 화면에 같은 규칙(알약만, 조작 후엔 다시 그림)을 적용한다. (대화에서 한 반려를 인용해 기록함)",
+      "quote": "94 화면 흐름도 동일한게 있으면 같이 빼는게 맞는거 같은데"
+    },
+    {
+      "at": "2026-10-28T04:50:15.702Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(36337cc5)"
+    },
+    {
+      "at": "2026-10-28T04:51:03.646Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 시작"
+    },
+    {
+      "at": "2026-10-28T04:51:13.952Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 시작"
+    },
+    {
+      "at": "2026-10-28T04:52:03.728Z",
+      "by": "agent",
+      "kind": "blocked",
+      "note": "막힘: 수정 커밋 완료(worktree-r94-fix, src/viewer/app.ts, 타입 검사 통과). finish가 '테스트 서버가 새 코드로 떠 있다'에서 실패: 포트 5291을 main 폴더의 서버가 쓰고 있어 이 작업 폴더의 새 코드로 서버를 띄울 수 없음. main에 합친 뒤 finish·request test 필요"
+    },
+    {
+      "at": "2026-10-28T04:52:35.600Z",
+      "by": "agent",
+      "kind": "blocked",
+      "note": "막힘: 구현·커밋(5314a92)·typecheck 통과. finish가 '테스트 서버가 새 코드로 떠 있다(포트 5391)'에서 실패: 포트 5291·5391을 메인 폴더의 설계서 보기 서버(PID 76597)가 쓰고 있어 작업 폴더(.claude/worktrees/r94-fix) 코드로 못 띄운다. 해결하려면 작업 폴더 .spec/config.json의 port를 바꾸거나 메인 서버를 새 코드로 다시 띄워야 한다(메인 서버는 끄지 않았다). 그래서 테스트 요청은 아직 못 올렸다."
+    },
+    {
+      "at": "2026-10-28T04:55:35.182Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "고친 뒤 테스트 다시 요청"
+    },
+    {
+      "at": "2026-10-28T05:32:09.240Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "94는 이미 확인했어 승인해"
     }
   ],
   "design": {
@@ -47,5 +109,19 @@
     "screens": [],
     "none": true,
     "rejected": 0
+  },
+  "commits": [
+    "c091863"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false,
+    "brief": [
+      "리포트·용어집·시안 현황·사용 흐름·정보 흐름도 데이터가 달라지면 저절로 다시 그리지 않고 알약만 띄운다",
+      "제자리 갱신하는 화면(screen)만 예외",
+      "타입 검사·기계 확인 통과, 화면 직접 확인은 안 함"
+    ],
+    "sigs": {}
   }
 }
