@@ -9,6 +9,8 @@ import { loadRequests } from './request.js';
 import { ownersOf } from './session.js';
 import { agentsList } from './outbox.js';
 import { projectRoot } from './project.js';
+import { withLock } from './lock.js';
+import { nextChange } from './watch.js';
 import { attachCommand, openSessionWindow, shortIdOf } from './terminal.js';
 import { kst } from './kst.js';
 
@@ -69,17 +71,25 @@ function endedSessions(root: string, openIds: number[]): number[] {
 
 /** 이 받는 쪽이 아직 못 받은 새 알림을 모아 돌려주고 읽은 자리를 옮긴다 */
 export function takeNotices(scanRoot: string, consumer: string): Notice[] {
+  // 서버와 request watch가 같은 읽은 자리 파일을 동시에 고쳐 서로 덮어쓰지 않게, 읽고-쓰기 전체를 잠금으로 묶는다. 못 잡으면 이번엔 건너뛴다(읽은 자리는 그대로라 알림은 다음에 나온다)
+  return withLock(scanRoot, 'notify-state', () => takeNoticesLocked(scanRoot, consumer), { waitMs: 5000 }) ?? [];
+}
+
+function takeNoticesLocked(scanRoot: string, consumer: string): Notice[] {
   const root = projectRoot(scanRoot);
   const cur = readJson<Cursor>(cursorFile(root), {});
+  // 이 받는 쪽이 처음이면 지금까지의 사건은 옛일이라 읽은 자리만 정한다. 이미 쓰던 받는 쪽이 처음 보는 요청은 시작·첫 설계 제출부터 모두 알린다
+  const firstTime = cur[consumer] === undefined;
   const mine = cur[consumer] ?? {};
   const open = loadRequests(scanRoot).filter((r) => r.stage !== 'done' && r.stage !== 'cancelled');
   const out: Notice[] = [];
   const now = new Date().toISOString();
   for (const r of open) {
     const last = r.events[r.events.length - 1]?.at ?? now;
-    if (mine[r.id] === undefined) { mine[r.id] = last; continue; }
+    if (mine[r.id] === undefined && firstTime) { mine[r.id] = last; continue; }
+    const since = mine[r.id] ?? '';
     for (const e of r.events) {
-      if (e.at > mine[r.id] && KINDS[e.kind]) {
+      if (e.at > since && KINDS[e.kind]) {
         const k = KINDS[e.kind];
         out.push({ id: r.id, at: e.at, kind: e.kind, name: r.agent.name, text: lineOf(r.id, e.kind, `${k.todo} (${kst(e.at)})`, shortIdOf(root, r.id)) });
       }
@@ -120,8 +130,10 @@ export function openWindowsForNotices(scanRoot: string, open = true): string[] {
 export async function watch(scanRoot: string, o: { once?: boolean; timeoutMs?: number }): Promise<void> {
   const end = Date.now() + (o.timeoutMs ?? 55 * 60_000);
   for (;;) {
+    // 3초마다 다시 읽지 않고, 요청 기록이나 세션 폴더가 바뀔 때 깨어난다. 지켜보기를 먼저 걸고 읽어 그 사이의 바뀜을 놓치지 않는다(마감 타이머만 한 번 건다)
+    const w = o.once ? null : nextChange(scanRoot, ['requests', 'sessions'], end - Date.now());
     for (const n of takeNotices(scanRoot, 'watch')) console.log(n.text);
-    if (o.once || Date.now() > end) return;
-    await new Promise((ok) => setTimeout(ok, 3000));
+    if (!w || Date.now() > end) { w?.cancel(); return; }
+    await w.done;
   }
 }

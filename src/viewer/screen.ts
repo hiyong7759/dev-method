@@ -117,14 +117,26 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
 
   // 화면 안에서 다른 화면으로 가면 설계서도 따라간다
   let lastPath: string | null = null;
-  const poll = window.setInterval(() => {
+  const check = (): void => {
     let p: string;
     try { p = iframe.contentWindow?.location.pathname ?? ''; } catch { return; }
     if (p === lastPath || p === 'blank') return;
     lastPath = p; urlEl.textContent = `${location.host}${p}`;
     const m = matchScreen(c.model, p);
     if (m && m.name !== c.name) { c.name = m.name; c.drawer = null; c.active = null; go(m.name, c.tab, p); render(); }
-  }, 400);
+  };
+  // 0.4초마다 주소를 보지 않고, 안쪽 화면이 열릴 때(load)와 주소가 바뀔 때(pushState·replaceState·뒤로가기)만 본다. 안쪽 창은 load마다 새로 생기므로 그때마다 다시 건다
+  const hook = (): void => {
+    try {
+      const w = iframe.contentWindow as (Window & typeof globalThis) | null;
+      if (w) {
+        for (const f of ['pushState', 'replaceState'] as const) { const orig = w.history[f].bind(w.history); w.history[f] = (...a: Parameters<History['pushState']>): void => { orig(...a); check(); }; }
+        w.addEventListener('popstate', check); w.addEventListener('hashchange', check);
+      }
+    } catch { /* 다른 출처의 안쪽 화면은 주소를 읽을 수 없다 */ }
+    check();
+  };
+  iframe.addEventListener('load', hook);
 
   // ── 표시 ──
   /** 이 화면을 범위로 하는 진행 중인 요청들 */
@@ -256,6 +268,6 @@ export function screenView(root: HTMLElement, { model, name, tab, at, go }: Scre
   return {
     update(m) { if (m.generatedAt < c.model.generatedAt) return; c.model = m; if (!hasScreen()) return; render(); },
     setScreen(n, t) { if (n !== c.name) { c.go(n); } if (t && isTab(t) && t !== c.tab) { c.tab = t; render(); } },
-    destroy() { alive = false; cancelAnimationFrame(raf); clearInterval(poll); },
+    destroy() { alive = false; cancelAnimationFrame(raf); iframe.removeEventListener('load', hook); },
   };
 }

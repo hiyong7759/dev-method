@@ -8,7 +8,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from './cli.js';
-import { memo } from './memo.js';
 import type { DesignView } from './types.js';
 
 /** 시안 판 하나의 기록 */
@@ -53,14 +52,32 @@ export function readMap(root: string): DesignMap { try { return JSON.parse(fs.re
 const writeMap = (root: string, m: DesignMap): void => fs.writeFileSync(mapFile(root), JSON.stringify(m, null, 2) + '\n');
 const git = (root: string, args: string[]): string => spawnSync('git', args, { cwd: root, encoding: 'utf8' }).stdout.trim();
 
+/** 지금 HEAD 커밋(git을 부르지 않고 .git 파일에서 읽는다). 못 읽으면 빈 글 */
+function headSha(root: string): string {
+  try {
+    const head = fs.readFileSync(path.join(root, '.git', 'HEAD'), 'utf8').trim();
+    if (!head.startsWith('ref: ')) return head;
+    const ref = head.slice(5);
+    try { return fs.readFileSync(path.join(root, '.git', ref), 'utf8').trim(); } catch { /* 묶음 기록(packed-refs)에 있을 수 있다 */ }
+    const packed = fs.readFileSync(path.join(root, '.git', 'packed-refs'), 'utf8').split('\n').find((l) => l.endsWith(` ${ref}`));
+    return packed ? packed.split(' ')[0] : '';
+  } catch { return ''; }
+}
+
+/** 비교 결과 기억: 커밋(HEAD)이 같으면 같은 판·시점·대응 소스의 결과도 같다. 시안이 새로 생기거나(시점·파일이 다름) 새 커밋이 생길 때(HEAD가 다름)만 다시 비교한다 */
+const sinceCache = new Map<string, number>();
+
 /** 그 시점 뒤로 대응 소스를 바꾼 커밋 수 */
 function commitsSince(root: string, b: Board): number {
   if (!b.syncedAt || !b.files.length) return 0;
-  // 서버는 같은 조회를 30초 기억한다(화면이 2.5초마다 요청해도 git을 매번 부르지 않게)
-  return memo(`commitsSince|${root}|${b.syncedAt}|${b.files.join(',')}`, 30_000, () => {
-    const out = git(root, ['rev-list', `${b.syncedAt}..HEAD`, '--', ...b.files]);
-    return out ? out.split('\n').length : 0;
-  });
+  const head = headSha(root);
+  const key = `${root}|${head}|${b.syncedAt}|${b.files.join(',')}`;
+  const hit = head ? sinceCache.get(key) : undefined;
+  if (hit !== undefined) return hit;
+  const out = git(root, ['rev-list', `${b.syncedAt}..HEAD`, '--', ...b.files]);
+  const n = out ? out.split('\n').length : 0;
+  if (head) { if (sinceCache.size > 500) sinceCache.clear(); sinceCache.set(key, n); }
+  return n;
 }
 
 /** 판 하나가 지금 최신인지 말해 준다 */

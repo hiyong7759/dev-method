@@ -25,6 +25,8 @@ import { snapshot, restore } from './keep-ui.js';
 import { commentTool } from './comment.js';
 import type { CommentTool } from './comment.js';
 import { dockButton, mountDock } from './terminal-dock.js';
+import { live } from './live.js';
+import { changeKey } from './change-key.js';
 import type { Brand, Model } from '../types.js';
 
 /** 설계서 보기 틀의 전부가 그려지는 자리 */
@@ -117,6 +119,7 @@ function render(): void {
   // 요청 목록의 거르기·보기를 기억해 두면, 요청 상세에서 "요청"으로 돌아올 때 보던 그대로 열린다
   if (r.view === 'manage' && !r.arg) { try { sessionStorage.setItem('mg-last', location.hash || '#/manage'); } catch { /* 못 기억해도 목록은 열린다 */ } }
   if (active && model && r.view === 'screen' && active.name === r.arg && active.tr === (r.params.get('tr') ?? '')) { active.setScreen(r.arg, r.params.get('tab')); topEl?.replaceWith(topEl = topbar(model, r)); return; }
+  document.getElementById('fresh-pill')?.remove(); // 화면을 옮기거나 다시 그리면 알약은 사라진다
   if (active) { active.destroy(); active = null; }
   root.replaceChildren();
   document.documentElement.style.removeProperty('--ph-h');
@@ -128,7 +131,8 @@ function render(): void {
   root.append(topEl);
   const body = h('div', { class: r.view === 'screen' ? 'split' : 'map-col', style: r.view === 'screen' ? '' : 'flex:1;display:flex;flex-direction:column;min-height:0;overflow:auto' });
   root.append(body);
-  const again = (): void => { void load(true).then(() => render()); };
+  // 결정(승인·반려 등) 뒤에는 load가 한 번만 그린다(그린 뒤 또 render를 부르면 두 번 그려진다)
+  const again = (): void => { void load(true); };
   if (r.view === 'screen') {
     if (!m.screens.find((s) => s.name === r.arg)) { body.append(h('div', { class: 'empty-note', style: 'flex:1' }, `화면 "${r.arg}"을 찾지 못했다`)); return; }
     const v = screenView(body, { model: m, name: r.arg, tab: r.params.get('tab'), at: r.params.get('at'), go: (n, t, at) => { const q = parse().params; nav(hash('screen', n, { tab: t, at, tr: q.get('tr') ?? undefined, ts: q.get('ts') ?? undefined, tn: q.get('tn') ?? undefined }), true); topEl?.replaceWith(topEl = topbar(m, parse())); } });
@@ -159,7 +163,7 @@ function render(): void {
 /** 보고 있는 화면(요청·리포트·용어집·시안 현황·사용 흐름·정보 흐름) 데이터가 달라졌음을 알리는 알약. 누르면 새 내용으로 다시 그린다 */
 function showFresh(): void {
   if (document.getElementById('fresh-pill')) return;
-  const pill = h('button', { id: 'fresh-pill', class: 'btn sm fresh', onclick: () => { pill.remove(); render(); } }, '새 내용이 있습니다 · 눌러서 새로 고침');
+  const pill = h('button', { id: 'fresh-pill', class: 'btn sm fresh', onclick: () => { const snap = snapshot(root); pill.remove(); render(); restore(root, snap); } }, '새 내용이 있습니다 · 눌러서 새로 고침');
   document.body.append(pill);
 }
 
@@ -171,16 +175,16 @@ async function load(initial: boolean): Promise<void> {
   loaded = true; seenStamp = m.serverStamp; down = false;
   if (!m.serverStale) root.querySelector('.srv-stale')?.remove();
   if (model && m.generatedAt < model.generatedAt) return;
-  const k = JSON.stringify({ ...m, generatedAt: 0, comments: 0 });
+  const k = changeKey(m);
   // 화면 설계서의 '실제 화면' 안(iframe)에서는 바깥 창의 코멘트 도구가 이미 있어, 안쪽에 하나 더 띄우면 겹쳐 보인다
   const framed = window.parent !== window;
   if (!commentUi && !framed) commentUi = commentTool(m); else commentUi?.update(m);
-  if (!initial && k === key) return;
+  if (!initial && k === key) { model = m; return; } // 계속 변하는 값만 달라졌으면 그리지 않고 모델만 바꿔 둔다
   key = k; model = m;
   const r = parse();
   if (active && r.view === 'screen') { active.update(m); if (!menu) topEl?.replaceWith(topEl = topbar(m, r)); return; }
   // 화면(screen)처럼 제자리 갱신하는 곳을 뺀 모든 화면은 2.5초마다 다시 그리면 깜빡이고 읽던 자리가 위로 올라가므로, 데이터만 달라졌을 때는 그리지 않고 "새 내용이 있다"는 알약만 띄운다(누르면 그때 다시 그린다)
-  if (!initial && r.view !== 'screen') { showFresh(); return; }
+  if (!initial && r.view !== 'screen') { if (!menu) topEl?.replaceWith(topEl = topbar(m, r)); showFresh(); return; } // 알약이 떠 있어도 맨 위 숫자는 갱신한다
   document.getElementById('fresh-pill')?.remove();
   // 같은 주소에서 데이터만 달라져 다시 그릴 때는 보던 자리·펼침·입력을 지킨다
   const snap = initial ? null : snapshot(root);
@@ -198,4 +202,6 @@ termWatch.observe(root, { childList: true, subtree: true });
 // 정보 흐름은 창 폭에 맞춰 상자를 줄바꿈해 놓으므로, 창 크기가 바뀌면(폭이 달라졌을 때만) 다시 배치한다
 let lastW = window.innerWidth, resizeT = 0;
 window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = window.setTimeout(() => { if (window.innerWidth !== lastW) { lastW = window.innerWidth; if (parse().view === 'info') render(); } }, 150); });
-load(true).then(() => { render(); setInterval(() => { load(false).catch(() => { if (!model) return; down = true; if (!root.querySelector('.srv-stale')) root.prepend(h('div', { class: 'srv-stale' }, STALE_TEXT)); }); }, 2500); }).catch((e: unknown) => { root.append(h('div', { class: 'empty-note' }, `모델을 읽지 못했다: ${errorText(e)}`)); });
+const markDown = (): void => { if (!model) return; down = true; if (!root.querySelector('.srv-stale')) root.prepend(h('div', { class: 'srv-stale' }, STALE_TEXT)); };
+// 서버가 알려 줄 때만 새로 받는다(연결·재연결 때도 한 번 온다). 모델은 서버가 배경에서 만들어 둔 것이라 받아도 서버가 계산하지 않는다
+load(true).then(() => { render(); live(() => { load(false).catch(markDown); }, markDown); }).catch((e: unknown) => { root.append(h('div', { class: 'empty-note' }, `모델을 읽지 못했다: ${errorText(e)}`)); });
