@@ -68,6 +68,19 @@ test('다른 파일이 충돌하면 합치기를 되돌리고 알린다', () => 
   assert.equal(git(root, 'status', '--porcelain', '--untracked-files=no').trim(), '');
 });
 
+test('실행 기록과 다른 파일이 함께 충돌하면 실행 기록만 푸는 것으로 넘기지 않고 전부 되돌린다', () => {
+  const { root, wt } = repoWithWorktree();
+  fs.writeFileSync(path.join(wt, 'a.txt'), 'branch\n');
+  fs.writeFileSync(path.join(wt, '.spec', 'finish.json'), '{"ok":"branch"}\n');
+  git(wt, 'add', '-A'); git(wt, 'commit', '-q', '-m', 'branch');
+  fs.writeFileSync(path.join(root, 'a.txt'), 'main\n');
+  fs.writeFileSync(path.join(root, '.spec', 'finish.json'), '{"ok":"main"}\n');
+  git(root, 'add', '-A'); git(root, 'commit', '-q', '-m', 'main side');
+  assert.throws(() => mergeBranch(root, 'worktree-req-1', 'merge', 'main'), /충돌해 되돌렸다/);
+  assert.equal(fs.readFileSync(path.join(root, 'a.txt'), 'utf8'), 'main\n');
+  assert.equal(git(root, 'status', '--porcelain', '--untracked-files=no').trim(), '');
+});
+
 test('커밋 없는 빈 브랜치는 main이 앞서가도 합쳐짐이 아니다', () => {
   const { root } = repoWithWorktree();
   fs.writeFileSync(path.join(root, 'c.txt'), 'c\n');
