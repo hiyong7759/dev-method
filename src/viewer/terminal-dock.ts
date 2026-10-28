@@ -2,7 +2,7 @@
  * @spec terminal-dock 화면 아래 붙박이 터미널 영역
  * @why 담당 세션과 대화하려고 브라우저 탭이나 iTerm2 창을 따로 열면 화면과 대화가 흩어진다. 설계서 보기의 모든 화면(현행·관리) 아래에 열고 닫는 영역을 붙이고, 일하는 담당 세션마다 탭 하나로 실제 터미널을 보여 준다.
  * @basis 화면을 다시 그릴 때마다 터미널 연결이 끊기지 않도록, 영역은 화면 틀(#app) 밖 형제 요소로 한 번만 만들고 다시 그리지 않는다. 열림·높이·고른 탭은 이 브라우저에만 기억한다.
- * @contract 탭 목록은 /__spec/term/tabs.json을 3초마다 받는다. 일하는 담당은 탭이 되고(끝나면 사라진다), 끝난 담당은 "지난 담당" 목록에서 골라 지난 대화(읽기만)로 연다. 터미널은 /__spec/term/<요청 번호>/ 를 iframe으로 붙인다(비밀 값은 서버가 쥐고 있다). 탭을 처음 고를 때 연결하고 이후에는 숨기기만 한다. 사용자 차례(질문·막힘)인 탭에는 표시를 붙인다.
+ * @contract 탭 목록은 /__spec/term/tabs.json을 3초마다 받는다. 일하는 담당은 탭이 되고(끝나면 사라진다), 끝난 담당은 "지난 담당" 목록에서 골라 지난 대화(읽기만)로 연다. 터미널은 /__spec/term/<요청 번호>/ 를 iframe으로 붙인다(비밀 값은 서버가 쥐고 있다). 보고 있는 탭만 연결하고, 접거나 다른 탭을 고르면 그 연결을 닫는다(다시 열면 새로 붙는다). 사용자 차례(질문·막힘·승인 대기)인 탭에는 표시를 붙인다.
  * @does 담당 세션을 화면 안에서 터미널로 본다 | 맨 위 줄 "터미널" 단추를 누르면 화면 아래에 영역이 열리고 일하는 담당마다 탭이 보인다
  * @does 끝난 담당의 지난 대화를 다시 본다 | 영역의 "지난 담당"에서 고르면 터미널이 아니라 지난 대화가 탭으로 열린다
  * @does 터미널 영역의 높이를 바꾼다 | 영역 위 손잡이를 끌면 높이가 바뀌고 이 브라우저가 기억한다
@@ -52,6 +52,9 @@ export function dockButton(): HTMLElement {
   return b;
 }
 
+/** 조건에 맞는 요청의 터미널(iframe)을 없애 연결을 닫는다 */
+const dropTerms = (which: (id: number) => boolean): void => { for (const [k, el] of panes) { const [kind, n] = k.split(':'); if (kind === 't' && which(Number(n))) { el.remove(); panes.delete(k); } } };
+
 function paint(): void {
   const ids = new Set(data.live.map((t) => t.id));
   // 끝난 담당의 터미널은 닫고(탭이 사라진다) 연결도 끊는다
@@ -72,14 +75,16 @@ function paint(): void {
     h('button', { class: 'tdock-x', title: '접기', onclick: () => { st.open = false; save(); paint(); } }, '⌄ 접기'),
   );
   body.querySelector('.note')?.remove();
-  if (!st.open) return;
+  // 접거나 다른 탭을 고르면 그 터미널 연결을 닫는다(iframe을 없앤다. 다시 열면 새로 붙는다)
+  if (!st.open) { dropTerms(() => true); return; }
   const note = (text: string): void => { body.append(h('div', { class: 'hint pad note' }, text)); };
-  if (!data.available && data.live.length) { for (const el of panes.values()) el.hidden = true; note(`터미널을 열 수 없습니다: ${data.reason}`); return; }
+  if (!data.available && data.live.length) { dropTerms(() => true); note(`터미널을 열 수 없습니다: ${data.reason}`); return; }
   const show = (k: string, make: () => HTMLElement, on: boolean): void => {
     let el = panes.get(k);
     if (!el && on) { el = make(); panes.set(k, el); body.append(el); }
     if (el) el.hidden = !on;
   };
+  dropTerms((id) => id !== st.tab);
   for (const t of data.live) show(`t:${t.id}`, () => h('iframe', { class: 'tdock-term', src: `/__spec/term/${t.id}/`, title: `${t.title} 터미널` }), st.tab === t.id);
   for (const id of logs) show(`l:${id}`, () => logPane(id), st.tab === -id);
   if (!data.live.length && !logs.length) note('지금 일하는 담당 세션이 없습니다. 담당이 시작되면 탭이 생기고, 끝난 담당은 위 "지난 담당"에서 지난 기록으로 볼 수 있습니다.');

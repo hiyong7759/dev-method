@@ -7,12 +7,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
-import type net from 'node:net';
+import net from 'node:net';
+import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import type { IncomingMessage } from 'node:http';
 import { tempProject } from './helpers.js';
 import { addRequest } from '../src/request.js';
-import { dockWorks, isTermUrl, itermShouldOpen, stopAllTtyd, termAllowed, termHttp, termTabs } from '../src/ttyd.js';
+import { dockWorks, isTermUrl, itermShouldOpen, stopAllTtyd, termAllowed, termHttp, termTabs, termUpgrade } from '../src/ttyd.js';
 
 const req = (o: { addr?: string; host?: string; origin?: string; site?: string }): IncomingMessage => ({
   socket: { remoteAddress: o.addr ?? '127.0.0.1' },
@@ -59,9 +60,9 @@ test('담당이 있는 요청은 탭이 되고, 끝나면 지난 담당으로 �
 });
 
 /** 가짜 claude(입력을 되돌려 줄 뿐)를 둔 임시 폴더 */
-function fakeClaudeBin(): string {
+function fakeClaudeBin(body = 'exec cat'): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-fakebin-'));
-  fs.writeFileSync(path.join(dir, 'claude'), '#!/bin/bash\nexec cat\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(dir, 'claude'), `#!/bin/bash\n${body}\n`, { mode: 0o755 });
   return dir;
 }
 const hasTtyd = spawnSync('which', ['ttyd']).status === 0;
@@ -134,6 +135,73 @@ test('터미널 영역을 못 열면(설정으로 끔·ttyd 없음·테스트 �
     assert.equal(itermShouldOpen(ok.src), true, 'ttyd가 없으면 창을 연다');
     assert.match(termTabs(ok.src).reason, /ttyd가 없다/);
   } finally {
+    restoreEnv(saved);
+  }
+});
+
+test('탭의 사용자 차례 표시가 설계·테스트 승인 대기도 포함한다', () => {
+  const { root, src } = tempProject();
+  const r = addRequest(src, { title: '시험 요청', origin: '시험', channel: '대화', screens: [], infos: [] });
+  fs.writeFileSync(path.join(root, '.spec', 'sessions.json'), JSON.stringify({ 'abcdef12-0000-0000-0000-000000000000': { request: r.id } }));
+  const file = path.join(root, '.spec', 'requests', `${r.id}.json`);
+  const j = JSON.parse(fs.readFileSync(file, 'utf8'));
+  j.agent = { name: '시험 담당' };
+  const turn = (stage: string, step: string): boolean => { fs.writeFileSync(file, JSON.stringify({ ...j, stage, step })); return termTabs(src).live[0].askingUser; };
+  assert.equal(turn('design', 'drafting'), false, '에이전트 차례');
+  assert.equal(turn('design', 'submitted'), true, '설계 승인 대기');
+  assert.equal(turn('test', 'requested'), true, '테스트 승인 대기');
+});
+
+/** ttyd는 첫 글(터미널 크기)을 받아야 세션을 시작한다: 가려진(mask) 글 틀 */
+const initFrame = (): Buffer => { const p = Buffer.from('{"AuthToken":"","columns":80,"rows":24}'); const m = crypto.randomBytes(4); return Buffer.concat([Buffer.from([0x81, 0x80 | p.length]), m, Buffer.from(p.map((x, i) => x ^ m[i % 4]))]); };
+
+/** 웹소켓 연결 하나를 열고 (열린 뒤) 닫히는지 알려 주는 쪽을 돌려준다 */
+const openWs = (port: number, id: number): Promise<{ sock: net.Socket; closed: Promise<void> }> => new Promise((ok, no) => {
+  const sock = net.connect(port, '127.0.0.1');
+  const closed = new Promise<void>((c) => sock.on('close', () => c()));
+  sock.on('error', no);
+  let got = '';
+  sock.on('data', (d) => { got += d.toString('latin1'); if (got.includes('\r\n\r\n')) { sock.removeAllListeners('data'); sock.on('data', () => {}); sock.write(initFrame()); ok({ sock, closed }); } });
+  sock.on('connect', () => sock.write(`GET /__spec/term/${id}/ws HTTP/1.1\r\nHost: localhost:${port}\r\nOrigin: http://localhost:${port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${crypto.randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: tty\r\n\r\n`));
+});
+const countSleep = (): number => execFileSync('ps', ['-axo', 'command='], { encoding: 'utf8' }).split('\n').filter((l) => /sleep 30333/.test(l) && !/ps -axo/.test(l)).length;
+const wait = (ms: number): Promise<void> => new Promise((ok) => setTimeout(ok, ms));
+
+test('같은 담당에는 연결이 하나만 남는다: 접었다 바로 펴도 새 연결이 붙고, 창이 둘이면 먼저 것이 닫힌다', { skip: !hasTtyd && 'ttyd가 없다' }, async () => {
+  const { root, src } = tempProject();
+  const r = addRequest(src, { title: '시험 요청', origin: '시험', channel: '대화', screens: [], infos: [] });
+  fs.writeFileSync(path.join(root, '.spec', 'sessions.json'), JSON.stringify({ 'abcdef12-0000-0000-0000-000000000000': { request: r.id } }));
+  const file = path.join(root, '.spec', 'requests', `${r.id}.json`);
+  const j = JSON.parse(fs.readFileSync(file, 'utf8'));
+  j.agent = { name: '시험 담당' };
+  fs.writeFileSync(file, JSON.stringify(j));
+  const saved = saveEnv();
+  delete process.env.SPEC_NO_TERMINAL;
+  process.env.PATH = `${fakeClaudeBin('exec sleep 30333')}:${saved.PATH}`;
+  const server = http.createServer((q, s) => { void termHttp(src, q, s); });
+  server.on('upgrade', (q, so, head) => termUpgrade(src, q, so as net.Socket, head));
+  await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok));
+  const port = (server.address() as net.AddressInfo).port;
+  try {
+    await new Promise<void>((ok) => http.get({ port, host: '127.0.0.1', path: `/__spec/term/${r.id}/`, agent: false, headers: { host: `localhost:${port}`, connection: 'close' } }, (res) => { res.resume(); ok(); }));
+    const a = await openWs(port, r.id);
+    await wait(700);
+    assert.equal(countSleep(), 1, '연결 하나: attach 하나');
+    // 접었다 바로 펴기: 이전 연결을 닫자마자 새 연결
+    a.sock.destroy();
+    const b = await openWs(port, r.id);
+    await wait(1200);
+    assert.equal(countSleep(), 1, '접었다 바로 펴도 새 연결이 붙고 attach는 하나');
+    // 창이 둘: 나중 창이 오면 먼저 창은 닫힌다
+    const c = await openWs(port, r.id);
+    await Promise.race([b.closed, wait(2000).then(() => assert.fail('먼저 연결이 닫히지 않았다'))]);
+    await wait(1200);
+    assert.equal(countSleep(), 1, '창이 둘이어도 attach는 하나');
+    c.sock.destroy();
+  } finally {
+    stopAllTtyd();
+    server.closeAllConnections();
+    server.close();
     restoreEnv(saved);
   }
 });
