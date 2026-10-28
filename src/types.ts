@@ -356,7 +356,9 @@ export interface DesignView {
   /** 시안이나 소스를 손봐야 하는 상태인가 */
   stale: boolean;
   /** 기록된 상태 */
-  state: 'confirmed' | 'draft' | 'unchecked' | 'differs';
+  state: 'confirmed' | 'draft' | 'unchecked' | 'differs' | 'retired';
+  /** 확정해 못 박았고 그 뒤 소스가 바뀌지 않은 판 */
+  pinned: boolean;
   /** 이 판이 보여 주는 화면 이름들 */
   screens: string[];
   /** 데이터가 생기면 시안과 다시 대조할 것들 */
