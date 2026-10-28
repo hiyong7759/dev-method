@@ -1,0 +1,83 @@
+{
+  "id": 109,
+  "title": "원칙·방법 문서 정리: 원칙을 18줄로 다시 쓰고 사건 대응·중복·낡은 문장을 뺀다",
+  "source": "user",
+  "origin": {
+    "text": "어, 맞아. 새로 번호 따서 정리해. 네가 바로 작업해.",
+    "channel": "대화",
+    "at": "2026-10-28T13:38:28.299Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "noTest": "문서 정리라 화면에서 눌러 볼 시나리오가 없다. 사용자는 정리된 원칙과 지운 목록을 읽어 확인한다",
+  "detail": {
+    "text": "CORE.md 원칙을 18줄로 다시 쓴다. docs 4개(delegate, long-running, memory-cleanup, commit-multisession)는 지우고 필요한 내용은 원칙으로 옮긴다. commit-message·source-comments·method-authoring·README는 줄이고 낡은 문장을 고친다. spec-view 규칙(SKILL·approval·request·meta·screen)에서 옛 이야기·사건 인용·중복·도구가 이미 강제하는 설명을 뺀다. 소스 주석 문법·시안 장치·요청 절차·화면 디자인 규칙·보고 세 덩어리·원칙 29~32는 이번에 건드리지 않는다. 메모리는 사용자 지시로 이미 욕설 기록 금지 하나만 남겼다",
+    "confirmedAt": "2026-10-28T13:38:28.299Z",
+    "mode": "direct",
+    "reason": "사용자가 대화에서 바로 작업을 지시했다(원칙·문서 정리). 화면·정보 변경은 없다"
+  },
+  "stage": "test",
+  "step": "requested",
+  "events": [
+    {
+      "at": "2026-10-28T13:38:28.299Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-28T13:38:28.299Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "바로 작업으로 등록(설계 없음 승인으로 봄)"
+    },
+    {
+      "at": "2026-10-28T13:42:04.730Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 fbe01e8"
+    },
+    {
+      "at": "2026-10-28T13:42:04.853Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 aa7d775"
+    },
+    {
+      "at": "2026-10-28T13:42:16.097Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    }
+  ],
+  "design": {
+    "understanding": "",
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0
+  },
+  "commits": [
+    "fbe01e8",
+    "aa7d775"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false,
+    "brief": [
+      "원칙을 18줄로 다시 쓴 CORE.md를 읽고 맞는지 정한다",
+      "지운 문서 4개와 줄인 문서·규칙 목록을 읽고 빠지면 안 되는 것이 있는지 정한다"
+    ],
+    "sigs": {}
+  }
+}
