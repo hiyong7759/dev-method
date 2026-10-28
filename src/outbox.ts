@@ -15,6 +15,7 @@ import { brandOf } from './brand.js';
 import { launchArgs, loadOwners, logFile, markRebinding, newOwnerMessage, decisionMessage, ownerName, ownersOf, prepareOwner, rebindOwner, reviewerArgs, SPEC_MJS, transcriptOf } from './session.js';
 import { beat, newHolder, tryLock, unlock, withLock } from './lock.js';
 import { projectRoot, specDir } from './project.js';
+import { nextChange } from './watch.js';
 import type { Request } from './types.js';
 
 /** 상자의 한 줄 */
@@ -289,7 +290,13 @@ export function kickOwnerUp(scanRoot: string, id: number): void {
   } catch { /* 못 해도 1분 점검이 다시 시킨다 */ }
 }
 
-/** 담당 확인이 안 된 채 20초 넘게 남은 대기 줄이 있으면 다시 시킨다(1분 점검이 부른다) */
+/** 담당 확인이 안 된 대기 줄이 20초를 채우기까지 남은 시간(ms). 이미 채운 줄이 있으면 0, 그런 줄이 없으면 null — 사건 하나짜리 타이머를 걸 때 쓴다 */
+export function nextKickIn(scanRoot: string, now = Date.now()): number | null {
+  const ats = loadOutbox(scanRoot).filter((r) => r.state === 'pending' && r.ready === false).map((r) => Date.parse(r.at) + 20_000 - now);
+  return ats.length ? Math.max(0, Math.min(...ats)) : null;
+}
+
+/** 담당 확인이 안 된 채 20초 넘게 남은 대기 줄이 있으면 다시 시킨다(대기 줄이 적힌 뒤 20초 타이머가 부른다) */
 export function kickWaiting(scanRoot: string, now = Date.now()): number {
   const waiting = loadOutbox(scanRoot).filter((r) => r.state === 'pending' && r.ready === false && now - Date.parse(r.at) > 20_000);
   for (const id of new Set(waiting.map((r) => r.request))) kickOwnerUp(scanRoot, id);
@@ -354,8 +361,10 @@ export function setAfterEnqueue(fn: (() => void) | null): void { afterEnqueue = 
 export async function waitPending(scanRoot: string, timeoutMs = 10 * 60_000): Promise<number[]> {
   const end = Date.now() + timeoutMs;
   for (;;) {
+    // 2초마다 다시 보지 않고, 줄이 적히는 순간(outbox 바뀜)에 깨어난다. 지켜보기를 먼저 걸고 확인해 그 사이의 바뀜을 놓치지 않는다
+    const w = nextChange(scanRoot, ['outbox'], end - Date.now());
     const now = pendingRows(scanRoot).map((r) => r.seq);
-    if (now.length || Date.now() >= end) return now;
-    await new Promise((ok) => setTimeout(ok, 2000));
+    if (now.length || Date.now() >= end) { w.cancel(); return now; }
+    await w.done;
   }
 }

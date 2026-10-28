@@ -13,12 +13,12 @@ import { newCodeProblem, serverStamp, srcStamp, staleServer } from '../src/stale
 import { tempProject } from './helpers.js';
 
 test('서버가 뜬 뒤 도구 소스가 바뀌면 옛 코드로 알아본다', () => {
-  assert.equal(staleServer(Date.now() + 60_000), false, '아직 바뀌지 않았으면 옛 코드가 아니다');
+  assert.equal(staleServer(), false, '아직 바뀌지 않았으면 옛 코드가 아니다');
   const file = path.resolve('src', 'stale.ts');
   const old = fs.statSync(file);
   try {
     fs.utimesSync(file, new Date(Date.now() + 3600_000), new Date(Date.now() + 3600_000));
-    assert.equal(staleServer(Date.now() + 120_000), true);
+    assert.equal(staleServer(), true);
     assert.notEqual(srcStamp(), serverStamp);
   } finally { fs.utimesSync(file, old.atime, old.mtime); }
 });

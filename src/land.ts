@@ -1,7 +1,7 @@
 /**
  * @spec land 합치기 전 확인과 main에 합치기
  * @why 요청마다 워크트리에서 일하므로, main에는 사용자가 테스트 승인한 코드만 들어가야 한다. 담당이 스스로 합치지 못하게 합치는 일을 하나의 명령(request land)으로 묶고, 합치기 전에 기계로 확인할 수 있는 것(범위 밖 변경·다른 브랜치와 같은 파일·타입 검사·시험)을 먼저 확인한다. 영향 범위 안 코드의 검토는 검토 에이전트(메인 세션)가 맡고, 전체를 다시 읽는 검토는 하지 않는다.
- * @contract `check`는 읽기와 검사만 한다(아무것도 바꾸지 않는다): ① 브랜치가 바꾼 파일이 승인된 설계의 files 안인지(.spec/ 아래와 .md 문서는 범위 밖으로 세지 않는다) ② 다른 열린 워크트리 브랜치가 같은 파일을 바꿨는지 ③ `npm run typecheck`와 `npm test`. `land`는 요청이 테스트 승인으로 끝났고 워크트리의 저장 안 한 변경이 없고 main 폴더가 main 브랜치일 때만 그 브랜치를 --no-ff로 합친다(승인 전이면 거부, 이미 합쳤으면 그대로 둔다). 충돌하면 합치기를 되돌리고 알린다. `overlapsOf`는 설계 승인 때 같은 파일을 건드리는 다른 진행 중 요청을 찾아 경고하는 데 쓴다(막지 않는다. 겹치면 기존 순서 기능으로 하나씩 하게 한다).
+ * @contract `check`는 읽기와 검사만 한다(아무것도 바꾸지 않는다): ① 브랜치가 바꾼 파일이 승인된 설계의 files 안인지(.spec/ 아래와 .md 문서는 범위 밖으로 세지 않는다) ② 다른 열린 워크트리 브랜치가 같은 파일을 바꿨는지 ③ `npm run typecheck`와 `npm test`. `land`는 요청이 테스트 승인으로 끝났고 워크트리의 저장 안 한 변경이 없고 main 폴더가 main 브랜치일 때만 그 브랜치를 --no-ff로 합친다(승인 전이면 거부, 이미 합쳤으면 그대로 둔다). 합치기 전에 확인(check)을 먼저 돌려 하나라도 문제면 합치지 않고, main 폴더에 저장 안 한 변경이 있으면 충돌과 구분해 알리며, 앞선 커밋이 없으면 합칠 것이 없다고 알린다. 충돌하면 합치기를 되돌리고 알린다. `overlapsOf`는 설계 승인 때 같은 파일을 건드리는 다른 진행 중 요청을 찾아 경고하는 데 쓴다(막지 않는다. 겹치면 기존 순서 기능으로 하나씩 하게 한다).
  */
 import { execFileSync } from 'node:child_process';
 import { loadOne } from './request.js';
@@ -92,10 +92,17 @@ export function landRequest(scanRoot: string, id: number): string {
   const wt = worktreeOf(root, id);
   if (!wt) throw new Error(`요청 #${id}의 담당 세션은 워크트리를 쓰지 않아 합칠 브랜치가 없다`);
   if (wt.merged) return `요청 #${id}: 이미 ${baseBranch(root)}에 합쳐져 있다(${wt.branch})`;
+  if (wt.ahead === 0) throw new Error(`요청 #${id}: ${wt.branch}에는 ${baseBranch(root)}보다 앞선 커밋이 없어 합칠 것이 없다`);
   if (wt.dirty) throw new Error(`워크트리에 저장(커밋)하지 않은 변경이 ${wt.dirty}개 있다. 담당이 먼저 커밋해야 한다`);
   const base = baseBranch(root);
   const now = git(root, ['rev-parse', '--abbrev-ref', 'HEAD']).trim();
   if (now !== base) throw new Error(`합치는 폴더가 ${base} 브랜치가 아니다(지금 ${now})`);
+  // 합치기 전 확인을 여기서 강제한다(따로 check를 부르지 않아도 범위 밖 변경·시험 실패는 합쳐지지 않는다)
+  const bad = checkRequest(scanRoot, id).filter((l) => !l.ok);
+  if (bad.length) throw new Error(`합치기 전 확인에 걸려 합치지 않았다: ${bad.map((l) => `${l.what}: ${l.detail}`).join(' | ')}`);
+  // main 폴더의 저장 안 한 변경이 합치기를 막는 것을 충돌로 안내하지 않는다(실행 기록은 mergeBranch가 되돌린다)
+  const mainDirty = names(git(root, ['status', '--porcelain', '--untracked-files=no'])).filter((l) => !l.endsWith('.spec/finish.json'));
+  if (mainDirty.length) throw new Error(`${base} 폴더에 저장(커밋)하지 않은 변경이 ${mainDirty.length}개 있어 합칠 수 없다(충돌 아님): ${mainDirty.slice(0, 5).join(', ')}`);
   mergeBranch(root, wt.branch, `요청 #${id}: ${r.title}\n\n사용자가 테스트 승인한 코드를 ${wt.branch}에서 합친다.\n\n요청 #${id}`, base);
   return `요청 #${id}: ${wt.branch}을(를) ${base}에 --no-ff로 합쳤다`;
 }
