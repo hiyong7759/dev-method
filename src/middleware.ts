@@ -15,7 +15,8 @@ import { screenHistory } from './history.js';
 import { decide, addNote, sendToTool } from './report.js';
 import { addComment, replyComment, closeComment, commentToRequest, shotDir } from './comment.js';
 import { ensureTestServer } from './testdata.js';
-import { addRequest, recordUntracked, approveDesign, rejectDesign, redesign, checkTest, approveTest, testProblem, setOrder } from './request.js';
+import { addRequest, recordUntracked, approveDesign, rejectDesign, redesign, checkTest, approveTest, testProblem, setOrder, saveNote, attachNoteShot, editNote, deleteNote, sendNoteNow, answerNote, reviewSkip, reviewRetry } from './request.js';
+import { kickReviewer } from './reviewer.js';
 import { startRequest } from './wake.js';
 import { enqueueOutbox, requeueOutbox } from './outbox.js';
 import { conversationsOf } from './conversation.js';
@@ -193,6 +194,16 @@ export function specHandler(scanRoot: string): SpecHandler {
         if (url === '/__spec/request/test-check') return json(res, checkTest(scanRoot, Number(b.id), String(b.key || ''), !!b.done));
         if (url === '/__spec/request/test-approve') { const r = approveTest(scanRoot, Number(b.id), !!b.none); enqueueOutbox(scanRoot, Number(b.id)); return json(res, r); }
         if (url === '/__spec/request/test-problem') { const r = testProblem(scanRoot, Number(b.id), String(b.note || '')); enqueueOutbox(scanRoot, Number(b.id)); return json(res, r); }
+        // 테스트 화면: 짚은 것 저장·캡처 붙이기·고치기·지우기·먼저 보내기·다시 확인 답. 사용자만 한다. 저장은 바로 되고(담기 단계 없음) 캡처는 뒤에서 붙는다
+        if (url === '/__spec/request/test-note') return json(res, saveNote(scanRoot, Number(b.id), { kind: b.kind as never, label: String(b.label || ''), url: String(b.url || ''), text: String(b.text || ''), src: b.src ? String(b.src) : undefined, box: b.box as never, shot: b.shot ? String(b.shot) : undefined }));
+        if (url === '/__spec/request/test-note-shot') return json(res, attachNoteShot(scanRoot, Number(b.id), String(b.note || ''), String(b.shot || '')));
+        if (url === '/__spec/request/test-note-edit') return json(res, editNote(scanRoot, Number(b.id), String(b.note || ''), String(b.text || '')));
+        if (url === '/__spec/request/test-note-delete') return json(res, deleteNote(scanRoot, Number(b.id), String(b.note || '')));
+        if (url === '/__spec/request/test-note-now') { const r = sendNoteNow(scanRoot, Number(b.id), String(b.note || '')); enqueueOutbox(scanRoot, Number(b.id)); return json(res, r); }
+        if (url === '/__spec/request/test-note-answer') return json(res, answerNote(scanRoot, Number(b.id), String(b.note || ''), b.answer === 'fixed' ? 'fixed' : 'still'));
+        // 점검이 안 돌 때 사용자가 고른다: 다시 점검 / 점검 없이 직접 확인
+        if (url === '/__spec/request/test-review-retry') { const r = reviewRetry(scanRoot, Number(b.id)); kickReviewer(scanRoot, Number(b.id)); return json(res, r); }
+        if (url === '/__spec/request/test-review-skip') return json(res, reviewSkip(scanRoot, Number(b.id)));
         if (url === '/__spec/request/order') { const r = setOrder(scanRoot, Number(b.first), Number(b.other)); enqueueOutbox(scanRoot, Number(b.other)); return json(res, r); }
       }
       res.statusCode = 404;

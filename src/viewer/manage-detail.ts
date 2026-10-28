@@ -8,6 +8,7 @@ import type { Kid } from './util.js';
 import { hash, liveAt } from './route.js';
 import { stepperBig, noteBoxes, chipFor, scopeTags, withPanel, lightbox, currentDesignApproval, deliveryCard, unread } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
+import { testScreen } from './test-screen.js';
 import { basket, sendBasket } from './comment-basket.js';
 import type { Model, RequestView, Scenario, ScenarioStep } from '../types.js';
 
@@ -244,8 +245,45 @@ function testScenario(model: Model, r: RequestView, sc: Scenario, impactOnly: bo
     branches.length ? [h('div', { class: 'hint amberT' }, '갈래 — 이번 요청이 바꾼 것만'), branches.map(stepRow)] : null);
 }
 
+/** 점검을 거친 테스트의 요청 상세 칸: 점검 중이면 진행과 꺼진 열기 단추, 점검 통과면 테스트 화면 열기 입구, 반려한 뒤에는 보낸 것 목록. 체크·승인·반려는 여기에 없다 */
+function testEntrance(model: Model, r: RequestView, onChange: () => void, td: boolean): HTMLElement {
+  const rv = r.test!.review!;
+  const notes = r.test!.notes ?? [];
+  const toTest = (screen?: string): string => hash('manage', `${r.id}/test`, screen ? { screen } : {});
+  const open = (label: string, screen?: string, pri = true): HTMLElement => h('a', { class: `btn${pri ? ' pri' : ''}`, href: toTest(screen), style: 'padding:10px 14px;font-size:14px;text-align:center' }, label);
+  const act = (url: string, ok: string): void => { post(url, { id: r.id }).then(() => { toast(ok); onChange(); }).catch((e: unknown) => toast(errorText(e))); };
+  const seen = h('details', { class: 'box', style: 'padding:8px 12px' }, h('summary', { style: 'cursor:pointer;font-size:12px;color:var(--dim)' }, `에이전트가 이미 본 것 ${rv.seen.length}건${rv.seen.every((x) => x.ok) ? ' · 모두 통과' : ''} ▸`), ...rv.seen.map((x) => h('div', { style: 'font-size:12px;margin-top:4px' }, `${x.ok ? '✓' : '✗'} ${x.what}${x.detail ? ` — ${x.detail}` : ''}`)));
+  const title = (small: string): HTMLElement => h('h3', null, '테스트 ', h('small', null, small));
+  if (r.step === 'review' || r.step === 'review-fix') return h('div', { class: 'card' }, title(r.step === 'review' ? `점검 중 · ${rv.round}번째` : `점검 뒤 고치는 중 · 자동 고침 ${rv.autoFixes}/2번째`),
+    h('div', { class: 'hint' }, '사용자가 할 일은 없습니다. 점검이 끝나면 알려 드립니다.'),
+    rv.failures.length ? h('div', { class: 'box' }, h('b', null, '점검이 찾은 문제'), ...rv.failures.map((f) => h('div', null, `· ${f.what}${f.detail ? ` — ${f.detail}` : ''}`))) : h('div', { class: 'box' }, `${rv.seen.length ? `확인한 것 ${rv.seen.length}건` : '확인을 시작했습니다'} · 별도 점검 세션이 코드 리뷰·시험·화면 단계를 확인합니다`),
+    h('button', { class: 'btn pri off', disabled: true, style: 'padding:10px 14px;font-size:14px' }, '테스트 화면 열기'),
+    h('div', { class: 'hint' }, '문제를 찾으면 담당이 먼저 고쳐 다시 점검합니다(자동 2번까지).'),
+    td ? h('div', { class: 'hint' }, '테스트 데이터 서버의 복사본이라 확인은 운영 요청 상세에서 합니다.') : null);
+  if (r.step === 'review-stalled') return h('div', { class: 'card' }, title('점검 안 됨'),
+    h('div', { class: 'warn' }, '점검 세션이 안 뜨거나 30분 넘게 소식이 없습니다. 다시 점검하거나 점검 없이 직접 확인할 수 있습니다.'),
+    h('div', { class: 'sp-foot' }, h('button', { class: 'btn pri', onclick: () => act('/__spec/request/test-review-retry', '다시 점검을 시작했습니다') }, '다시 점검'), h('button', { class: 'btn', onclick: () => act('/__spec/request/test-review-skip', '점검 없이 직접 확인합니다') }, '점검 없이 직접 확인')));
+  if (r.step === 'requested') {
+    const back = notes.filter((n) => n.status === 'returned').length, pend = notes.filter((n) => n.status === 'open' || n.status === 'still').length;
+    return h('div', { class: 'card' }, title(`확인하세요 · ${rv.state === 'skipped' ? '점검 없이' : '점검 통과'}`),
+      h('div', { class: 'hint' }, back ? `지난번에 짚은 ${back}건이 고쳐져 돌아왔습니다. 그것만 다시 보시면 됩니다.` : rv.state === 'skipped' ? '점검 없이 직접 확인합니다. 화면을 눌러 보며 이상한 곳을 짚어 주세요.' : '에이전트가 본 것은 모두 통과했습니다. 이제 사람 눈으로 이상한 곳을 찾아 주세요.'),
+      td ? h('div', { class: 'hint' }, '테스트 데이터 서버의 복사본이라 확인은 운영 요청 상세에서 합니다.') : open(back ? `다시 확인하기 · ${back}건 ›` : '테스트 화면 열기 ›'),
+      pend ? h('div', { class: 'hint' }, `짚은 것 ${pend}건이 쌓여 있습니다. 테스트 화면에서 반려하거나 승인할 수 있습니다.`) : null,
+      r.scope.screens.length ? h('div', { class: 'box', style: 'display:flex;flex-direction:column;gap:6px' }, h('b', null, '바뀐 화면으로 바로 열기'), h('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' }, ...r.scope.screens.map((n) => open(`${n} ›`, n, false))), h('div', { class: 'hint', style: 'margin:0' }, '목록에 없는 곳도 테스트 화면 안에서 자유롭게 눌러 볼 수 있습니다.')) : null,
+      seen,
+      model.reviewFrame ? h('div', { class: 'hint' }, '테스트 데이터로 뜬 화면입니다 · 운영 데이터가 아닙니다') : null);
+  }
+  // 반려한 뒤(고치는 중): 보낸 것 목록과, 고치는 동안 테스트 화면이 바뀌지 않는다는 안내
+  const sent = notes.filter((n) => n.status === 'returned');
+  return h('div', { class: 'card' }, title(sent.length ? `고칠 것 ${sent.length}건을 보냈습니다` : '고치는 중'),
+    sent.length ? h('div', { class: 'box', style: 'display:flex;flex-direction:column;gap:6px' }, h('b', null, `보낸 것 ${sent.length}건`), ...sent.map((n) => h('div', null, `${n.id}. ${n.text}`))) : null,
+    h('div', { class: 'hint' }, '담당이 한 번에 모아 고치고 점검이 다시 확인한 뒤 알려 드립니다. 그동안 테스트 화면은 바뀌지 않습니다. 돌아오면 지금 짚은 것만 다시 보여 드립니다.'));
+}
+
 /** 테스트 단계 칸: 확인표와 테스트 승인·반려 */
 function testCard(model: Model, r: RequestView, onChange: () => void, td = false): HTMLElement {
+  // 점검을 거친 테스트는 확인표 대신 입구만 둔다: 짚고 승인하는 일은 전용 테스트 화면에서 한다
+  if (r.test?.review) return testEntrance(model, r, onChange, td);
   const names = r.scope.scenarios ?? [];
   const impact = new Set(r.scope.impactOnly ?? []);
   const scs = names.map((n) => model.scenarios.find((s) => s.name === n)).filter((s): s is Scenario => !!s);
@@ -312,6 +350,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
   if (!r) { root.append(h('div', { class: 'empty-note', style: 'flex:1' }, `요청 #${id}을 찾지 못했다`)); return; }
   if (sub === 'info') { manageInfoOverlay(root, { model, r }); return; }
   if (sub === 'compare') { manageCompare(root, { r, screen: new URLSearchParams(location.hash.split('?')[1] ?? '').get('screen') || '' }); return; }
+  if (sub === 'test') { testScreen(root, { model, r, screen: new URLSearchParams(location.hash.split('?')[1] ?? '').get('screen') || '', onChange }); return; }
   const d = r.design;
   const head = pageHead({ crumb: [h('a', { href: hash('manage') }, '요청'), ` › #${r.id}`], title: r.title, meta: [chipFor(r), r.detail?.mode === 'direct' ? chip('ok', '바로 작업') : null, scopeTags(r), h('span', null, `${r.source === 'user' ? '사용자 요청' : '에이전트 발견'} · ${r.origin.channel} · ${fmt(r.origin.at)}`)] });
   const stage = r.stage === 'cancelled' ? 'design' : r.stage;
@@ -355,7 +394,7 @@ export function manageDetail(root: HTMLElement, { model, id, sub, onChange }: { 
     fold('overlap', '다른 요청과 겹침', idx === 1 || idx === 2, r.overlaps.length ? `${r.overlaps.length}건 — ${r.overlaps.slice(0, 3).map((o) => `#${o.id}`).join(', ')}${r.overlaps.length > 3 ? ' …' : ''}` : '없음', overlapBody(r, onChange, model), { cur: idx === 2 }),
     fold('log', '진행 기록', idx === 3, `${r.events.map((e) => e.note || e.kind).slice(-4).join(' → ')} (${r.events.length}건)`,
       h('div', { class: 'tl' }, r.events.map((e) => h('div', null, h('i'), h('span', null, h('b', null, e.note || e.kind), ` · ${e.by === 'user' ? '사용자' : '에이전트'} · ${fmt(e.at)}`, e.quote ? h('div', { class: 'hint', style: 'margin-top:2px' }, `사용자가 한 말: “${e.quote}”`) : null))))),
-    fold('done', '완료', idx === 3, idx === 3 ? `${fmt(r.events[r.events.length - 1].at)} 끝남` : '테스트를 승인하면 이 칸에 결과가 남습니다', h('div', { class: 'hint' }, idx === 3 ? r.events[r.events.length - 1].note : ''), { later: idx < 3 }),
+    fold('done', '완료', idx === 3, idx === 3 ? `${fmt(r.events[r.events.length - 1].at)} 끝남` : '테스트를 승인하면 이 칸에 결과가 남습니다', h('div', null, h('div', { class: 'hint' }, idx === 3 ? r.events[r.events.length - 1].note : ''), idx === 3 && r.test?.review ? h('div', { class: 'hint' }, `테스트 반려 ${r.events.filter((e) => e.kind === 'test-problem').length}회 · 사용자가 누른 횟수 ${r.test.touches ?? 0}회 · 점검 자동 고침 ${r.test.review.autoFixes}회`) : null), { later: idx < 3 }),
   ];
   const designSide = r.stage === 'design' && r.step === 'submitted' ? designApproval(r, onChange, !!model.testEnv)
     : r.stage === 'design' ? h('div', { class: 'card' }, h('h3', null, r.step === 'revise' ? '설계 다시 작성 중' : r.step === 'queued' ? '접수' : '설계 작성 중'), h('div', { class: 'hint' }, r.step === 'revise' ? '반려한 내용을 고쳐 다시 올리는 중입니다.' : r.step === 'queued' ? '우선순위를 정했으면 시작합니다. 누르면 이 요청을 맡을 담당 세션이 새로 만들어지고, 설계를 작성해 승인을 기다립니다.' : '에이전트가 설계를 작성하고 있습니다. 올리면 여기서 승인하거나 반려합니다.'),

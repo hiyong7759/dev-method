@@ -29,8 +29,11 @@ import type { Brand, Model } from '../types.js';
 
 /** 설계서 보기 틀의 전부가 그려지는 자리 */
 const root = document.getElementById('app') as HTMLElement;
+// 다른 화면 안(테스트 화면의 실제 화면 자리 등)에 끼워 열렸으면 바깥이 코멘트 도구와 터미널 영역을 맡으므로 여기서는 붙이지 않고, 바깥이 부품 이름·위치와 캡처를 물어 볼 수 있게 짚기 도우미만 켠다
+const framed = window.parent !== window;
+if (framed) void import('./test-probe.js');
 // 화면 아래 터미널 영역: 화면을 다시 그려도 연결이 끊기지 않게 #app 밖에 한 번만 붙인다
-mountDock(root);
+else mountDock(root);
 let commentUi: CommentTool | null = null;
 /** 서버가 잠깐 응답하지 않는 중인지, 처음 받은 서버의 코드 표(바뀌면 서버가 새로 떴다는 뜻) */
 let down = false, loaded = false, seenStamp: string | undefined;
@@ -173,7 +176,6 @@ async function load(initial: boolean): Promise<void> {
   if (model && m.generatedAt < model.generatedAt) return;
   const k = JSON.stringify({ ...m, generatedAt: 0, comments: 0 });
   // 화면 설계서의 '실제 화면' 안(iframe)에서는 바깥 창의 코멘트 도구가 이미 있어, 안쪽에 하나 더 띄우면 겹쳐 보인다
-  const framed = window.parent !== window;
   if (!commentUi && !framed) commentUi = commentTool(m); else commentUi?.update(m);
   if (!initial && k === key) return;
   key = k; model = m;

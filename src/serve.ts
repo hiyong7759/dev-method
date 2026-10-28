@@ -12,6 +12,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { specHandler } from './middleware.js';
 import { ensureMessenger, kickWaiting, setAfterEnqueue } from './outbox.js';
 import { reconcile } from './reconcile.js';
+import { markStalledReviews } from './request.js';
 import { enableMemo } from './memo.js';
 import { openWindowsForNotices } from './notify.js';
 import { handOver, staleServer } from './stale.js';
@@ -43,11 +44,27 @@ export async function main(argv: string[]): Promise<number | undefined> {
   /** 앱 개발 서버로 요청을 그대로 넘기고 응답을 돌려준다 */
   const proxy = (req: IncomingMessage, res: ServerResponse): void => {
     if (!app) { res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); res.end('이 프로젝트에는 앱 서버가 없다. 설계서 보기는 /__spec/ 에 있다.'); return; }
-    const up = http.request({ hostname: app.hostname, port: app.port || 80, path: req.url, method: req.method, headers: { ...req.headers, host: app.host } }, (pr) => {
+    // 테스트 화면 안(iframe)에 끼워 열린 앱 화면에는 짚기 도우미(test-probe)를 끼워 준다. 안쪽이 바깥과 출처가 달라도 바깥 도구가 부품 이름·위치와 캡처를 받을 수 있게 하는 길이다
+    const framed = req.headers['sec-fetch-dest'] === 'iframe';
+    const up = http.request({ hostname: app.hostname, port: app.port || 80, path: req.url, method: req.method, headers: { ...req.headers, host: app.host, ...(framed ? { 'accept-encoding': 'identity' } : {}) } }, (pr) => {
       const headers: http.OutgoingHttpHeaders = {};
       for (const [k, v] of Object.entries(pr.headers)) if (!HOP.has(k)) headers[k] = v;
       const loc = headers.location;
       if (typeof loc === 'string' && loc.startsWith(app.origin)) headers.location = loc.slice(app.origin.length) || '/';
+      if (framed && String(pr.headers['content-type'] ?? '').includes('text/html')) {
+        const chunks: Buffer[] = [];
+        pr.on('data', (c: Buffer) => chunks.push(c));
+        pr.on('end', () => {
+          const html = Buffer.concat(chunks).toString('utf8');
+          const tag = '<script type="module" src="/__spec/ui/test-probe.js"></script>';
+          const out = Buffer.from(/<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${tag}</body>`) : html + tag);
+          delete headers['content-length'];
+          headers['content-length'] = out.length;
+          res.writeHead(pr.statusCode ?? 502, headers);
+          res.end(out);
+        });
+        return;
+      }
       res.writeHead(pr.statusCode ?? 502, headers);
       pr.pipe(res);
     });
@@ -102,7 +119,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
   setInterval(() => {
     ensureMessenger(scanRoot);
     // 마지막 안전장치: 앞 겹이 뚫려 담당·메신저가 겹쳤을 때만 정리한다. 담당 확인이 안 된 채 남은 대기 줄은 다시 시킨다
-    try { reconcile(scanRoot); kickWaiting(scanRoot); } catch { /* 점검이 서버를 멈추지 않게 */ }
+    try { reconcile(scanRoot); kickWaiting(scanRoot); markStalledReviews(scanRoot); } catch { /* 점검이 서버를 멈추지 않게 */ }
     if (!staleServer()) return;
     handOver(root);
     setTimeout(() => process.exit(0), 300);
