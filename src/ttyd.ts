@@ -9,6 +9,7 @@ import path from 'node:path';
 import os from 'node:os';
 import http from 'node:http';
 import { spawn, spawnSync } from 'node:child_process';
+import { memo } from './memo.js';
 import type { ChildProcess } from 'node:child_process';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { loadRequests, openNotes } from './request.js';
@@ -28,7 +29,7 @@ const boxes = new Map<number, Box>();
 
 /** SPEC_NO_TERMINAL=1만 터미널을 끄는 스위치다(자동 시험이 쓴다). 테스트 데이터 서버(SPEC_TEST_DIR)는 막지 않는다: 사용자가 승인 전에 실제 담당 세션의 터미널을 시험해야 하기 때문이다 */
 const disabled = (): boolean => !!process.env.SPEC_NO_TERMINAL;
-const ttydPath = (): string => { const r = spawnSync('which', ['ttyd'], { encoding: 'utf8' }); return r.status === 0 ? r.stdout.trim() : ''; };
+const ttydPath = (): string => memo('ttydPath', 60_000, () => { const r = spawnSync('which', ['ttyd'], { encoding: 'utf8' }); return r.status === 0 ? r.stdout.trim() : ''; });
 
 /** 지금 열 수 있는 탭들과 지난 담당들 */
 export function termTabs(scanRoot: string): TermTabs {

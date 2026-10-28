@@ -12,6 +12,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { specHandler } from './middleware.js';
 import { ensureMessenger, kickWaiting, setAfterEnqueue } from './outbox.js';
 import { reconcile } from './reconcile.js';
+import { enableMemo } from './memo.js';
 import { openWindowsForNotices } from './notify.js';
 import { handOver, staleServer } from './stale.js';
 import { projectRoot } from './project.js';
@@ -92,6 +93,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
   ensureMessenger(scanRoot);
   // 담당의 사건(시작·설계 제출·질문·막힘·테스트 올림·담당 종료)이 생기면 그 요청의 담당 세션 창을 iTerm2에 연다(5초마다. 요청마다 창 하나, 닫기는 사용자가). 테스트 서버에서는 열지 않는다
   // 터미널 영역이 실제로 열릴 수 있을 때만 창을 열지 않는다(ttyd가 없거나 못 띄우거나 설정으로 껐으면 iTerm2 창이 대신 열린다). itermAutoOpen을 직접 적으면 그 값을 따른다
+  enableMemo();
   cleanupLeftover(scanRoot);
   for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { stopAllTtyd(); process.exit(0); });
   process.on('exit', stopAllTtyd);

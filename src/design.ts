@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from './cli.js';
+import { memo } from './memo.js';
 import type { DesignView } from './types.js';
 
 /** 시안 판 하나의 기록 */
@@ -55,8 +56,11 @@ const git = (root: string, args: string[]): string => spawnSync('git', args, { c
 /** 그 시점 뒤로 대응 소스를 바꾼 커밋 수 */
 function commitsSince(root: string, b: Board): number {
   if (!b.syncedAt || !b.files.length) return 0;
-  const out = git(root, ['rev-list', `${b.syncedAt}..HEAD`, '--', ...b.files]);
-  return out ? out.split('\n').length : 0;
+  // 서버는 같은 조회를 30초 기억한다(화면이 2.5초마다 요청해도 git을 매번 부르지 않게)
+  return memo(`commitsSince|${root}|${b.syncedAt}|${b.files.join(',')}`, 30_000, () => {
+    const out = git(root, ['rev-list', `${b.syncedAt}..HEAD`, '--', ...b.files]);
+    return out ? out.split('\n').length : 0;
+  });
 }
 
 /** 판 하나가 지금 최신인지 말해 준다 */

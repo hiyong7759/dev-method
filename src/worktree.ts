@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { memo } from './memo.js';
 import { ownersOf } from './session.js';
 import type { WorktreeInfo } from './types.js';
 
@@ -28,7 +29,7 @@ export function worktreeRefOf(root: string, id: number): { path: string; branch:
   }
   try {
     let cur: { path?: string; branch?: string } = {};
-    for (const line of [...git(root, ['worktree', 'list', '--porcelain']).split('\n'), '']) {
+    for (const line of [...memo(`worktreeList|${root}`, 5_000, () => git(root, ['worktree', 'list', '--porcelain'])).split('\n'), '']) {
       if (line.startsWith('worktree ')) cur = { path: line.slice(9) };
       else if (line.startsWith('branch ')) cur.branch = line.slice(7).replace(/^refs\/heads\//, '');
       else if (!line && cur.path && cur.branch && cur.path.endsWith(`/.claude/worktrees/req-${id}`)) return { path: cur.path, branch: cur.branch };
@@ -39,6 +40,11 @@ export function worktreeRefOf(root: string, id: number): { path: string; branch:
 
 /** 요청의 워크트리 추적 정보 */
 export function worktreeOf(root: string, id: number): WorktreeInfo | null {
+  // 서버는 같은 조회를 5초 기억한다(화면이 2.5초마다 요청해도 요청마다 git을 여러 번 부르지 않게)
+  return memo(`worktreeOf|${root}|${id}`, 5_000, () => worktreeOfNow(root, id));
+}
+
+function worktreeOfNow(root: string, id: number): WorktreeInfo | null {
   const ref = worktreeRefOf(root, id);
   if (!ref) return null;
   const exists = fs.existsSync(ref.path);
