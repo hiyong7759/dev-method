@@ -66,6 +66,7 @@ function fakeClaudeBin(body = 'exec cat'): string {
   return dir;
 }
 const hasTtyd = spawnSync('which', ['ttyd']).status === 0;
+const ttydCommands = (): string[] => execFileSync('ps', ['-axo', 'command='], { encoding: 'utf8' }).split('\n').filter((l) => /ttyd/.test(l) && /spec-ttyd-/.test(l));
 const ENV_KEYS = ['PATH', 'SPEC_TEST_DIR', 'SPEC_NO_TERMINAL'] as const;
 const saveEnv = (): Record<string, string | undefined> => Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
 const restoreEnv = (e: Record<string, string | undefined>): void => { for (const k of ENV_KEYS) { if (e[k] === undefined) delete process.env[k]; else process.env[k] = e[k]; } };
@@ -86,6 +87,8 @@ test('ttyd 실행 인자(ps)에 비밀 값이 없고, 접속 통로는 소유자
   fs.copyFileSync(file, path.join(testDir, '.spec', 'requests', `${r.id}.json`));
   process.env.SPEC_TEST_DIR = testDir;
   process.env.PATH = `${fakeClaudeBin()}:${saved.PATH}`;
+  // 운영 서버나 브라우저가 이미 띄운 터미널은 세지 않는다: 이 시험이 새로 띄운 것만 본다
+  const before = new Set(ttydCommands());
   const server = http.createServer((q, s) => { void termHttp(src, q, s); });
   await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok));
   try {
@@ -93,7 +96,7 @@ test('ttyd 실행 인자(ps)에 비밀 값이 없고, 접속 통로는 소유자
     const code = await new Promise<number>((ok) => http.get({ port, host: '127.0.0.1', path: `/__spec/term/${r.id}/`, agent: false, headers: { host: `localhost:${port}`, connection: 'close' } }, (res) => { res.resume(); ok(res.statusCode ?? 0); }));
     assert.equal(code, 200, '테스트 데이터 서버 모양에서도 터미널 첫 화면이 중계된다');
     assert.equal(termTabs(src).live.length, 1, '실제 담당 세션이 탭으로 나온다');
-    const ps = execFileSync('ps', ['-axo', 'command='], { encoding: 'utf8' }).split('\n').filter((l) => /ttyd/.test(l) && /spec-ttyd-/.test(l));
+    const ps = ttydCommands().filter((l) => !before.has(l));
     assert.equal(ps.length, 1, '이 시험이 띄운 ttyd가 하나 있다');
     assert.doesNotMatch(ps[0], /(^|\s)(-c|--credential)(\s|=)/, '인증 값을 실행 인자로 넘기지 않는다');
     assert.doesNotMatch(ps[0], /-p\s*\d|--port/, '네트워크 포트를 열지 않는다');
