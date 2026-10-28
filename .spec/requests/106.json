@@ -24,8 +24,8 @@
     "mode": "direct",
     "reason": "화면·정보가 바뀌지 않는 성능 고장 수리이고 사용자가 원인 분석 뒤 바로 고치라는 흐름"
   },
-  "stage": "test",
-  "step": "requested",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-28T11:37:38.397Z",
@@ -50,6 +50,13 @@
       "by": "agent",
       "kind": "test-requested",
       "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-28T14:50:42.441Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "109 110 98 106 테스트 승인"
     }
   ],
   "design": {

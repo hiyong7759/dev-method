@@ -30,8 +30,8 @@
     "mode": "design",
     "reason": ""
   },
-  "stage": "design",
-  "step": "submitted",
+  "stage": "impl",
+  "step": "working",
   "events": [
     {
       "at": "2026-10-28T09:35:54.947Z",
@@ -126,6 +126,19 @@
       "by": "agent",
       "kind": "design-submitted",
       "note": "설계 제출 (정보 변경 0건 · 화면 변경 9건)"
+    },
+    {
+      "at": "2026-10-28T15:40:30.092Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "101번은 승인이야"
+    },
+    {
+      "at": "2026-10-28T15:53:18.193Z",
+      "by": "agent",
+      "kind": "also-fixed",
+      "note": "함께 고침: 견본 요청을 6건에서 9건으로 늘렸더니 견본 개수를 6으로 고정한 시험이 깨져 숫자를 맞췄다(점검·테스트 화면 모양을 볼 견본 3건을 더한 것의 결과)"
     }
   ],
   "mergedFrom": [
@@ -539,5 +552,135 @@
       "안쪽 화면을 바깥 도구가 못 읽는 문제(직접 확인)는 안쪽에 짚기 도우미를 두고, 사용자가 테스트 화면에 있는 동안은 담당이 소스를 고치지 못하게 막아 화면이 바뀌지 않게 합니다.",
       "효과는 요청당 테스트 반려 횟수와 사용자가 누른 횟수로 잽니다. 점검 세션 모델은 sonnet, 자동 고침 2번이 기본입니다."
     ]
-  }
+  },
+  "files": [
+    {
+      "path": "src/types.ts",
+      "why": "테스트 기록에 점검 결과·짚은 것·눌림 기록, 점검 중·고치는 중 단계, 테스트 화면이 읽는 모양"
+    },
+    {
+      "path": "src/request.ts",
+      "why": "request test가 점검 중으로 바꾸고, 점검 보고·짚은 것 저장·지금 보내기·다시 확인 답·승인 조건·반려 사유 만들기, 눌림 기록, 옛 요청 호환"
+    },
+    {
+      "path": "src/reviewer.ts",
+      "why": "새 파일. 점검 세션을 담당과 같은 잠금 길로 띄우고, 점검 시간 초과 확인, 실패를 담당에게 되돌리기, 테스트 서버 깨우기, 짚은 곳 다시 찍기 요청"
+    },
+    {
+      "path": "src/outbox.ts",
+      "why": "점검 시작·실패 되돌리기 글 줄"
+    },
+    {
+      "path": "src/session.ts",
+      "why": "점검 세션 이름·읽기 전용 허용 도구·시작 글"
+    },
+    {
+      "path": "src/reconcile.ts",
+      "why": "1분 점검에서 점검이 멈췄는지 본다"
+    },
+    {
+      "path": "src/commit-msg.ts",
+      "why": "테스트 승인 대기 중인 요청 번호로는 소스 커밋을 막는다(보던 화면이 바뀌지 않게)"
+    },
+    {
+      "path": "src/middleware.ts",
+      "why": "짚은 것 저장·고치기·지우기·지금 보내기·다시 확인 답·반려·승인 주소와 눌림 기록, 도우미 스크립트 내보내기, 점검 안 됨 단추 주소"
+    },
+    {
+      "path": "src/serve.ts",
+      "why": "테스트 서버의 앱 중계가 HTML에 짚기 도우미를 끼운다"
+    },
+    {
+      "path": "src/model.ts",
+      "why": "화면 모델에 점검 결과·짚은 것과 내 차례 판정(점검 중은 사용자 차례가 아님)"
+    },
+    {
+      "path": "src/todo.ts",
+      "why": "점검 중·고치는 중을 에이전트 진행 중으로 보인다"
+    },
+    {
+      "path": "src/notify.ts",
+      "why": "테스트 올림 알림을 점검이 끝나 확인하세요가 된 때로 옮긴다"
+    },
+    {
+      "path": "src/samples.ts",
+      "why": "테스트 화면과 입구 칸 모양을 볼 견본 요청"
+    },
+    {
+      "path": "src/viewer/test-screen.ts",
+      "why": "새 파일. 요청마다 전용 테스트 화면(실제 화면·도구줄·짚은 것 목록·승인·반려·다시 확인)"
+    },
+    {
+      "path": "src/viewer/test-probe.ts",
+      "why": "새 파일. 안쪽 화면에서 부품 이름·위치를 알려 주고 캡처해 주는 짚기 도우미"
+    },
+    {
+      "path": "src/viewer/app.ts",
+      "why": "테스트 화면 주소(#/test/번호)를 읽어 그린다. 안쪽에서 열린 설계서는 코멘트 도구·터미널 칸을 끄고 도우미를 켠다"
+    },
+    {
+      "path": "src/viewer/manage-detail.ts",
+      "why": "테스트 칸을 확인표에서 입구(점검 중·열기·반려 뒤)로 바꾸고 @does를 새 흐름으로 고친다"
+    },
+    {
+      "path": "src/viewer/manage-list.ts",
+      "why": "점검 중·고치는 중 이름표"
+    },
+    {
+      "path": "src/viewer/comment.ts",
+      "why": "테스트 경로 서랍을 없애고 짚기 부품을 테스트 화면과 나눠 쓰게 뺀다"
+    },
+    {
+      "path": "src/viewer/comment-basket.ts",
+      "why": "담은 코멘트가 테스트 반려에 딸려 가는 길을 없앤다"
+    },
+    {
+      "path": "src/viewer/screen.ts",
+      "why": "테스트 경로 모드를 없애고 코멘트를 담아 한번에 보낸다 @does를 일반 화면 코멘트용으로 좁힌다"
+    },
+    {
+      "path": "src/viewer/route.ts",
+      "why": "테스트 화면 주소 만들기"
+    },
+    {
+      "path": "src/viewer/style.css",
+      "why": "테스트 화면·도구줄·번호핀·짚은 것 목록 스타일"
+    },
+    {
+      "path": "test/request.test.ts",
+      "why": "점검 중 단계·짚은 것 저장·승인 조건·반려 사유·옛 요청 호환 시험"
+    },
+    {
+      "path": "test/reviewer.test.ts",
+      "why": "새 파일. 점검 띄우기 잠금·시간 초과·되돌리기 시험"
+    },
+    {
+      "path": "test/commit-msg.test.ts",
+      "why": "테스트 승인 대기 중 소스 커밋 막기 시험"
+    },
+    {
+      "path": "skills/spec-view/reviewer.md",
+      "why": "새 파일. 점검 세션 지시문(할 일·허용 범위·보고 모양)"
+    },
+    {
+      "path": "skills/spec-view/SKILL.md",
+      "why": "끝낼 때의 하이쿠 눈 확인을 점검 세션으로 바꾼다"
+    },
+    {
+      "path": "skills/spec-view/rules/approval.md",
+      "why": "테스트 올리기·점검·테스트 화면·짚기·고치는 동안 규칙"
+    },
+    {
+      "path": "skills/spec-view/rules/request.md",
+      "why": "테스트 범위와 단계 연결 규칙을 점검 대본 기준으로 고친다"
+    }
+  ],
+  "alsoFixed": [
+    {
+      "at": "2026-10-28T15:53:18.193Z",
+      "text": "견본 요청을 6건에서 9건으로 늘렸더니 견본 개수를 6으로 고정한 시험이 깨져 숫자를 맞췄다(점검·테스트 화면 모양을 볼 견본 3건을 더한 것의 결과)",
+      "where": "test/samples.test.ts",
+      "commit": ""
+    }
+  ]
 }
