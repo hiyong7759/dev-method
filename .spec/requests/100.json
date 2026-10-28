@@ -27,14 +27,22 @@
     "mode": "design",
     "reason": ""
   },
-  "stage": "design",
-  "step": "queued",
+  "stage": "cancelled",
+  "step": "cancelled",
   "events": [
     {
       "at": "2026-10-28T09:35:54.834Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-28T09:43:08.627Z",
+      "by": "user",
+      "kind": "merged-into",
+      "note": "#101에 합침",
+      "quote": "개발한 에이전트 말고 코드 리뷰하는 에이전트가 보든지. 아무튼 그렇게 해서 줄이라는 거고, 줄인 결과물을 보여줘야지 내가"
     }
-  ]
+  ],
+  "mergedInto": 101
 }
