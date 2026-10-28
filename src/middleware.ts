@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { transformSync } from 'esbuild';
-import { latestModelJson, latestModel, latestTabsJson, versionsOf, onChange, historyOf } from './snapshot.js';
+import { latestModelBytes, latestModelJson, latestModel, latestTabsJson, versionsOf, onChange, historyOf } from './snapshot.js';
 import { specDir } from './project.js';
 import { decide, addNote, sendToTool } from './report.js';
 import { addComment, replyComment, closeComment, commentToRequest, shotDir } from './comment.js';
@@ -98,7 +98,7 @@ export function specHandler(scanRoot: string): SpecHandler {
       if (url === '/__spec/term/tabs.json') { res.setHeader('content-type', 'application/json; charset=utf-8'); res.setHeader('cache-control', 'no-store'); return void res.end(await latestTabsJson(scanRoot)); }
       if (url.startsWith('/__spec/term/')) return void (await termHttp(scanRoot, req, res));
       // 요청 길은 계산하지 않는다: 배경에서 만들어 둔 마지막 모델을 그대로 돌려준다(snapshot.ts)
-      if (url === '/__spec/model.json') { res.setHeader('content-type', 'application/json; charset=utf-8'); res.setHeader('cache-control', 'no-store'); return void res.end(await latestModelJson(scanRoot)); }
+      if (url === '/__spec/model.json') { res.setHeader('content-type', 'application/json; charset=utf-8'); res.setHeader('cache-control', 'no-store'); return void res.end(await latestModelBytes(scanRoot)); }
       // 서버가 보내는 알림: 모델·탭이 달라졌을 때만 번호를 보낸다. 화면은 이것을 받을 때만 새로 받는다(연결될 때마다 현재 번호를 한 번 보낸다)
       if (url === '/__spec/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', connection: 'keep-alive' });

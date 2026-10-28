@@ -15,7 +15,7 @@ import type { Model } from './types.js';
 interface Snap {
   scanRoot: string;
   /** 마지막으로 만든 모델(JSON 글)과 오류 */
-  json: string | null; error: string; model: Model | null;
+  json: string | null; buf: Buffer | null; error: string; model: Model | null;
   tabsJson: string;
   /** 모델·탭이 달라질 때마다 오르는 번호 */
   version: number; tabsVersion: number;
@@ -36,7 +36,7 @@ export function startSnapshot(scanRoot: string): Snap {
   const had = snaps.get(scanRoot);
   if (had) return had;
   const s: Snap = {
-    scanRoot, json: null, error: '', model: null, tabsJson: '', version: 0, tabsVersion: 0, codeVersion: 0, running: false, dirty: false, builds: 0,
+    scanRoot, json: null, buf: null, error: '', model: null, tabsJson: '', version: 0, tabsVersion: 0, codeVersion: 0, running: false, dirty: false, builds: 0,
     ready: Promise.resolve(), listeners: new Set(), history: new Map(), stop: () => undefined,
   };
   snaps.set(scanRoot, s);
@@ -61,7 +61,7 @@ function run(s: Snap): void {
         const m = buildModel(s.scanRoot);
         const json = JSON.stringify(m);
         // 모델을 만든 시각만 다르고 내용이 같으면 새 것으로 치지 않는다(알림을 보내지 않는다)
-        if (strip(json) !== (s.json ? strip(s.json) : null) || s.error) { s.model = m; s.json = json; s.error = ''; s.version++; }
+        if (strip(json) !== (s.json ? strip(s.json) : null) || s.error) { s.model = m; s.json = json; s.buf = Buffer.from(json); s.error = ''; s.version++; }
       } catch (e) { const t = errorText(e); if (t !== s.error) { s.error = t; s.version++; } }
       try {
         const t = JSON.stringify(termTabs(s.scanRoot));
@@ -87,6 +87,11 @@ export async function latestModelJson(scanRoot: string): Promise<string> {
   await s.ready;
   if (s.json == null) throw new Error(s.error || '모델을 아직 못 만들었다');
   return s.json;
+}
+/** 마지막 모델(보낼 바이트). 만들 때 한 번만 바이트로 바꿔 두어 응답마다 다시 바꾸지 않는다 */
+export async function latestModelBytes(scanRoot: string): Promise<Buffer> {
+  await latestModelJson(scanRoot);
+  return startSnapshot(scanRoot).buf as Buffer;
 }
 /** 마지막 모델(객체). 쓰기 처리가 목록에서 항목을 찾을 때 쓴다 */
 export async function latestModel(scanRoot: string): Promise<Model> {
