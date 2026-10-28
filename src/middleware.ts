@@ -21,7 +21,7 @@ import { enqueueOutbox, requeueOutbox } from './outbox.js';
 import { conversationsOf } from './conversation.js';
 import { termHttp, termTabs } from './ttyd.js';
 import { errorText } from './cli.js';
-import { ROOT_DIR, SKILL_DIR, SRC_DIR, VIEWER_DIR } from './paths.js';
+import { ROOT_DIR, SRC_DIR, VIEWER_DIR } from './paths.js';
 
 /** 파일 확장자별 응답 종류 */
 const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };

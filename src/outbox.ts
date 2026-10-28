@@ -181,8 +181,6 @@ export function failRow(scanRoot: string, seq: number, reason: string): OutboxRo
   return row;
 }
 
-/** 셸에 그대로 쓸 수 있게 작은따옴표로 싼다 */
-const q = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
 
 /** `claude agents --json`이 알려 주는 지금 살아 있는 세션 한 건(읽기만 하는 조회) */
 export interface AgentInfo {

@@ -69,24 +69,6 @@ export function loadCosts(scanRoot: string): SessionCost[] {
   try { return JSON.parse(fs.readFileSync(costFile(scanRoot), 'utf8')) as SessionCost[]; } catch { return []; }
 }
 
-/** 비용 한 줄을 덧붙인다(cost 명령용) */
-export function recordCost(scanRoot: string, c: SessionCost): void {
-  const all = loadCosts(scanRoot);
-  all.push(c);
-  fs.mkdirSync(specDir(scanRoot), { recursive: true });
-  fs.writeFileSync(costFile(scanRoot), JSON.stringify(all, null, 2) + '\n');
-}
-
-/** claude가 `--output-format json`으로 돌려준 글에서 토큰과 비용을 읽는다. 읽을 수 없으면 null */
-export function parseUsage(text: string): { inputTokens: number; outputTokens: number; usd: number } | null {
-  try {
-    const j = JSON.parse(text.trim().split('\n').filter(Boolean).pop() ?? '') as { total_cost_usd?: number; usage?: { input_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number; output_tokens?: number } };
-    if (typeof j.total_cost_usd !== 'number') return null;
-    const u = j.usage ?? {};
-    return { inputTokens: (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0), outputTokens: u.output_tokens ?? 0, usd: j.total_cost_usd };
-  } catch { return null; }
-}
-
 /** 요청 하나에 쓴 비용 합계와 횟수 */
 export function costOf(scanRoot: string, id: number): { start: number; wake: number; inputTokens: number; outputTokens: number; usd: number } {
   const mine = loadCosts(scanRoot).filter((c) => c.request === id);

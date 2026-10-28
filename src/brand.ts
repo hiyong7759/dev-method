@@ -26,6 +26,3 @@ export function brandOf(root: string): Brand {
   const name = p.name?.trim() || path.basename(root);
   return { name, color: p.color?.trim() || autoColor(name), icon: p.icon?.trim() || DEFAULT_ICON };
 }
-
-/** 프로젝트 이름 뒤에 요청 번호를 붙인 말: "hidden-rule 요청 #1" */
-export const withProject = (name: string, text: string): string => `${name} ${text}`;

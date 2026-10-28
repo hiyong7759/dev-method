@@ -6,7 +6,7 @@
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { projectRoot } from './project.js';
-import type { HistoryCommit, HistoryItem, HistoryPlace, ModelInfo, Request, ScreenTag, Spec, UntrackedCommit } from './types.js';
+import type { HistoryItem, HistoryPlace, ModelInfo, Request, ScreenTag, Spec, UntrackedCommit } from './types.js';
 
 /** 커밋 메시지를 쪼개는 구분 글자 */
 const SEP = '\x1e', FIELD = '\x1f';

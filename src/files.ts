@@ -1,11 +1,10 @@
 /**
- * @spec screen-files 화면이 쓰는 파일 모으기와 내용 해시
- * @why 화면에 속한 컴포넌트·로직을 찾는 일과 "승인 후 변경됨" 판단이 같은 기준(상대 import로 닿는 파일)을 쓰게 한다.
- * @contract TypeScript 표준 표기(`./x.js`로 쓰고 실제 파일은 `x.ts`)와, 가장 가까운 tsconfig.json의 paths 별칭(예: `@/components/Foo` → src/components/Foo)도 따라간다. 따라가는 범위가 달라지면 화면에 속한 요소와 승인 후 변경됨 판단이 함께 달라진다.
+ * @spec screen-files 화면이 쓰는 파일 모으기
+ * @why 화면에 속한 컴포넌트·로직을 찾는 기준(상대 import로 닿는 파일)을 한 곳에 둔다.
+ * @contract TypeScript 표준 표기(`./x.js`로 쓰고 실제 파일은 `x.ts`)와, 가장 가까운 tsconfig.json의 paths 별칭(예: `@/components/Foo` → src/components/Foo)도 따라간다. 따라가는 범위가 달라지면 화면에 속한 요소가 달라진다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 
 /** 가져오기 글자가 .js로 끝나도 실제 파일이 .ts인 경우를 위한 짝 */
 const TS_TWIN: Record<string, string> = { '.js': '.ts', '.jsx': '.tsx', '.mjs': '.mts', '.cjs': '.cts' };
@@ -98,10 +97,3 @@ export function screenFiles(entry: string): string[] {
   visit(entry);
   return [...seen].sort();
 }
-
-/** 파일들의 이름과 내용을 합친 짧은 해시. 승인 때와 지금이 같은지 비교하는 데 쓴다 */
-export const hashOf = (files: string[]): string => {
-  const h = crypto.createHash('sha1');
-  for (const f of files) { h.update(f); try { h.update(fs.readFileSync(f)); } catch { /* 없는 파일은 이름만 */ } }
-  return h.digest('hex').slice(0, 12);
-};

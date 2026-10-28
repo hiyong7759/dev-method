@@ -5,7 +5,7 @@
  */
 import { h, get, post, pageHead, chip, tag, fmt, toast, errorText, copyText, sidePanel } from './util.js';
 import type { Kid } from './util.js';
-import { hash, nav, liveAt } from './route.js';
+import { hash, liveAt } from './route.js';
 import { stepperBig, noteBoxes, chipFor, scopeTags, withPanel, lightbox, currentDesignApproval, deliveryCard, unread } from './manage-parts.js';
 import { manageInfoOverlay, manageCompare } from './manage-views.js';
 import { basket, sendBasket } from './comment-basket.js';

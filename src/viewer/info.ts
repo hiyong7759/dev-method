@@ -3,11 +3,11 @@
  * @why 정보가 어느 화면에서 입력되고 보이고 바뀌고 판단되는지를, 어디서 열든 같은 모양의 상세 패널과 한눈에 보는 관계도로 보여 준다. 정보를 따로 문서로 쓰지 않아도 코드에서 읽은 것이 그대로 보이게 한다.
  * @contract model.infos, model.relations, model.screens[].fields를 그대로 그린다. 관계도는 창 폭에 맞춰 상자를 줄바꿈해 놓으므로, 창 폭이 바뀌면 부르는 쪽(app.ts)이 다시 그려야 한다. 오른쪽 패널은 항상 열려 있다(고르기 전에는 한눈에 보기).
  */
-import { h, ROLES, ROLE_LABEL, filterChips, sideList, pageHead, sidePanel, chip, tag, rv, nameLabel, type BulKind } from './util.js';
+import { h, ROLES, ROLE_LABEL, filterChips, sideList, pageHead, sidePanel, tag, rv, nameLabel, type BulKind } from './util.js';
 import { reportLink } from './review.js';
 import { buildErd } from './erd.js';
 import { hash, nav } from './route.js';
-import type { InfoKind, Model, ModelInfo, ModelProp, RefKind } from '../types.js';
+import type { InfoKind, Model, ModelInfo } from '../types.js';
 
 /** 정보 보기 구분: 전체 / 화면용 / 내부용 */
 export type InfoFilter = 'all' | InfoKind | 'review';

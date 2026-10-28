@@ -159,7 +159,6 @@ export function buildModel(scanRoot: string): Model {
     if (sp) f.specs.add(sp.id);
     if (dom) f.doms.set(`${dom.mode}|${dom.sel}`, dom);
   };
-  const specsOfScreen = (name: string): Spec[] => out.specs.filter((s) => s.screens.includes(name));
   kept.forEach((ai, k) => {
     const info = infos[k];
     const flow = newRoleSets();
@@ -199,7 +198,6 @@ export function buildModel(scanRoot: string): Model {
 
   // ── 화면별 모델 ──────────────────────────────────────
   const screens: ModelScreen[] = out.screens.map((s) => {
-    const specs = specsOfScreen(s.name);
     const fields: ScreenField[] = [...screenFields[s.name].values()].map((f) => ({ info: f.info, prop: f.prop, specs: [...f.specs] }));
     return {
       ...s, fields,

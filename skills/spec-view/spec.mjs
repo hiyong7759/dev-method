@@ -6,7 +6,7 @@ import { register } from 'tsx/esm/api';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const COMMANDS = ['extract', 'analyze-ts', 'nav', 'finish', 'request', 'report', 'glossary', 'open', 'serve', 'precommit', 'commit-msg', 'inbox', 'design', 'comment', 'todo', 'cost', 'testdata', 'tidy'];
+const COMMANDS = ['extract', 'analyze-ts', 'nav', 'finish', 'request', 'report', 'glossary', 'open', 'serve', 'precommit', 'commit-msg', 'inbox', 'design', 'comment', 'todo', 'testdata', 'tidy'];
 const [command, ...rest] = process.argv.slice(2);
 if (!COMMANDS.includes(command)) {
   console.error(`사용: node spec.mjs <명령> [옵션]\n명령: ${COMMANDS.join(', ')}`);

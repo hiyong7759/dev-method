@@ -80,9 +80,6 @@ export function designViews(root: string): DesignView[] {
   return readMap(root).boards.map((b) => { const f = freshness(root, b); return { no: b.no, title: b.title, mark: f.mark, detail: f.detail, stale: f.stale, state: b.state, screens: b.screens ?? [], verifyLater: b.verifyLater ?? [] }; });
 }
 
-/** 캔버스 판 제목: "10 요청 상세 · ✓ 구현과 같음 …" */
-export const boardTitle = (root: string, b: Board): string => `${b.no} ${b.title} · ${((f) => `${f.mark} ${f.text}`)(freshness(root, b))}`;
-
 /** 명령: design status | sync <판> | draft <판> --request N | later <판> "글" | check [프로젝트] */
 export async function main(argv: string[]): Promise<number | undefined> {
   const { pos, opts } = parseArgs(argv, []);

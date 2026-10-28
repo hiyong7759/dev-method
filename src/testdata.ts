@@ -60,9 +60,6 @@ export function readSeeds(root: string, c: TestDataConfig, id: number): SeedFile
   try { return JSON.parse(fs.readFileSync(seedFile(root, c, id), 'utf8')) as SeedFile; } catch { return { request: id, cases: [] }; }
 }
 
-/** 임시 폴더(/tmp, /private/tmp, /var/folders)의 경로인가: 시간이 지나면 사라져 기록에 경로만 남는다 */
-export const isTempPath = (p: string): boolean => /^(\/private)?\/(tmp|var\/folders)\//.test(path.resolve(p));
-
 /** 캡처를 저장소 안(.spec/shots)으로 복사하고 저장소 기준 경로를 돌려준다. 이미 저장소 안이면 그대로 돌려준다 */
 export function keepShot(root: string, shot: string, id: number, tag: string): string {
   const abs = path.resolve(root, shot);

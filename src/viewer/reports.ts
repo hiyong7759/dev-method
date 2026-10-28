@@ -13,7 +13,7 @@
 import { h, post, pageHead, chip, tag, rv, fmt, buls, toast, errorText } from './util.js';
 import { actionButtons, decisionText, CHOICE_LABEL } from './review.js';
 import { hash } from './route.js';
-import type { Choice, Model, ReportRow } from '../types.js';
+import type { Model, ReportRow } from '../types.js';
 
 const where = (r: ReportRow): (HTMLElement)[] => r.where.slice(0, 3).map((w) => (w.kind === 'screen' ? h('a', { href: hash('screen', w.name), class: 'tag c' }, w.name) : tag(w.kind === 'info' ? 'i' : '', w.name)));
 
