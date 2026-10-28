@@ -17,7 +17,7 @@ import { projectRoot } from './project.js';
 import { extractSpecs } from './extract.js';
 import { readConfig } from './config.js';
 import { parseArgs } from './cli.js';
-import { cleanupLeftover, isTermUrl, reapTtyd, stopAllTtyd, termUpgrade } from './ttyd.js';
+import { cleanupLeftover, isTermUrl, itermShouldOpen, reapTtyd, stopAllTtyd, termUpgrade } from './ttyd.js';
 
 /** 중계할 때 그대로 넘기지 않는 연결 관리용 머리글 */
 const HOP = new Set(['connection', 'keep-alive', 'transfer-encoding', 'upgrade', 'proxy-connection', 'te', 'trailer']);
@@ -90,13 +90,12 @@ export async function main(argv: string[]): Promise<number | undefined> {
   setAfterEnqueue(() => { ensureMessenger(scanRoot); });
   ensureMessenger(scanRoot);
   // 담당의 사건(시작·설계 제출·질문·막힘·테스트 올림·담당 종료)이 생기면 그 요청의 담당 세션 창을 iTerm2에 연다(5초마다. 요청마다 창 하나, 닫기는 사용자가). 테스트 서버에서는 열지 않는다
-  // 터미널 영역(terminalDock)이 켜져 있으면 창은 열지 않는다. itermAutoOpen을 직접 적으면 그 값을 따른다
+  // 터미널 영역이 실제로 열릴 수 있을 때만 창을 열지 않는다(ttyd가 없거나 못 띄우거나 설정으로 껐으면 iTerm2 창이 대신 열린다). itermAutoOpen을 직접 적으면 그 값을 따른다
   cleanupLeftover(scanRoot);
   for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { stopAllTtyd(); process.exit(0); });
   process.on('exit', stopAllTtyd);
   setInterval(() => { try { reapTtyd(scanRoot); } catch { /* 정리 실패가 서버를 멈추지 않게 */ } }, 5_000).unref();
-  const itermOn = (): boolean => { const c = readConfig(project); return c.itermAutoOpen ?? c.terminalDock === false; };
-  if (!process.env.SPEC_TEST_DIR) setInterval(() => { try { for (const p of openWindowsForNotices(scanRoot, itermOn())) fs.appendFileSync(path.join(root, '.spec', 'wake.log'), `${new Date().toISOString()} 터미널 창 ${p}\n`); } catch { /* 알림이 서버를 멈추지 않게 */ } }, 5_000).unref();
+  if (!process.env.SPEC_TEST_DIR) setInterval(() => { try { for (const p of openWindowsForNotices(scanRoot, itermShouldOpen(scanRoot))) fs.appendFileSync(path.join(root, '.spec', 'wake.log'), `${new Date().toISOString()} 터미널 창 ${p}\n`); } catch { /* 알림이 서버를 멈추지 않게 */ } }, 5_000).unref();
   setInterval(() => {
     ensureMessenger(scanRoot);
     if (!staleServer()) return;

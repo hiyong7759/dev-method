@@ -1,12 +1,12 @@
 /**
  * @spec terminal-dock-server 화면 아래 터미널 영역의 서버 쪽(담당 세션별 브라우저 터미널)
- * @why 담당 세션을 화면의 일부로 보려면 브라우저에서 `claude attach`를 돌려야 한다. 그런데 브라우저 터미널(ttyd)은 인증이 없으면 이 컴퓨터에서 열리는 어떤 웹 페이지든 연결해 세션을 조작할 수 있다. 그래서 ttyd는 이 컴퓨터 안(127.0.0.1)에서만 열고, 브라우저는 비밀 값을 모른 채 설계서 보기 서버를 거쳐서만 닿게 한다.
- * @contract 탭은 담당이 있고 아직 끝나지 않은(설계·구현·테스트 단계) 요청마다 하나다. 끝나거나 취소된 요청은 "지난 담당"으로 돌려준다. ttyd는 탭을 처음 열 때 세션마다 하나만 띄운다(무작위 포트, 무작위 비밀 값 --credential, 127.0.0.1에만 --interface, 쓰기 허용 -W). 비밀 값은 서버 메모리에만 있고 파일·로그·화면에 나가지 않는다(서버가 중계하며 인증 머리글을 대신 붙인다). 중계는 ① 요청한 쪽이 이 컴퓨터 안이고 ② 받는 주소(Host)가 localhost·127.0.0.1·*.localhost이며(DNS 재바인딩 방지) ③ 웹소켓·POST는 보낸 쪽 출처(Origin)가 같은 주소일 때만 한다. 하나라도 어긋나면 403이다. 요청이 끝나면, 또는 연결이 5분 없으면, 서버가 꺼질 때 ttyd를 끈다(세션은 계속 돈다: 끄는 것은 접속 창구뿐). 뜬 ttyd의 번호는 .spec/ttyd-pids.log(커밋하지 않음)에 적어 서버가 새로 뜰 때 남은 것을 정리한다. 테스트 서버(SPEC_TEST_DIR)와 SPEC_NO_TERMINAL=1에서는 ttyd를 띄우지 않는다.
+ * @why 담당 세션을 화면의 일부로 보려면 브라우저에서 `claude attach`를 돌려야 한다. 그런데 브라우저 터미널(ttyd)은 인증이 없으면 이 컴퓨터에서 열리는 어떤 웹 페이지든 연결해 세션을 조작할 수 있다. 그래서 ttyd는 네트워크 포트가 아니라 나만 들어갈 수 있는 폴더(0700) 안의 유닉스 소켓으로만 열고, 브라우저는 설계서 보기 서버를 거쳐서만 닿게 한다.
+ * @contract 탭은 담당이 있고 아직 끝나지 않은(설계·구현·테스트 단계) 요청마다 하나다. 끝나거나 취소된 요청은 "지난 담당"으로 돌려준다. ttyd는 탭을 처음 열 때 세션마다 하나만 띄운다(소유자만 열 수 있는 임시 폴더 0700 안의 유닉스 소켓 --interface, 쓰기 허용 -W). 포트도 비밀 값도 없으므로 실행 인자(ps)에 드러나는 값이 없고, 같은 컴퓨터의 다른 사용자도 소켓에 들어갈 수 없다(폴더 권한이 막는다). 중계는 ① 요청한 쪽이 이 컴퓨터 안이고 ② 받는 주소(Host)가 localhost·127.0.0.1·*.localhost이며(DNS 재바인딩 방지) ③ 웹소켓·POST는 보낸 쪽 출처(Origin)가 같은 주소일 때만 한다. 하나라도 어긋나면 403이다. 요청이 끝나면, 또는 연결이 5분 없으면, 서버가 꺼질 때 ttyd를 끈다(세션은 계속 돈다: 끄는 것은 접속 창구뿐). 뜬 ttyd의 번호는 .spec/ttyd-pids.log(커밋하지 않음)에 적어 서버가 새로 뜰 때 남은 것을 정리한다. 테스트 서버(SPEC_TEST_DIR)와 SPEC_NO_TERMINAL=1에서는 ttyd를 띄우지 않는다. 터미널 영역이 실제로 열릴 수 있는지(dockWorks: 설정이 켜져 있고, ttyd가 있고, 마지막 띄우기가 실패하지 않았음)는 한 곳에서 판단해, 못 열 때는 iTerm2 창 자동 열기가 대신한다.
  */
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import os from 'node:os';
 import http from 'node:http';
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
@@ -14,6 +14,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { loadRequests, openNotes } from './request.js';
 import { ownersOf } from './session.js';
 import { projectRoot } from './project.js';
+import { readConfig } from './config.js';
 import { attachCommand } from './terminal.js';
 import type { TermTab, TermTabs } from './types.js';
 
@@ -21,7 +22,7 @@ import type { TermTab, TermTabs } from './types.js';
 const IDLE_MS = 5 * 60 * 1000;
 const PREFIX = '/__spec/term/';
 
-interface Box { proc: ChildProcess; port: number; secret: string; sid: string; conns: number; idleSince: number }
+interface Box { proc: ChildProcess; dir: string; sock: string; sid: string; conns: number; idleSince: number }
 /** 요청 번호 → 떠 있는 ttyd */
 const boxes = new Map<number, Box>();
 
@@ -39,20 +40,39 @@ export function termTabs(scanRoot: string): TermTabs {
     (tab.live ? live : past).push(tab);
   }
   past.sort((a, b) => b.id - a.id);
-  const why = disabled() ? '테스트 환경에서는 터미널을 띄우지 않는다' : ttydPath() ? '' : 'ttyd가 없다(brew install ttyd)';
+  const why = unavailableReason(root);
   return { live, past: past.slice(0, 20), available: !why, reason: why };
 }
 
+/** 마지막으로 ttyd를 띄우다 실패한 이유(성공하면 비운다). 실패한 동안은 영역을 못 여는 것으로 본다 */
+let lastFailure = '', lastFailureAt = 0;
+/** 실패 뒤 이 시간이 지나면 다시 열 수 있는 것으로 본다(다시 시도하게) */
+const RETRY_MS = 60_000;
+/** 터미널 영역을 못 여는 이유. 열 수 있으면 빈 글 */
+function unavailableReason(root: string): string {
+  if (readConfig(root).terminalDock === false) return '설정(terminalDock)에서 껐다';
+  if (disabled()) return '테스트 환경에서는 터미널을 띄우지 않는다';
+  if (!ttydPath()) return 'ttyd가 없다(brew install ttyd)';
+  return lastFailure && Date.now() - lastFailureAt < RETRY_MS ? lastFailure : '';
+}
+/** 터미널 영역이 실제로 열릴 수 있는가. 아니면 iTerm2 창을 대신 열어야 한다 */
+export const dockWorks = (scanRoot: string): boolean => !unavailableReason(projectRoot(scanRoot));
+
+/** iTerm2 담당 창을 자동으로 열어야 하는가: 설정(itermAutoOpen)이 있으면 그 값, 없으면 터미널 영역이 못 열릴 때만 연다 */
+export const itermShouldOpen = (scanRoot: string): boolean => readConfig(projectRoot(scanRoot)).itermAutoOpen ?? !dockWorks(scanRoot);
+
 const pidFile = (root: string): string => path.join(root, '.spec', 'ttyd-pids.log');
 const writePids = (root: string): void => {
-  try { fs.mkdirSync(path.dirname(pidFile(root)), { recursive: true }); fs.writeFileSync(pidFile(root), JSON.stringify([...boxes.values()].map((b) => b.proc.pid).filter(Boolean))); } catch { /* 기록 실패가 터미널을 막지 않게 */ }
+  try { fs.mkdirSync(path.dirname(pidFile(root)), { recursive: true }); fs.writeFileSync(pidFile(root), JSON.stringify([...boxes.values()].map((b) => ({ pid: b.proc.pid, dir: b.dir })))); } catch { /* 기록 실패가 터미널을 막지 않게 */ }
 };
 
 /** 서버가 새로 뜰 때: 이전 서버가 남긴 ttyd를 끈다(번호가 다른 프로그램으로 재사용됐을 수 있어 이름이 ttyd일 때만) */
 export function cleanupLeftover(scanRoot: string): void {
   const root = projectRoot(scanRoot);
   try {
-    for (const pid of JSON.parse(fs.readFileSync(pidFile(root), 'utf8')) as number[]) {
+    for (const { pid, dir } of JSON.parse(fs.readFileSync(pidFile(root), 'utf8')) as { pid?: number; dir: string }[]) {
+      if (dir && path.basename(dir).startsWith('spec-ttyd-')) fs.rmSync(dir, { recursive: true, force: true });
+      if (!pid) continue;
       const cmd = spawnSync('ps', ['-p', String(pid), '-o', 'command='], { encoding: 'utf8' }).stdout;
       if (/ttyd/.test(cmd)) { try { process.kill(pid); } catch { /* 이미 없다 */ } }
     }
@@ -60,12 +80,10 @@ export function cleanupLeftover(scanRoot: string): void {
   } catch { /* 기록이 없다 */ }
 }
 
-function freePort(): Promise<number> {
-  return new Promise((ok, no) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = (s.address() as net.AddressInfo).port; s.close(() => ok(p)); }); s.on('error', no); });
-}
-const waitPort = async (port: number): Promise<boolean> => {
+/** 소켓이 연결될 때까지 기다린다 */
+const waitSock = async (sock: string): Promise<boolean> => {
   for (let i = 0; i < 40; i++) {
-    if (await new Promise<boolean>((ok) => { const c = net.connect(port, '127.0.0.1', () => { c.destroy(); ok(true); }); c.on('error', () => ok(false)); })) return true;
+    if (await new Promise<boolean>((ok) => { const c = net.connect({ path: sock }, () => { c.destroy(); ok(true); }); c.on('error', () => ok(false)); })) return true;
     await new Promise((ok) => setTimeout(ok, 100));
   }
   return false;
@@ -76,6 +94,7 @@ function stop(root: string, id: number): void {
   if (!b) return;
   boxes.delete(id);
   try { b.proc.kill(); } catch { /* 이미 끝났다 */ }
+  fs.rmSync(b.dir, { recursive: true, force: true });
   writePids(root);
 }
 
@@ -97,15 +116,19 @@ async function start(scanRoot: string, id: number): Promise<Box> {
   if (had) stop(root, id);
   const bin = ttydPath();
   if (disabled() || !bin) throw new Error(termTabs(scanRoot).reason);
-  const port = await freePort();
-  const secret = crypto.randomBytes(24).toString('hex');
+  // 소유자만 들어갈 수 있는 임시 폴더(0700) 안의 유닉스 소켓: 포트도 비밀 값도 없어 ps에 드러나는 것이 없고 다른 사용자는 들어올 수 없다
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-ttyd-'));
+  fs.chmodSync(dir, 0o700);
+  const sock = path.join(dir, 's.sock');
   // -O: ttyd 쪽에서도 출처를 확인한다(중계가 출처를 ttyd 주소로 바꿔 보내므로 우리 중계로 온 것만 통과). -W: 입력 허용
-  const proc = spawn(bin, ['-i', '127.0.0.1', '-p', String(port), '-c', `dev:${secret}`, '-O', '-W', '-t', 'fontSize=14', '-t', 'theme={"background":"#0b0d12"}', 'claude', 'attach', tab.sid], { stdio: 'ignore' });
-  const box: Box = { proc, port, secret, sid: tab.sid, conns: 0, idleSince: Date.now() };
-  proc.on('exit', () => { if (boxes.get(id) === box) { boxes.delete(id); writePids(root); } });
+  const proc = spawn(bin, ['-i', sock, '-O', '-W', '-t', 'fontSize=14', '-t', 'theme={"background":"#0b0d12"}', 'claude', 'attach', tab.sid], { stdio: 'ignore' });
+  const box: Box = { proc, dir, sock, sid: tab.sid, conns: 0, idleSince: Date.now() };
+  proc.on('error', () => { /* 실행 파일을 못 열었다: 아래 기다림이 실패로 처리한다 */ });
+  proc.on('exit', () => { if (boxes.get(id) === box) { boxes.delete(id); fs.rmSync(dir, { recursive: true, force: true }); writePids(root); } });
   boxes.set(id, box);
   writePids(root);
-  if (!(await waitPort(port))) { stop(root, id); throw new Error('ttyd가 뜨지 않았다'); }
+  if (!(await waitSock(sock))) { stop(root, id); lastFailure = 'ttyd가 뜨지 않았다'; lastFailureAt = Date.now(); throw new Error(lastFailure); }
+  lastFailure = '';
   return box;
 }
 
@@ -119,7 +142,7 @@ export function reapTtyd(scanRoot: string): void {
 
 /** 서버가 꺼질 때: 떠 있는 ttyd를 모두 끈다 */
 export function stopAllTtyd(): void {
-  for (const b of boxes.values()) { try { b.proc.kill(); } catch { /* 이미 끝났다 */ } }
+  for (const b of boxes.values()) { try { b.proc.kill(); } catch { /* 이미 끝났다 */ } fs.rmSync(b.dir, { recursive: true, force: true }); }
   boxes.clear();
 }
 
@@ -139,7 +162,9 @@ export function termAllowed(req: IncomingMessage, writing: boolean): boolean {
 const parseUrl = (url: string): { id: number; rest: string } | null => { const m = /^\/__spec\/term\/(\d+)(\/.*)?$/.exec(url); return m ? { id: Number(m[1]), rest: m[2] || '/' } : null; };
 export const isTermUrl = (url: string): boolean => url.startsWith(PREFIX) && !!parseUrl(url.split('?')[0]);
 
-const auth = (b: Box): string => `Basic ${Buffer.from(`dev:${b.secret}`).toString('base64')}`;
+/** ttyd가 보기에 접속한 쪽(우리 중계)의 주소와 출처. 소켓이라 실제 주소는 없으므로 같은 값을 쓴다 */
+const UP_HOST = '127.0.0.1';
+const UP_ORIGIN = `http://${UP_HOST}`;
 
 /** 브라우저의 요청을 그 요청의 ttyd로 넘기고 응답을 돌려준다 */
 export async function termHttp(scanRoot: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -150,7 +175,7 @@ export async function termHttp(scanRoot: string, req: IncomingMessage, res: Serv
   if (!termAllowed(req, req.method !== 'GET' && req.method !== 'HEAD')) return fail(403, '허용하지 않는 접속이다');
   let box: Box;
   try { box = await ensure(scanRoot, p.id); } catch (e) { return fail(503, `터미널을 열지 못했다: ${e instanceof Error ? e.message : String(e)}`); }
-  const up = http.request({ hostname: '127.0.0.1', port: box.port, path: p.rest + u.search, method: req.method, headers: { ...req.headers, host: `127.0.0.1:${box.port}`, authorization: auth(box), origin: `http://127.0.0.1:${box.port}`, cookie: '' } }, (pr) => {
+  const up = http.request({ socketPath: box.sock, path: p.rest + u.search, method: req.method, headers: { ...req.headers, host: UP_HOST, origin: UP_ORIGIN, cookie: '', authorization: '' } }, (pr) => {
     res.writeHead(pr.statusCode ?? 502, { ...pr.headers, 'cache-control': 'no-store' });
     pr.pipe(res);
   });
@@ -168,8 +193,8 @@ export function termUpgrade(scanRoot: string, req: IncomingMessage, socket: net.
   const b = boxes.get(p.id);
   if (!b) return deny('409 Conflict');
   b.conns++;
-  const t = net.connect(b.port, '127.0.0.1', () => {
-    const h = { ...req.headers, host: `127.0.0.1:${b.port}`, authorization: auth(b), origin: `http://127.0.0.1:${b.port}`, cookie: '' };
+  const t = net.connect({ path: b.sock }, () => {
+    const h = { ...req.headers, host: UP_HOST, origin: UP_ORIGIN, cookie: '' };
     t.write(`${req.method} ${p.rest}${u.search} HTTP/1.1\r\n${Object.entries(h).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n`);
     if (head?.length) t.write(head);
     socket.pipe(t); t.pipe(socket);
