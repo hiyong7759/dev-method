@@ -10,13 +10,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { specHandler } from './middleware.js';
-import { ensureMessenger, kickWaiting, setAfterEnqueue } from './outbox.js';
+import { ensureMessenger, kickWaiting, nextKickIn, setAfterEnqueue } from './outbox.js';
 import { reconcile } from './reconcile.js';
-import { enableMemo } from './memo.js';
 import { openWindowsForNotices } from './notify.js';
 import { handOver, staleServer } from './stale.js';
 import { projectRoot } from './project.js';
-import { extractSpecs } from './extract.js';
+import { screenRoutes } from './snapshot.js';
+import { watchTriggers } from './watch.js';
+import type { TriggerKind } from './watch.js';
 import { readConfig } from './config.js';
 import { parseArgs } from './cli.js';
 import { cleanupLeftover, isTermUrl, itermShouldOpen, reapTtyd, stopAllTtyd, termUpgrade } from './ttyd.js';
@@ -56,13 +57,13 @@ export async function main(argv: string[]): Promise<number | undefined> {
   };
 
   /** 주소창으로 앱 화면을 직접 연 경우 → 설계서 보기로 보낸다. 화면 안(iframe)·스크립트·이미지 요청은 건드리지 않는다 */
-  const toViewer = (req: IncomingMessage, res: ServerResponse): boolean => {
+  const toViewer = async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
     // x-spec-direct: 도구(로그인 도우미)가 앱 화면을 직접 열 때 붙이는 표시 — 보내지 않고 그대로 앱에 넘긴다
     if (req.method !== 'GET' || req.headers['sec-fetch-dest'] !== 'document' || req.headers['x-spec-direct']) return false;
     const pathname = new URL(req.url || '/', 'http://x').pathname;
     let to = '/__spec/#/flow';
     if (pathname !== '/') {
-      const hit = extractSpecs(scanRoot).screens.map((s) => ({ s, r: s.routes.filter((x) => rx(x).test(pathname)).sort((a, b) => b.length - a.length)[0] })).filter((x) => x.r).sort((a, b) => b.r.length - a.r.length)[0]?.s;
+      const hit = (await screenRoutes(scanRoot)).map((s) => ({ s, r: s.routes.filter((x) => rx(x).test(pathname)).sort((a, b) => b.length - a.length)[0] })).filter((x) => x.r).sort((a, b) => b.r.length - a.r.length)[0]?.s;
       if (hit) to = `/__spec/#/screen/${encodeURIComponent(hit.name)}?at=${encodeURIComponent(pathname)}`;
     }
     res.writeHead(302, { location: to, 'cache-control': 'no-store' });
@@ -70,7 +71,7 @@ export async function main(argv: string[]): Promise<number | undefined> {
     return true;
   };
 
-  const server = http.createServer((req, res) => { void spec(req, res, () => { if (!toViewer(req, res)) proxy(req, res); }); });
+  const server = http.createServer((req, res) => { void spec(req, res, () => { void toViewer(req, res).then((done) => { if (!done) proxy(req, res); }); }); });
   // 개발 서버의 실시간 갱신(웹소켓)도 그대로 통과시킨다
   server.on('upgrade', (req: IncomingMessage, socket: net.Socket, head: Buffer) => {
     // 화면 아래 터미널(ttyd) 연결은 앱으로 넘기지 않고 우리가 검사해서 이어 준다
@@ -93,20 +94,32 @@ export async function main(argv: string[]): Promise<number | undefined> {
   ensureMessenger(scanRoot);
   // 담당의 사건(시작·설계 제출·질문·막힘·테스트 올림·담당 종료)이 생기면 그 요청의 담당 세션 창을 iTerm2에 연다(5초마다. 요청마다 창 하나, 닫기는 사용자가). 테스트 서버에서는 열지 않는다
   // 터미널 영역이 실제로 열릴 수 있을 때만 창을 열지 않는다(ttyd가 없거나 못 띄우거나 설정으로 껐으면 iTerm2 창이 대신 열린다). itermAutoOpen을 직접 적으면 그 값을 따른다
-  enableMemo();
   cleanupLeftover(scanRoot);
   for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { stopAllTtyd(); process.exit(0); });
   process.on('exit', stopAllTtyd);
-  setInterval(() => { try { reapTtyd(scanRoot); } catch { /* 정리 실패가 서버를 멈추지 않게 */ } }, 5_000).unref();
-  if (!process.env.SPEC_TEST_DIR) setInterval(() => { try { for (const p of openWindowsForNotices(scanRoot, itermShouldOpen(scanRoot))) fs.appendFileSync(path.join(root, '.spec', 'wake.log'), `${new Date().toISOString()} 터미널 창 ${p}\n`); } catch { /* 알림이 서버를 멈추지 않게 */ } }, 5_000).unref();
-  setInterval(() => {
-    ensureMessenger(scanRoot);
-    // 마지막 안전장치: 앞 겹이 뚫려 담당·메신저가 겹쳤을 때만 정리한다. 담당 확인이 안 된 채 남은 대기 줄은 다시 시킨다
-    try { reconcile(scanRoot); kickWaiting(scanRoot); } catch { /* 점검이 서버를 멈추지 않게 */ }
-    if (!staleServer()) return;
-    handOver(root);
-    setTimeout(() => process.exit(0), 300);
-  }, 60_000).unref();
+  // 반복 타이머 대신 트리거로 한다(요청 #107): 바뀐 것이 있을 때만 해당 일을 한다. 알림이 빠질 수 있어 서버가 켜질 때 한 번 모두 한다
+  const openWindows = (): void => { if (process.env.SPEC_TEST_DIR) return; try { for (const p of openWindowsForNotices(scanRoot, itermShouldOpen(scanRoot))) fs.appendFileSync(path.join(root, '.spec', 'wake.log'), `${new Date().toISOString()} 터미널 창 ${p}\n`); } catch { /* 알림이 서버를 멈추지 않게 */ } };
+  const reap = (): void => { try { reapTtyd(scanRoot); } catch { /* 정리 실패가 서버를 멈추지 않게 */ } };
+  // 마지막 안전장치: 앞 겹이 뚫려 담당·메신저가 겹쳤을 때만 정리한다
+  const keepAlive = (): void => { ensureMessenger(scanRoot); try { reconcile(scanRoot); } catch { /* 점검이 서버를 멈추지 않게 */ } };
+  // 담당 확인이 안 된 채 20초 넘게 남은 대기 줄을 다시 시키는 것은, 줄이 적힌 순간 그 건의 20초 뒤에 한 번만 도는 타이머로 한다
+  let kickT: NodeJS.Timeout | undefined;
+  const armKick = (): void => {
+    clearTimeout(kickT);
+    const wait = nextKickIn(scanRoot);
+    if (wait == null) return;
+    kickT = setTimeout(() => { try { kickWaiting(scanRoot); } catch { /* 점검이 서버를 멈추지 않게 */ } }, wait + 50);
+    kickT.unref();
+  };
+  const staleCheck = (): void => { if (!staleServer()) return; handOver(root); setTimeout(() => process.exit(0), 300); };
+  const on = (kind: TriggerKind): void => {
+    if (kind === 'requests') { openWindows(); reap(); keepAlive(); }
+    if (kind === 'outbox') { keepAlive(); armKick(); }
+    if (kind === 'sessions') { reap(); keepAlive(); }
+    if (kind === 'tool') staleCheck();
+  };
+  watchTriggers(scanRoot, on, { kinds: ['requests', 'outbox', 'sessions', 'tool'] });
+  openWindows(); reap(); keepAlive(); armKick(); staleCheck();
   server.listen(port, () => console.log(`설계서 보기: http://localhost:${port}/\n앱 중계: ${app ? `${app.origin} (설계서 안에 끼워 넣어 보인다)` : '없음'}\n소스: ${scanRoot}`));
   return undefined;
 }

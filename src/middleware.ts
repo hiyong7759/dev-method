@@ -8,10 +8,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { transformSync } from 'esbuild';
-import { extractSpecs } from './extract.js';
-import { buildModel } from './model.js';
+import { latestModelJson, latestModel, latestTabsJson, versionsOf, onChange, historyOf } from './snapshot.js';
 import { specDir } from './project.js';
-import { screenHistory } from './history.js';
 import { decide, addNote, sendToTool } from './report.js';
 import { addComment, replyComment, closeComment, commentToRequest, shotDir } from './comment.js';
 import { ensureTestServer } from './testdata.js';
@@ -19,7 +17,7 @@ import { addRequest, recordUntracked, approveDesign, rejectDesign, redesign, che
 import { startRequest } from './wake.js';
 import { enqueueOutbox, requeueOutbox } from './outbox.js';
 import { conversationsOf } from './conversation.js';
-import { termHttp, termTabs } from './ttyd.js';
+import { termHttp } from './ttyd.js';
 import { errorText } from './cli.js';
 import { ROOT_DIR, SRC_DIR, VIEWER_DIR } from './paths.js';
 
@@ -97,17 +95,24 @@ export function specHandler(scanRoot: string): SpecHandler {
         return void res.end(fs.readFileSync(f));
       }
       // 화면 아래 터미널 영역: 탭 목록과 ttyd 중계(검사는 ttyd.ts)
-      if (url === '/__spec/term/tabs.json') return json(res, termTabs(scanRoot));
+      if (url === '/__spec/term/tabs.json') { res.setHeader('content-type', 'application/json; charset=utf-8'); res.setHeader('cache-control', 'no-store'); return void res.end(await latestTabsJson(scanRoot)); }
       if (url.startsWith('/__spec/term/')) return void (await termHttp(scanRoot, req, res));
-      if (url === '/__spec/model.json') return json(res, buildModel(scanRoot));
+      // 요청 길은 계산하지 않는다: 배경에서 만들어 둔 마지막 모델을 그대로 돌려준다(snapshot.ts)
+      if (url === '/__spec/model.json') { res.setHeader('content-type', 'application/json; charset=utf-8'); res.setHeader('cache-control', 'no-store'); return void res.end(await latestModelJson(scanRoot)); }
+      // 서버가 보내는 알림: 모델·탭이 달라졌을 때만 번호를 보낸다. 화면은 이것을 받을 때만 새로 받는다(연결될 때마다 현재 번호를 한 번 보낸다)
+      if (url === '/__spec/events') {
+        res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', connection: 'keep-alive' });
+        const send = (): void => { res.write(`data: ${JSON.stringify(versionsOf(scanRoot))}\n\n`); };
+        await latestModelJson(scanRoot).catch(() => '');
+        send();
+        const off = onChange(scanRoot, send);
+        req.on('close', off);
+        return;
+      }
       // 담당 세션의 지난 대화(읽기만 한다. 세션에 접속하지 않으니 일하는 세션이 멈추지 않는다)
       if (url === '/__spec/request/conversation.json') return json(res, conversationsOf(scanRoot, Number(u.searchParams.get('id'))));
       if (url === '/__spec/history.json') {
-        const out = extractSpecs(scanRoot);
-        const sc = out.screens.find((s) => s.name === u.searchParams.get('screen'));
-        if (!sc) return json(res, { items: [] });
-        const m = buildModel(scanRoot);
-        return json(res, { items: screenHistory(scanRoot, sc, { specs: m.specs, screens: m.screens, infos: m.infos }) });
+        return json(res, await historyOf(scanRoot, String(u.searchParams.get('screen') ?? '')));
       }
       if (req.method === 'POST') {
         const b = await body(req);
@@ -126,13 +131,13 @@ export function specHandler(scanRoot: string): SpecHandler {
           if (state !== 'registered' && state !== 'kept' && state !== 'tool') throw new Error('처리는 요청으로 처리·그냥 둠·도구 개선으로 전달 중 하나다(더 분석은 /__spec/report/analyze)');
           let request: number | undefined;
           if (state === 'registered') {
-            const row = buildModel(scanRoot).reports.find((r) => r.id === id);
+            const row = (await latestModel(scanRoot)).reports.find((r) => r.id === id);
             if (!row) throw new Error('이 항목을 찾지 못했다');
             const screens = row.where.filter((w) => w.kind === 'screen').map((w) => w.name), infos = row.where.filter((w) => w.kind === 'info').map((w) => w.name);
             request = addRequest(scanRoot, { title: row.title, origin: row.detail, channel: row.origin === 'review' ? '확인 필요' : '리포트', screens, infos, source: 'report' }).id;
           }
           if (state === 'tool') {
-            const row = buildModel(scanRoot).reports.find((r) => r.id === id);
+            const row = (await latestModel(scanRoot)).reports.find((r) => r.id === id);
             if (!row) throw new Error('이 항목을 찾지 못했다');
             request = sendToTool(scanRoot, [row])[id];
           }
@@ -157,7 +162,7 @@ export function specHandler(scanRoot: string): SpecHandler {
         // 더 분석: 사용자 의견(생략 가능)을 붙여 에이전트에게 더 조사시킨다. 결정은 아니므로 카드는 확인 중이 될 뿐이다
         if (url === '/__spec/report/analyze') {
           const id = String(b.id || '');
-          if (!buildModel(scanRoot).reports.some((r) => r.id === id)) throw new Error('이 항목을 찾지 못했다 — 화면을 새로 고쳐 다시 본다');
+          if (!(await latestModel(scanRoot)).reports.some((r) => r.id === id)) throw new Error('이 항목을 찾지 못했다 — 화면을 새로 고쳐 다시 본다');
           return json(res, addNote(scanRoot, id, { by: 'user', text: String(b.opinion || '') }));
         }
         // 묶음 처리: 같은 판단을 여러 줄에 한꺼번에 내린다. 요청으로 등록하면 고칠 일 하나(요청 하나)로 모은다
@@ -167,7 +172,7 @@ export function specHandler(scanRoot: string): SpecHandler {
           if (state !== 'registered' && state !== 'kept' && state !== 'tool') throw new Error('처리는 요청으로 처리·그냥 둠·도구 개선으로 전달 중 하나다');
           let request: number | undefined;
           if (state === 'registered') {
-            const rows = buildModel(scanRoot).reports.filter((r) => ids.includes(r.id));
+            const rows = (await latestModel(scanRoot)).reports.filter((r) => ids.includes(r.id));
             if (rows.length !== ids.length) throw new Error('이미 해소됐거나 찾지 못한 항목이 있다 — 화면을 새로 고쳐 다시 본다');
             const names = (kind: string): string[] => [...new Set(rows.flatMap((r) => r.where.filter((w) => w.kind === kind).map((w) => w.name)))];
             request = addRequest(scanRoot, { title: String(b.title || rows[0].title), origin: rows.map((r) => `#${r.no} ${r.title}`).join('\n'), channel: rows.some((r) => r.origin === 'review') ? '확인 필요' : '리포트', screens: names('screen'), infos: names('info'), source: 'report' }).id;
@@ -175,7 +180,7 @@ export function specHandler(scanRoot: string): SpecHandler {
           // 도구 개선으로 전달하면 dev-method 쪽에 개선 요청 후보를 접수하고, 건마다 그 번호를 결정에 남긴다
           let toolRequests: Record<string, number> = {};
           if (state === 'tool') {
-            const rows = buildModel(scanRoot).reports.filter((r) => ids.includes(r.id));
+            const rows = (await latestModel(scanRoot)).reports.filter((r) => ids.includes(r.id));
             if (rows.length !== ids.length) throw new Error('이미 해소됐거나 찾지 못한 항목이 있다 — 화면을 새로 고쳐 다시 본다');
             toolRequests = sendToTool(scanRoot, rows);
           }

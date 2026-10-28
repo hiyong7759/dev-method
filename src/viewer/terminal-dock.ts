@@ -7,6 +7,7 @@
  * @does 끝난 담당의 지난 대화를 다시 본다 | 영역의 "지난 담당"에서 고르면 터미널이 아니라 지난 대화가 탭으로 열린다
  * @does 터미널 영역의 높이를 바꾼다 | 영역 위 손잡이를 끌면 높이가 바뀌고 이 브라우저가 기억한다
  */
+import { live } from './live.js';
 import { h, get, fmt } from './util.js';
 import type { TermTabs } from '../types.js';
 
@@ -104,5 +105,8 @@ export function mountDock(afterEl: HTMLElement): void {
     grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up);
   });
   void refresh().then(paint);
-  setInterval(() => { void refresh(); }, 3000);
+  // 서버가 탭이 바뀌었다고 알릴 때만 새로 받는다(번호가 달라졌을 때와 연결·재연결 때)
+  let tabsSeen = -1;
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); }); // 숨겨진 동안 받지 못한 것을 다시 볼 때 한 번 새로 받는다
+  live((v) => { if (v.tabs !== tabsSeen) { tabsSeen = v.tabs; void refresh(); } });
 }

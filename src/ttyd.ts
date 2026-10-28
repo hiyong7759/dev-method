@@ -23,9 +23,14 @@ import type { TermTab, TermTabs } from './types.js';
 const IDLE_MS = 5 * 60 * 1000;
 const PREFIX = '/__spec/term/';
 
-interface Box { proc: ChildProcess; dir: string; sock: string; sid: string; conns: number; idleSince: number }
+interface Box { proc: ChildProcess; dir: string; sock: string; sid: string; conns: number; idleSince: number; idleTimer?: NodeJS.Timeout }
 /** 요청 번호 → 떠 있는 ttyd */
 const boxes = new Map<number, Box>();
+
+/** 터미널 탭 목록이 달라질 수 있는 일(ttyd 시작·끝, 실패 기록)이 생기면 부를 함수들(snapshot.ts가 건다) */
+const termListeners = new Set<() => void>();
+export function onTermChange(fn: () => void): void { termListeners.add(fn); }
+const termChanged = (): void => { for (const f of termListeners) { try { f(); } catch { /* 듣는 쪽 오류가 터미널을 막지 않게 */ } } };
 
 /** SPEC_NO_TERMINAL=1만 터미널을 끄는 스위치다(자동 시험이 쓴다). 테스트 데이터 서버(SPEC_TEST_DIR)는 막지 않는다: 사용자가 승인 전에 실제 담당 세션의 터미널을 시험해야 하기 때문이다 */
 const disabled = (): boolean => !!process.env.SPEC_NO_TERMINAL;
@@ -95,9 +100,11 @@ function stop(root: string, id: number): void {
   const b = boxes.get(id);
   if (!b) return;
   boxes.delete(id);
+  clearTimeout(b.idleTimer);
   try { b.proc.kill(); } catch { /* 이미 끝났다 */ }
   fs.rmSync(b.dir, { recursive: true, force: true });
   writePids(root);
+  termChanged();
 }
 
 /** 요청의 ttyd를 (없으면) 띄운다. 못 띄우면 이유를 던진다 */
@@ -129,12 +136,26 @@ async function start(scanRoot: string, id: number): Promise<Box> {
   proc.on('exit', () => { if (boxes.get(id) === box) { boxes.delete(id); fs.rmSync(dir, { recursive: true, force: true }); writePids(root); } });
   boxes.set(id, box);
   writePids(root);
-  if (!(await waitSock(sock))) { stop(root, id); lastFailure = 'ttyd가 뜨지 않았다'; lastFailureAt = Date.now(); throw new Error(lastFailure); }
+  if (!(await waitSock(sock))) { stop(root, id); lastFailure = 'ttyd가 뜨지 않았다'; lastFailureAt = Date.now(); termChanged(); retryTimer(); throw new Error(lastFailure); }
   lastFailure = '';
+  armIdle(scanRoot, id, box);
+  termChanged();
   return box;
 }
 
-/** 서버가 5초마다 부른다: 끝난 요청·오래 쉬는 ttyd를 끈다 */
+/** 실패 뒤 다시 열 수 있게 되는 때(RETRY_MS 뒤)에 탭 목록을 한 번 새로 만들게 한다(사건 하나짜리 타이머) */
+let retryT: NodeJS.Timeout | undefined;
+function retryTimer(): void { clearTimeout(retryT); retryT = setTimeout(termChanged, RETRY_MS + 100); retryT.unref(); }
+
+/** 연결이 없는 ttyd는 쉬는 한도(IDLE_MS)가 지난 시점에 그 건 하나만 한 번 도는 타이머로 끈다(연결이 생기면 취소, 끊기면 다시 건다) */
+function armIdle(scanRoot: string, id: number, b: Box): void {
+  clearTimeout(b.idleTimer);
+  if (b.conns > 0) return;
+  b.idleTimer = setTimeout(() => { if (boxes.get(id) === b && b.conns === 0) stop(projectRoot(scanRoot), id); }, IDLE_MS + 100);
+  b.idleTimer.unref();
+}
+
+/** 끝난 요청·오래 쉬는 ttyd를 끈다. 요청 기록이나 세션 폴더가 바뀔 때(serve.ts의 트리거)와 쉬는 한도 타이머가 부른다 */
 export function reapTtyd(scanRoot: string): void {
   if (!boxes.size) return;
   const root = projectRoot(scanRoot);
@@ -195,6 +216,7 @@ export function termUpgrade(scanRoot: string, req: IncomingMessage, socket: net.
   const b = boxes.get(p.id);
   if (!b) return deny('409 Conflict');
   b.conns++;
+  clearTimeout(b.idleTimer);
   const t = net.connect({ path: b.sock }, () => {
     const h = { ...req.headers, host: UP_HOST, origin: UP_ORIGIN, cookie: '' };
     t.write(`${req.method} ${p.rest}${u.search} HTTP/1.1\r\n${Object.entries(h).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n`);
@@ -202,6 +224,6 @@ export function termUpgrade(scanRoot: string, req: IncomingMessage, socket: net.
     socket.pipe(t); t.pipe(socket);
   });
   let closed = false;
-  const done = (): void => { if (closed) return; closed = true; b.conns = Math.max(0, b.conns - 1); b.idleSince = Date.now(); socket.destroy(); t.destroy(); };
+  const done = (): void => { if (closed) return; closed = true; b.conns = Math.max(0, b.conns - 1); b.idleSince = Date.now(); armIdle(scanRoot, p.id, b); socket.destroy(); t.destroy(); };
   t.on('error', done); t.on('close', done); socket.on('error', done); socket.on('close', done);
 }
