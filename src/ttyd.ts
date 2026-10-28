@@ -1,7 +1,7 @@
 /**
  * @spec terminal-dock-server 화면 아래 터미널 영역의 서버 쪽(담당 세션별 브라우저 터미널)
  * @why 담당 세션을 화면의 일부로 보려면 브라우저에서 `claude attach`를 돌려야 한다. 그런데 브라우저 터미널(ttyd)은 인증이 없으면 이 컴퓨터에서 열리는 어떤 웹 페이지든 연결해 세션을 조작할 수 있다. 그래서 ttyd는 네트워크 포트가 아니라 나만 들어갈 수 있는 폴더(0700) 안의 유닉스 소켓으로만 열고, 브라우저는 설계서 보기 서버를 거쳐서만 닿게 한다.
- * @contract 탭은 담당이 있고 아직 끝나지 않은(설계·구현·테스트 단계) 요청마다 하나다. 끝나거나 취소된 요청은 "지난 담당"으로 돌려준다. ttyd는 탭을 처음 열 때 세션마다 하나만 띄운다(소유자만 열 수 있는 임시 폴더 0700 안의 유닉스 소켓 --interface, 쓰기 허용 -W). 포트도 비밀 값도 없으므로 실행 인자(ps)에 드러나는 값이 없고, 같은 컴퓨터의 다른 사용자도 소켓에 들어갈 수 없다(폴더 권한이 막는다). 중계는 ① 요청한 쪽이 이 컴퓨터 안이고 ② 받는 주소(Host)가 localhost·127.0.0.1·*.localhost이며(DNS 재바인딩 방지) ③ 웹소켓·POST는 보낸 쪽 출처(Origin)가 같은 주소일 때만 한다. 하나라도 어긋나면 403이다. 요청이 끝나면, 또는 연결이 5분 없으면, 서버가 꺼질 때 ttyd를 끈다(세션은 계속 돈다: 끄는 것은 접속 창구뿐). 뜬 ttyd의 번호는 .spec/ttyd-pids.log(커밋하지 않음)에 적어 서버가 새로 뜰 때 남은 것을 정리한다. SPEC_NO_TERMINAL=1에서만 ttyd를 띄우지 않는다(자동 시험용 스위치). 테스트 데이터 서버(SPEC_TEST_DIR)에서도 실제 담당 세션의 터미널이 열린다: 탭의 요청 목록은 테스트 자리 .spec의 복사본을 따르고, 담당 세션 번호는 운영 .spec/sessions.json에서 찾는다(복사하지 않는 파일이라). 터미널 영역이 실제로 열릴 수 있는지(dockWorks: 설정이 켜져 있고, ttyd가 있고, 마지막 띄우기가 실패하지 않았음)는 한 곳에서 판단해, 못 열 때는 iTerm2 창 자동 열기가 대신한다.
+ * @contract 탭은 담당이 있고 아직 끝나지 않은(설계·구현·테스트 단계) 요청마다 하나다. 끝나거나 취소된 요청은 "지난 담당"으로 돌려준다. ttyd는 탭을 처음 열 때 세션마다 하나만 띄운다(소유자만 열 수 있는 임시 폴더 0700 안의 유닉스 소켓 --interface, 쓰기 허용 -W). 포트도 비밀 값도 없으므로 실행 인자(ps)에 드러나는 값이 없고, 같은 컴퓨터의 다른 사용자도 소켓에 들어갈 수 없다(폴더 권한이 막는다). 같은 담당에 attach가 둘 생기지 않도록 새 웹소켓이 오면 먼저 있던 연결을 닫는다(ttyd -m 1은 접었다 바로 펴면 새 연결을 거절해 쓰지 않는다). 테스트 서버는 운영 서버가 남긴 ttyd 기록을 정리하지 않는다. 탭의 사용자 차례 표시(askingUser)는 질문·막힘과 설계·테스트 승인 대기를 모두 본다. 중계는 ① 요청한 쪽이 이 컴퓨터 안이고 ② 받는 주소(Host)가 localhost·127.0.0.1·*.localhost이며(DNS 재바인딩 방지) ③ 웹소켓·POST는 보낸 쪽 출처(Origin)가 같은 주소일 때만 한다. 하나라도 어긋나면 403이다. 요청이 끝나면, 또는 연결이 5분 없으면, 서버가 꺼질 때 ttyd를 끈다(세션은 계속 돈다: 끄는 것은 접속 창구뿐). 뜬 ttyd의 번호는 .spec/ttyd-pids.log(커밋하지 않음)에 적어 서버가 새로 뜰 때 남은 것을 정리한다. SPEC_NO_TERMINAL=1에서만 ttyd를 띄우지 않는다(자동 시험용 스위치). 테스트 데이터 서버(SPEC_TEST_DIR)에서도 실제 담당 세션의 터미널이 열린다: 탭의 요청 목록은 테스트 자리 .spec의 복사본을 따르고, 담당 세션 번호는 운영 .spec/sessions.json에서 찾는다(복사하지 않는 파일이라). 터미널 영역이 실제로 열릴 수 있는지(dockWorks: 설정이 켜져 있고, ttyd가 있고, 마지막 띄우기가 실패하지 않았음)는 한 곳에서 판단해, 못 열 때는 iTerm2 창 자동 열기가 대신한다.
  */
 import fs from 'node:fs';
 import net from 'node:net';
@@ -12,7 +12,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { memo } from './memo.js';
 import type { ChildProcess } from 'node:child_process';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { loadRequests, openNotes } from './request.js';
+import { loadRequests, openNotes, STEP } from './request.js';
 import { ownersOf } from './session.js';
 import { projectRoot } from './project.js';
 import { readConfig } from './config.js';
@@ -23,7 +23,7 @@ import type { TermTab, TermTabs } from './types.js';
 const IDLE_MS = 5 * 60 * 1000;
 const PREFIX = '/__spec/term/';
 
-interface Box { proc: ChildProcess; dir: string; sock: string; sid: string; conns: number; idleSince: number; idleTimer?: NodeJS.Timeout }
+interface Box { proc: ChildProcess; dir: string; sock: string; sid: string; conns: number; idleSince: number; idleTimer?: NodeJS.Timeout; /** 열려 있는 연결을 닫는 함수들(새 연결이 오면 먼저 있던 것을 닫는다) */ closers: Set<() => void> }
 /** 요청 번호 → 떠 있는 ttyd */
 const boxes = new Map<number, Box>();
 
@@ -43,7 +43,7 @@ export function termTabs(scanRoot: string): TermTabs {
   for (const r of loadRequests(scanRoot)) {
     const sid = (ownersOf(root, r.id).slice(-1)[0] ?? '').slice(0, 8);
     if (!r.agent?.name || !sid) continue;
-    const tab: TermTab = { id: r.id, title: `#${r.id} 담당`, sid, command: attachCommand(sid), live: r.stage !== 'done' && r.stage !== 'cancelled', askingUser: Object.keys(openNotes(r)).length > 0 };
+    const tab: TermTab = { id: r.id, title: `#${r.id} 담당`, sid, command: attachCommand(sid), live: r.stage !== 'done' && r.stage !== 'cancelled', askingUser: Object.keys(openNotes(r)).length > 0 || STEP[`${r.stage}:${r.step}`]?.turn === 'user' };
     (tab.live ? live : past).push(tab);
   }
   past.sort((a, b) => b.id - a.id);
@@ -131,7 +131,7 @@ async function start(scanRoot: string, id: number): Promise<Box> {
   const sock = path.join(dir, 's.sock');
   // -O: ttyd 쪽에서도 출처를 확인한다(중계가 출처를 ttyd 주소로 바꿔 보내므로 우리 중계로 온 것만 통과). -W: 입력 허용
   const proc = spawn(bin, ['-i', sock, '-O', '-W', '-t', 'fontSize=14', '-t', 'theme={"background":"#0b0d12"}', 'claude', 'attach', tab.sid], { stdio: 'ignore' });
-  const box: Box = { proc, dir, sock, sid: tab.sid, conns: 0, idleSince: Date.now() };
+  const box: Box = { proc, dir, sock, sid: tab.sid, conns: 0, idleSince: Date.now(), closers: new Set() };
   proc.on('error', () => { /* 실행 파일을 못 열었다: 아래 기다림이 실패로 처리한다 */ });
   proc.on('exit', () => { if (boxes.get(id) === box) { boxes.delete(id); fs.rmSync(dir, { recursive: true, force: true }); writePids(root); } });
   boxes.set(id, box);
@@ -186,6 +186,8 @@ const parseUrl = (url: string): { id: number; rest: string } | null => { const m
 export const isTermUrl = (url: string): boolean => url.startsWith(PREFIX) && !!parseUrl(url.split('?')[0]);
 
 /** ttyd가 보기에 접속한 쪽(우리 중계)의 주소와 출처. 소켓이라 실제 주소는 없으므로 같은 값을 쓴다 */
+/** 웹소켓 정상 종료 틀(코드 1000) */
+const CLOSE_NORMAL = Buffer.from([0x88, 0x02, 0x03, 0xe8]);
 const UP_HOST = '127.0.0.1';
 const UP_ORIGIN = `http://${UP_HOST}`;
 
@@ -215,6 +217,8 @@ export function termUpgrade(scanRoot: string, req: IncomingMessage, socket: net.
   if (!termAllowed(req, true)) return deny('403 Forbidden');
   const b = boxes.get(p.id);
   if (!b) return deny('409 Conflict');
+  // 같은 담당에 attach가 둘 생기지 않게, 새 연결이 오면 먼저 있던 연결을 닫는다(접었다 바로 펴도, 창이 둘이어도). -m 1은 이전 연결이 닫히기 전에 온 새 연결을 거절해 쓰지 않는다
+  for (const close of [...b.closers]) close();
   b.conns++;
   clearTimeout(b.idleTimer);
   const t = net.connect({ path: b.sock }, () => {
@@ -224,6 +228,8 @@ export function termUpgrade(scanRoot: string, req: IncomingMessage, socket: net.
     socket.pipe(t); t.pipe(socket);
   });
   let closed = false;
-  const done = (): void => { if (closed) return; closed = true; b.conns = Math.max(0, b.conns - 1); b.idleSince = Date.now(); armIdle(scanRoot, p.id, b); socket.destroy(); t.destroy(); };
+  const done = (): void => { if (closed) return; closed = true; b.closers.delete(done); b.conns = Math.max(0, b.conns - 1); b.idleSince = Date.now(); armIdle(scanRoot, p.id, b); socket.destroy(); t.destroy(); };
+  // 나중 연결에 밀려 닫을 때는 정상 종료 신호(1000)를 먼저 보낸다: 신호 없이 끊으면 먼저 창이 스스로 다시 연결해 두 창이 서로 빼앗는다. 신호를 받으면 먼저 창은 "Press Enter to Reconnect"로 멈춘다
+  b.closers.add(() => { if (closed) return; socket.write(CLOSE_NORMAL, done); });
   t.on('error', done); t.on('close', done); socket.on('error', done); socket.on('close', done);
 }
