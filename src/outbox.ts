@@ -27,7 +27,7 @@ export interface OutboxRow {
   kind: 'start' | 'decision';
   /** 받을 담당 세션 번호 */
   session: string;
-  /** 담당 이름(참고용). 열린 창의 이름은 세션마다 따로 붙으므로 보낼 때 세션 번호로 다시 찾는다(openNameOf) */
+  /** 담당 이름(참고용). 열린 창의 이름은 세션마다 따로 붙으므로 보낼 때 세션 번호로 다시 찾는다(runningOwner) */
   to: string;
   /** 적은 시각 */
   at: string;
@@ -203,11 +203,6 @@ export function agentsList(): AgentInfo[] | null {
     const run = spawnSync('claude', ['agents', '--json'], { encoding: 'utf8', timeout: 15000 });
     return run.status === 0 ? (JSON.parse(run.stdout) as AgentInfo[]) : null;
   } catch { return null; }
-}
-
-/** 이 세션이 지금 열려 있다면 SendMessage가 알아듣는 이름. 열려 있지 않거나 알 수 없으면 null */
-export function openNameOf(sid: string): string | null {
-  return agentsList()?.find((a) => a.sessionId === sid)?.name ?? null;
 }
 
 /** 지금 떠 있는 요청 담당의 세션 번호와 이름. 원본 표시가 있는 담당 기록(없는 옛 요청은 기록에 있는 모두)만 센다. 떠 있지 않으면 null, 세션 목록을 못 읽으면 undefined */

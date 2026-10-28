@@ -381,11 +381,6 @@ export function noteSessionStarted(scanRoot: string, id: number, sid: string): R
   return record(scanRoot, loadOne(scanRoot, id), 'agent', 'session-started', `담당 세션을 새로 만듦(${sid.slice(0, 8)})`);
 }
 
-/** 시작한 담당 세션이 끝내 담당을 등록하지 못했다고 진행 기록에 남긴다(사용자가 알아채고 `request session`으로 다시 만들 수 있게) */
-export function noteSessionFailed(scanRoot: string, id: number, sid: string): Request {
-  return record(scanRoot, loadOne(scanRoot, id), 'agent', 'session-failed', `담당 세션 시작이 끝나지 않음(${sid.slice(0, 8)}). 화면의 시작을 다시 누르거나 request session --id ${id}로 다시 만든다`);
-}
-
 /** tidy가 지난 완료 요청을 정리하며 남긴 대표 캡처·데이터 한 줄을 요청에 적는다 */
 export function saveKept(scanRoot: string, id: number, kept: NonNullable<Request['test']>['kept']): void {
   const r = loadOne(scanRoot, id);
