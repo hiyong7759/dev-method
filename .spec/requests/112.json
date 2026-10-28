@@ -1,0 +1,39 @@
+{
+  "id": 112,
+  "title": "합치기 전 확인의 '다른 열린 브랜치' 겹침 경고가 합치기를 막지 않게 한다: 겹치는 요청끼리 서로 막아 둘 다 합칠 수 없다",
+  "source": "user",
+  "origin": {
+    "text": "자는 동안 목표 처리 중 발견(메인 세션, 사용자 말이 아님): 목표 문서 3장 '애매한 것은 새 요청으로 올려 아침에 보고'",
+    "channel": "대화",
+    "at": "2026-10-28T16:13:54.335Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [
+      "요청의 진행을 확인한다"
+    ],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "relatedTo": 104,
+  "detail": {
+    "text": "요청 #104가 합치기(land)에 합치기 전 확인을 강제하면서 확인의 '다른 열린 브랜치' 항목(같은 파일을 바꾼 합치지 않은 브랜치가 있으면 문제)도 거부 조건이 됐다. 이 항목은 원래 설계 승인 때 겹침을 알려 하나씩 하게 하는 순서용 경고(막지 않음)였다. 결과: 같은 파일을 바꾼 요청 둘(#107과 #101)은 서로를 열린 브랜치로 세어 둘 다 합칠 수 없다(직접 확인: request land --id 107이 '다른 열린 브랜치: worktree-req-101(src/middleware.ts, src/notify.ts, src/outbox.ts, src/serve.ts, src/viewer/app.ts)'로 거부됨). 함께 본 것: 확인의 시험 항목은 워크트리 안에서 npm test를 돌려 node_modules가 없는 워크트리는 항상 실패한다(21개: 'typescript를 찾지 못했다', 임시로 node_modules를 연결하면 통과). 고칠 방향 후보: 겹침은 경고로만 보이고 합치기를 막지 않거나, 실제 합치기 충돌이 날 때만 막는다. 시험 항목은 main 폴더의 node_modules로 돌린다",
+    "confirmedAt": "2026-10-28T16:13:54.335Z",
+    "mode": "design",
+    "reason": "합치기 규칙 변경이라 설계 승인이 필요하다"
+  },
+  "stage": "design",
+  "step": "queued",
+  "events": [
+    {
+      "at": "2026-10-28T16:13:54.335Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록(#104과 이어짐)"
+    }
+  ]
+}
