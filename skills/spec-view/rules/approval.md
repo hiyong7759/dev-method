@@ -41,7 +41,7 @@
 
 ## 점검 세션과 테스트 화면 (요청 #101)
 
-설정 `.spec/config.json`의 `review: true`(와 `wake: true`)인 프로젝트에서 테스트는 이렇게 흐른다. 점검 기록(`test.review`)이 없는 옛 테스트는 확인표·코멘트 서랍 그대로 본다.
+설정 `.spec/config.json`의 `review: true`(와 `wake: true`)인 프로젝트에서 테스트는 이렇게 흐른다. **dev-method는 `review: false`로 합쳐진다**(점검 세션 띄우기 `claude --bg`를 이 컴퓨터에서 실제로 돌려 확인하기 전에는 켜지 않는다). 켜는 방법: ① `.spec/config.json`의 `review`를 `true`로 바꾸고 ② 서버를 다시 띄운 뒤 ③ 점검할 요청의 `request test` 직후 `node <스킬 폴더>/spec.mjs request review-up --id N --src src`로 점검 세션이 뜨는지, 점검 세션이 `request review-report`를 부르는지 한 번 확인하고 ④ 안 되면 다시 `false`로 둔다(점검이 안 돌면 30분 뒤 "점검 안 됨"으로 바뀌어 사용자가 건너뛸 수 있다). 점검 기록(`test.review`)이 없는 옛 테스트는 확인표·코멘트 서랍 그대로 본다.
 
 1. **올리면 사용자에게 바로 가지 않는다**: `request test`는 finish·테스트 데이터 확인 뒤 단계를 "점검 중"(`test:review`)으로 바꾸고 서버가 별도 점검 세션(`<프로젝트> #번호 점검`, `reviewer.md`, 소스를 고칠 수 없음)을 띄운다. 내 차례도 알림도 없다.
 2. **점검이 보고한다**(`request review-report`): 실패가 있으면 담당에게 되돌아와(`test:review-fix`) 고치고 `request test`를 다시 올린다(자동 2번까지). 2번 뒤에도 남은 것은 "고치지 못한 것"으로 사용자에게 올라간다. 통과하면 `test-requested` 기록이 생기고 사용자 차례(`test:requested`)가 되어 알림이 간다. 점검 세션이 안 뜨거나 30분 넘게 소식이 없으면 "점검 안 됨"으로 바뀌고 사용자가 다시 점검 또는 점검 없이 직접 확인을 고른다.

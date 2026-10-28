@@ -15,5 +15,5 @@
     "dir": "~/.spec-testdata/dev-method",
     "reviewUrl": "http://test.localhost:5391/__spec/"
   },
-  "review": true
+  "review": false
 }
