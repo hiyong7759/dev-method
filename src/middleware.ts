@@ -19,6 +19,7 @@ import { addRequest, recordUntracked, approveDesign, rejectDesign, redesign, che
 import { startRequest } from './wake.js';
 import { enqueueOutbox, requeueOutbox } from './outbox.js';
 import { conversationsOf } from './conversation.js';
+import { termHttp, termTabs } from './ttyd.js';
 import { errorText } from './cli.js';
 import { ROOT_DIR, SKILL_DIR, SRC_DIR, VIEWER_DIR } from './paths.js';
 
@@ -95,6 +96,9 @@ export function specHandler(scanRoot: string): SpecHandler {
         res.setHeader('content-type', 'image/png'); res.setHeader('cache-control', 'no-store');
         return void res.end(fs.readFileSync(f));
       }
+      // 화면 아래 터미널 영역: 탭 목록과 ttyd 중계(검사는 ttyd.ts)
+      if (url === '/__spec/term/tabs.json') return json(res, termTabs(scanRoot));
+      if (url.startsWith('/__spec/term/')) return void (await termHttp(scanRoot, req, res));
       if (url === '/__spec/model.json') return json(res, buildModel(scanRoot));
       // 담당 세션의 지난 대화(읽기만 한다. 세션에 접속하지 않으니 일하는 세션이 멈추지 않는다)
       if (url === '/__spec/request/conversation.json') return json(res, conversationsOf(scanRoot, Number(u.searchParams.get('id'))));

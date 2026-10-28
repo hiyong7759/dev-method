@@ -480,6 +480,33 @@ export interface RequestView extends Request {
   asking?: { at: string; text: string };
 }
 
+/** 터미널 영역의 탭 하나(담당 세션 하나) */
+export interface TermTab {
+  /** 요청 번호 */
+  id: number;
+  /** 탭 이름 */
+  title: string;
+  /** 짧은 세션 번호 */
+  sid: string;
+  /** 사람이 직접 들어갈 때 치는 명령 */
+  command: string;
+  /** 일하는 중(요청이 안 끝남)이면 true, 끝난 담당이면 false */
+  live: boolean;
+  /** 사용자에게 묻거나 막혀서 사용자 차례인가 */
+  askingUser: boolean;
+}
+/** 터미널 영역이 받는 탭 목록 */
+export interface TermTabs {
+  /** 일하는 담당(요청이 안 끝남)의 탭들 */
+  live: TermTab[];
+  /** 끝난 담당들(최근 20개, 지난 대화로 다시 본다) */
+  past: TermTab[];
+  /** 터미널을 띄울 수 있는가(ttyd 없음·테스트 환경이면 false) */
+  available: boolean;
+  /** 못 띄우는 이유(띄울 수 있으면 빈 글) */
+  reason: string;
+}
+
 // ── 정보 분석 (analyze-ts) ───────────────────────────────
 
 /** 필드가 쓰이는 모습: 읽고 쓰기 둘 다, 읽기만, 쓰기만, 쓰이지 않음 */
@@ -1008,6 +1035,10 @@ export interface ProjectConfig {
   designCanvas?: string;
   /** true면 요청을 시작할 때 담당 세션을 새로 만들고, 사용자가 결정했을 때 닫혀 있는 담당 세션을 서버가 깨운다(비용이 들어 기본은 꺼짐) */
   wake?: boolean;
+  /** 화면 아래 터미널 영역(담당 세션을 탭으로 보여 줌)을 쓸지. 안 적으면 쓴다(ttyd가 있을 때). 쓰는 동안은 iTerm2 창을 자동으로 열지 않는다 */
+  terminalDock?: boolean;
+  /** iTerm2 창 자동 열기. 안 적으면 터미널 영역을 안 쓸 때만 연다 */
+  itermAutoOpen?: boolean;
   /** 담당 세션이 스스로 압축을 시작하는 컨텍스트 크기(토큰, 10만~100만). 담당을 claude --bg로 새로 띄울 때 --autocompact로 건다. 안 적으면 걸지 않는다(모델 한도까지 커진다) */
   autoCompact?: number;
   /** 테스트 환경: 테스트 데이터를 어디서 얻는지. 없으면 이 검사의 대상이 아니다 */

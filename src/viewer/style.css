@@ -87,7 +87,8 @@
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,sans-serif;font-size:14px}
 button{font:inherit;color:inherit;cursor:pointer}
 .mono{font-family:ui-monospace,'JetBrains Mono',Menlo,monospace}
-#app{height:100%;display:flex;flex-direction:column}
+body{display:flex;flex-direction:column}
+#app{flex:1;min-height:0;display:flex;flex-direction:column}
 .hidden{display:none!important}
 /* 상단 바 */
 .top{flex:none;overflow:hidden;height:56px;display:flex;align-items:center;gap:16px;padding:0 20px;background:var(--bg);border-bottom:1px solid var(--line)}
@@ -841,3 +842,23 @@ a.open.td{border-color:var(--amber-deep);color:var(--amber)}
 .mg-req.brief .brief-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .fresh{position:fixed;right:20px;bottom:20px;z-index:60;background:var(--accent-bg);border-color:var(--accent);color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+
+/* 화면 아래 터미널 영역 */
+.tdock{flex:none;position:relative;display:flex;flex-direction:column;background:#0b0d12;border-top:3px solid var(--accent-deep);min-height:120px}
+.tdock[hidden]{display:none}
+.tdock-grip{position:absolute;left:0;right:0;top:-8px;height:10px;cursor:ns-resize;z-index:2}
+body.tdock-drag{user-select:none;cursor:ns-resize}
+body.tdock-drag .tdock iframe{pointer-events:none}
+.tdock-bar{flex:none;display:flex;align-items:flex-end;gap:6px;padding:6px 10px 0;background:#141824;border-bottom:1px solid #2a3040}
+.tdock-tab,.tdock-x,.tdock-past{font:inherit;font-size:13px;color:#d6dae3;background:#1a1e29;border:1px solid #2a3040;border-bottom:none;border-radius:8px 8px 0 0;padding:6px 14px;cursor:pointer}
+.tdock-tab.on{background:#0b0d12;font-weight:700}
+.tdock-tab.ask{color:var(--amber)}
+.tdock-tab .x{margin-left:8px;opacity:.55}
+.tdock-x{background:none;border:none;opacity:.75}
+.tdock-btn{font:inherit;font-weight:700;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line2);background:none;color:var(--text);cursor:pointer}
+.tdock-btn.on{border-color:var(--accent-deep);background:var(--accent-bg);color:var(--accent)}
+.tdock-btn.ask{border-color:var(--amber-deep);color:var(--amber)}
+.tdock-body{flex:1;min-height:0;position:relative;color:#d6dae3}
+.tdock-term{position:absolute;inset:0;width:100%;height:100%;border:0;background:#0b0d12}
+.tdock-log{position:absolute;inset:0;overflow:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.tdock .pad{padding:16px}
