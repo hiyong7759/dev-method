@@ -1,0 +1,83 @@
+{
+  "id": 110,
+  "title": "안 쓰이는 코드 정리: 컴파일러가 확인한 미사용 이름·함수와 옛 비용 기록 명령을 지운다",
+  "source": "user",
+  "origin": {
+    "text": "애매한 건 놔두고 확실한 것만 하고 확실하게 분석해",
+    "channel": "대화",
+    "at": "2026-10-28T13:53:16.713Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": ""
+  },
+  "noTest": "동작이 바뀌지 않는 삭제라 눌러 볼 시나리오가 없다. 타입 검사와 시험 159개로 확인한다",
+  "detail": {
+    "text": "TypeScript 컴파일러의 사용처 추적으로 확인된 것만 지운다: 안 쓰이는 함수 4개(hashOf, withProject, boardTitle, isTempPath), 호출하는 곳이 없는 cost 명령(헤드리스 전달 폐지 때 호출 코드가 사라짐), 미사용 가져오기·변수 12개. 담당 세션 안전장치와 연결됐을 수 있는 openNameOf, requestExists, noteSessionFailed와 자기 파일 안에서만 쓰이는 export는 건드리지 않는다. 동작·화면은 바뀌지 않는다",
+    "confirmedAt": "2026-10-28T13:53:16.713Z",
+    "mode": "direct",
+    "reason": "사용자가 대화에서 확실한 것만 바로 정리하라고 지시했다. 화면·정보·동작 변경 없음"
+  },
+  "stage": "test",
+  "step": "requested",
+  "events": [
+    {
+      "at": "2026-10-28T13:53:16.713Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-28T13:53:16.713Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "바로 작업으로 등록(설계 없음 승인으로 봄)"
+    },
+    {
+      "at": "2026-10-28T14:21:44.083Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 894b404"
+    },
+    {
+      "at": "2026-10-28T14:33:17.487Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 65dce27"
+    },
+    {
+      "at": "2026-10-28T14:33:30.612Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    }
+  ],
+  "design": {
+    "understanding": "",
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0
+  },
+  "commits": [
+    "894b404",
+    "65dce27"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false,
+    "brief": [
+      "안 쓰이는 코드를 지웠고 화면·동작은 그대로인지 숫자로 확인한다",
+      "시험 159개 중 1개는 운영 서버의 터미널이 떠 있으면 실패하는 시험 약점이다(변경 이전 커밋에서도 같은 실패를 확인함). 지운 목록과 남긴 3개를 읽고 맞는지 정한다"
+    ],
+    "sigs": {}
+  }
+}
