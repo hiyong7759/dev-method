@@ -17,7 +17,7 @@
     "impactOnly": []
   },
   "agent": {
-    "name": ""
+    "name": "dev-method #112 담당"
   },
   "relatedTo": 104,
   "detail": {
@@ -26,8 +26,8 @@
     "mode": "design",
     "reason": "합치기 규칙 변경이라 설계 승인이 필요하다"
   },
-  "stage": "design",
-  "step": "drafting",
+  "stage": "done",
+  "step": "done",
   "events": [
     {
       "at": "2026-10-28T16:13:54.335Z",
@@ -46,6 +46,240 @@
       "by": "agent",
       "kind": "session-started",
       "note": "담당 세션을 새로 만듦(969ee9c0)"
+    },
+    {
+      "at": "2026-10-29T00:13:32.968Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #112 담당"
+    },
+    {
+      "at": "2026-10-29T00:14:08.014Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-29T00:21:17.985Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "112 설계확인하고 이상없으면 그냥 진행해"
+    },
+    {
+      "at": "2026-10-29T00:30:31.238Z",
+      "by": "agent",
+      "kind": "redesigned",
+      "note": "설계 변경(구현 중): 시험용 임시 링크로 가리지 말고 근본 원인(작업 폴더에 node_modules가 없음, .gitignore가 링크를 무시하지 못함)까지 한 요청에서 고친다",
+      "quote": "일단 문제업게 고쳐 따로하지말고"
+    },
+    {
+      "at": "2026-10-29T00:32:06.880Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-29T00:43:40.816Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 없음 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "확인해보고 문제없으면 구현시켜"
+    },
+    {
+      "at": "2026-10-29T00:47:03.354Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 커밋 ae8aa63"
+    },
+    {
+      "at": "2026-10-29T00:47:49.294Z",
+      "by": "agent",
+      "kind": "blocked",
+      "note": "막힘: request test가 거부됨: 시나리오 '요청의 진행을 확인한다'에 정상 경우 테스트 데이터와 화면 캡처가 없다는 이유. 이 요청은 화면이 안 바뀌고(합치기 전 확인 로직·설정만 변경) 캡처할 화면이 없다."
+    },
+    {
+      "at": "2026-10-29T00:47:49.407Z",
+      "by": "agent",
+      "kind": "asking",
+      "note": "질문: 구현·커밋(ae8aa63)·시험 15개 통과까지 끝났지만 테스트를 올릴 수 없습니다. 이 요청에 연결된 시나리오 '요청의 진행을 확인한다'가 화면 캡처를 요구하는데 바뀌는 화면이 없습니다. (가) 시나리오 연결을 풀어도 될까요(요청 범위 변경이라 사용자 결정), (나) 요청 목록 화면을 캡처해 테스트 데이터로 남길까요? 또 EnterWorktree가 새 설정을 따르는지는 main에 합쳐진 뒤에야 확인할 수 있어 테스트 때 '확인 못 함'으로 적습니다."
+    },
+    {
+      "at": "2026-10-29T00:55:32.297Z",
+      "by": "agent",
+      "kind": "scope",
+      "note": "범위에 시나리오 연결: "
+    },
+    {
+      "at": "2026-10-29T00:56:52.980Z",
+      "by": "agent",
+      "kind": "test-requested",
+      "note": "구현을 마치고 테스트 요청"
+    },
+    {
+      "at": "2026-10-29T01:00:55.850Z",
+      "by": "user",
+      "kind": "test-approved",
+      "note": "테스트 승인 (대화에서 한 승인을 인용해 기록함)",
+      "quote": "승인해"
     }
-  ]
+  ],
+  "design": {
+    "understanding": "겹침 경고는 알림만 하고, 작업 폴더에 node_modules가 처음부터 연결되게 하며, .gitignore가 그 링크도 무시하게 한다",
+    "points": [
+      {
+        "area": "합치기 전 확인",
+        "title": "다른 열린 브랜치는 알림만",
+        "text": "겹치는 브랜치가 있어도 항목은 통과로 두고 어떤 브랜치의 어떤 파일이 겹치는지는 설명에 그대로 보인다. 합치기를 막는 것은 합칠 때 나는 실제 충돌(mergeBranch가 되돌리고 알림)뿐이다."
+      },
+      {
+        "area": "작업 폴더",
+        "title": "만드는 순간 node_modules 연결",
+        "text": "작업 폴더(.claude/worktrees)를 만드는 곳은 Claude Code의 EnterWorktree 도구라 이 도구의 코드가 아니다(세션 장치 session.ts는 훅만 건다). 그래서 이 저장소의 .claude/settings.json에 worktree.symlinkDirectories: [\"node_modules\"]를 적는다. 공식 문서에 있는 설정이다. 다만 EnterWorktree에 적용되는지는 직접 명시가 없어 '확인 못 함'이고, 구현 뒤 실제로 새 작업 폴더를 만들어 node_modules 링크가 생기는지 확인한다."
+      },
+      {
+        "area": "작업 폴더",
+        "title": ".gitignore가 링크도 무시",
+        "text": "`node_modules/`(슬래시 있음)는 폴더만 무시해 링크가 새 파일(??)로 보인다. `node_modules`로 고쳐 링크도 무시하게 하고, 저장 안 한 변경 수에 잡히지 않는 것을 시험으로 확인한다."
+      },
+      {
+        "area": "합치기 전 확인",
+        "title": "node_modules 없을 때 이유를 분명히",
+        "text": "이미 만들어진 작업 폴더처럼 node_modules가 없으면 시험 21개 실패로 보이지 않고 'node_modules가 없다'는 한 줄로 알린다. 링크를 임시로 거는 방식은 쓰지 않는다."
+      },
+      {
+        "area": "시험",
+        "title": "시험 추가",
+        "text": "test/land.test.ts에 ① 겹치는 브랜치가 있어도 확인이 통과하고 겹침이 설명에 남는 것 ② node_modules 링크가 .gitignore로 저장 안 한 변경에 안 잡히는 것 ③ node_modules가 없을 때 알림이 한 줄로 나오는 것을 더한다."
+      }
+    ],
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 0,
+    "files": [
+      {
+        "path": "src/land.ts",
+        "why": "다른 열린 브랜치 항목을 알림으로 바꾸고, node_modules 없음을 한 줄로 알린다"
+      },
+      {
+        "path": "test/land.test.ts",
+        "why": "겹침 통과, 링크 무시, 없음 알림 시험"
+      },
+      {
+        "path": ".gitignore",
+        "why": "node_modules/를 node_modules로 고쳐 링크도 무시"
+      },
+      {
+        "path": ".claude/settings.json",
+        "why": "worktree.symlinkDirectories에 node_modules를 적어 작업 폴더를 만들 때 연결"
+      }
+    ],
+    "brief": [
+      "겹침: 같은 파일을 바꾼 다른 브랜치는 알려 주기만 하고 합치기를 막지 않습니다(막는 것은 합칠 때 나는 실제 충돌뿐, 그때는 되돌림).",
+      "근본 원인 1: 작업 폴더는 이 도구가 아니라 Claude Code의 EnterWorktree가 만듭니다. 이 도구가 만들지 않으므로, Claude Code의 설정 worktree.symlinkDirectories에 node_modules를 적어 만드는 순간 연결되게 합니다.",
+      "근본 원인 2: .gitignore의 `node_modules/`는 폴더만 무시해 링크가 새 파일로 보이므로 `node_modules`로 고칩니다.",
+      "확인 못 함: EnterWorktree가 그 설정을 따르는지는 문서에 직접 적혀 있지 않아(상위 설명으로만 유추), 구현 뒤 새 작업 폴더를 만들어 직접 확인합니다. 안 따르면 요청을 멈추고 다시 묻습니다. 화면은 안 바뀝니다."
+    ]
+  },
+  "files": [
+    {
+      "path": "src/land.ts",
+      "why": "다른 열린 브랜치 항목을 알림으로 바꾸고, node_modules 없음을 한 줄로 알린다"
+    },
+    {
+      "path": "test/land.test.ts",
+      "why": "겹침 통과, 링크 무시, 없음 알림 시험"
+    },
+    {
+      "path": ".gitignore",
+      "why": "node_modules/를 node_modules로 고쳐 링크도 무시"
+    },
+    {
+      "path": ".claude/settings.json",
+      "why": "worktree.symlinkDirectories에 node_modules를 적어 작업 폴더를 만들 때 연결"
+    }
+  ],
+  "designVersions": [
+    {
+      "design": {
+        "understanding": "겹침 경고는 알리기만 하고 합치기는 실제 충돌이 날 때만 막고, 시험은 main 폴더의 node_modules로 돌린다",
+        "points": [
+          {
+            "area": "합치기 전 확인",
+            "title": "다른 열린 브랜치는 알림만",
+            "text": "같은 파일을 바꾼 다른 브랜치가 있어도 항목은 통과로 두고, 어떤 브랜치의 어떤 파일이 겹치는지는 결과 설명에 그대로 보여 준다. 겹침이 합치기를 막는 일은 없다. 실제 충돌은 합치는 순간 mergeBranch가 되돌리고 알리므로 그대로 둔다."
+          },
+          {
+            "area": "합치기 전 확인",
+            "title": "시험은 main의 node_modules로",
+            "text": "워크트리에 node_modules가 없으면 시험 전에 main 폴더의 node_modules를 임시로 연결하고(심볼릭 링크), 끝나면 지운다. 워크트리가 자기 node_modules를 가지고 있으면 건드리지 않는다. 연결 때문에 저장 안 한 변경으로 잡히지 않는지도 시험으로 확인한다."
+          },
+          {
+            "area": "시험",
+            "title": "겹침·시험 환경 시험 추가",
+            "text": "test/land.test.ts에 ① 같은 파일을 바꾼 브랜치가 둘이어도 확인이 통과하고 겹침이 설명에 남는 것 ② node_modules 없는 워크트리에서 시험 항목이 연결로 통과하는 것을 추가한다."
+          }
+        ],
+        "approach": "",
+        "changes": [],
+        "screens": [],
+        "none": true,
+        "rejected": 0,
+        "files": [
+          {
+            "path": "src/land.ts",
+            "why": "다른 열린 브랜치 항목을 막지 않는 알림으로 바꾸고, 시험 실행에 main node_modules를 연결한다"
+          },
+          {
+            "path": "test/land.test.ts",
+            "why": "겹침이 합치기를 막지 않는 것과 node_modules 연결 시험을 더한다"
+          }
+        ],
+        "brief": [
+          "지금은 같은 파일을 바꾼 요청 둘이 서로를 '다른 열린 브랜치'로 세어 둘 다 합칠 수 없습니다(#107과 #101).",
+          "그 항목을 '막지 않는 알림'으로 바꿉니다. 합치기를 막는 것은 실제로 합칠 때 나는 충돌뿐입니다(이미 그렇게 되어 있고 충돌하면 되돌립니다).",
+          "시험 항목은 node_modules가 없는 워크트리에서 항상 실패하므로 main 폴더의 node_modules를 연결해 돌립니다.",
+          "화면은 바뀌지 않습니다."
+        ]
+      },
+      "replacedAt": "2026-10-29T00:30:31.237Z",
+      "by": "agent",
+      "reason": "시험용 임시 링크로 가리지 말고 근본 원인(작업 폴더에 node_modules가 없음, .gitignore가 링크를 무시하지 못함)까지 한 요청에서 고친다",
+      "approvedAt": "2026-10-29T00:21:17.985Z"
+    }
+  ],
+  "commits": [
+    "ae8aa63"
+  ],
+  "test": {
+    "checks": {},
+    "found": [],
+    "none": false,
+    "brief": [
+      "겹치는 요청끼리 서로 막던 '다른 열린 브랜치' 항목은 이제 알림만 하고 합치기를 막지 않습니다. 시험 15개 통과(land 시험, 새 시험 3개 포함)와 타입 검사 통과.",
+      "작업 폴더에 node_modules가 없으면 시험 21개 실패 대신 'node_modules가 없다' 한 줄로 알립니다.",
+      "확인됨: 임시 저장소에서 claude --worktree로 만든 작업 폴더에는 설정대로 node_modules 링크가 생기고(메인 세션도 직접 확인), .gitignore(node_modules)가 링크를 무시합니다.",
+      "확인 못 함: EnterWorktree 방식(이 프로젝트가 쓰는 방식)은 main에 합친 뒤에야 확인할 수 있어, 합친 직후 메인 세션이 새 작업 폴더에서 링크를 확인합니다. 화면은 안 바뀌어 요청 목록 캡처만 남겼습니다."
+    ],
+    "sigs": {
+      "요청의 진행을 확인한다#1": "요청의 진행 단계와 누구 차례인지를 본다|내 차례인 요청이 위에 모여 있다",
+      "요청의 진행을 확인한다#2": "요청의 \"열기\"를 눌러 상세를 본다|요청 상세 화면이 열린다",
+      "요청의 진행을 확인한다#3": "요청의 원문, 범위, 겹침, 진행 기록을 읽는다|한 화면에 모여 보인다",
+      "요청의 진행을 확인한다#3b": "위쪽 \"요청\"을 눌러 목록으로 돌아간다|요청 목록이 열리고, 목록에서 보던 거르기(예: 테스트 칩)가 그대로 남아 있다",
+      "요청의 진행을 확인한다#3c": "겹치는 다른 요청을 열어 본다|그 요청의 상세가 열린다",
+      "요청의 진행을 확인한다#4": "정보 변경을 현행 관계도 위에서 본다|추가·바뀜·삭제가 색으로 표시된다",
+      "요청의 진행을 확인한다#5": "지금 화면과 변경 후 디자인을 비교한다|\"현행\"·\"변경 후\"·\"나란히\"·\"겹쳐 보기\"를 차례로 누르면 누를 때마다 강조된 단추와 그림이 바뀐다",
+      "요청의 진행을 확인한다#5b": "비교 화면 위쪽 \"‹ 요청 #번호 상세로\"를 누른다|오른쪽 패널을 접어 둔 채여도 그 요청의 상세가 열린다"
+    },
+    "kept": [
+      {
+        "scenario": "요청의 진행을 확인한다",
+        "label": "요청 목록(진행 중 요청 #112가 '구현' 상태로 보임)",
+        "how": "설계서 보기 > 관리 > 요청 화면을 열어 캡처. 이 요청은 화면이 안 바뀌어 목록이 그대로임을 보인 것",
+        "shot": ".spec/shots/r112-test-요청의_진행을_확인한다_요청_목록_진행_중_요청_112가_구현_상태로_보임_.png"
+      }
+    ]
+  }
 }
