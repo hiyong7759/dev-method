@@ -27,13 +27,25 @@
     "reason": "합치기 규칙 변경이라 설계 승인이 필요하다"
   },
   "stage": "design",
-  "step": "queued",
+  "step": "drafting",
   "events": [
     {
       "at": "2026-10-28T16:13:54.335Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록(#104과 이어짐)"
+    },
+    {
+      "at": "2026-10-29T00:13:23.971Z",
+      "by": "agent",
+      "kind": "started",
+      "note": "설계를 시작함(우선순위를 정해 시작)"
+    },
+    {
+      "at": "2026-10-29T00:13:24.010Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(969ee9c0)"
     }
   ]
 }

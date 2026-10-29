@@ -19,14 +19,21 @@
   "agent": {
     "name": ""
   },
-  "stage": "design",
-  "step": "queued",
+  "stage": "cancelled",
+  "step": "cancelled",
   "events": [
     {
       "at": "2026-10-28T23:15:15.273Z",
       "by": "agent",
       "kind": "created",
       "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-29T00:13:19.211Z",
+      "by": "user",
+      "kind": "cancelled",
+      "note": "취소(설계 중): 요청 내용이 사용자 뜻과 달라 취소하고 고쳐 새로 올린다(상태에 따라 켜지고 꺼짐 → 점검 설정 없이 항상 점검, 화면은 새 테스트 화면 하나) (대화에서 한 말을 인용해 기록함)",
+      "quote": "어 취소하고 새로올려서 진행해"
     }
   ]
 }
