@@ -1,9 +1,11 @@
 /**
  * @spec land 합치기 전 확인과 main에 합치기
  * @why 요청마다 워크트리에서 일하므로, main에는 사용자가 테스트 승인한 코드만 들어가야 한다. 담당이 스스로 합치지 못하게 합치는 일을 하나의 명령(request land)으로 묶고, 합치기 전에 기계로 확인할 수 있는 것(범위 밖 변경·다른 브랜치와 같은 파일·타입 검사·시험)을 먼저 확인한다. 영향 범위 안 코드의 검토는 검토 에이전트(메인 세션)가 맡고, 전체를 다시 읽는 검토는 하지 않는다.
- * @contract `check`는 읽기와 검사만 한다(아무것도 바꾸지 않는다): ① 브랜치가 바꾼 파일이 승인된 설계의 files 안인지(.spec/ 아래와 .md 문서는 범위 밖으로 세지 않는다) ② 다른 열린 워크트리 브랜치가 같은 파일을 바꿨는지 ③ `npm run typecheck`와 `npm test`. `land`는 요청이 테스트 승인으로 끝났고 워크트리의 저장 안 한 변경이 없고 main 폴더가 main 브랜치일 때만 그 브랜치를 --no-ff로 합친다(승인 전이면 거부, 이미 합쳤으면 그대로 둔다). 합치기 전에 확인(check)을 먼저 돌려 하나라도 문제면 합치지 않고, main 폴더에 저장 안 한 변경이 있으면 충돌과 구분해 알리며, 앞선 커밋이 없으면 합칠 것이 없다고 알린다. 충돌하면 합치기를 되돌리고 알린다. `overlapsOf`는 설계 승인 때 같은 파일을 건드리는 다른 진행 중 요청을 찾아 경고하는 데 쓴다(막지 않는다. 겹치면 기존 순서 기능으로 하나씩 하게 한다).
+ * @contract `check`는 읽기와 검사만 한다(아무것도 바꾸지 않는다): ① 브랜치가 바꾼 파일이 승인된 설계의 files 안인지(.spec/ 아래와 .md 문서는 범위 밖으로 세지 않는다) ② 다른 열린 워크트리 브랜치가 같은 파일을 바꿨는지(알림만 하고 합치기를 막지 않는다. 막는 것은 합칠 때 나는 실제 충돌뿐) ③ `npm run typecheck`와 `npm test`. `land`는 요청이 테스트 승인으로 끝났고 워크트리의 저장 안 한 변경이 없고 main 폴더가 main 브랜치일 때만 그 브랜치를 --no-ff로 합친다(승인 전이면 거부, 이미 합쳤으면 그대로 둔다). 합치기 전에 확인(check)을 먼저 돌려 하나라도 문제면 합치지 않고, main 폴더에 저장 안 한 변경이 있으면 충돌과 구분해 알리며, 앞선 커밋이 없으면 합칠 것이 없다고 알린다. 충돌하면 합치기를 되돌리고 알린다. `overlapsOf`는 설계 승인 때 같은 파일을 건드리는 다른 진행 중 요청을 찾아 경고하는 데 쓴다(막지 않는다. 겹치면 기존 순서 기능으로 하나씩 하게 한다).
  */
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadOne } from './request.js';
 import { projectRoot } from './project.js';
 import { baseBranch, worktreeOf, worktreeRefOf } from './worktree.js';
@@ -58,8 +60,12 @@ export function checkRequest(scanRoot: string, id: number, o: { run?: boolean } 
     const same = names(git(root, ['diff', '--name-only', `${base}...${b}`])).filter((f) => changed.includes(f) && !exempt(f));
     if (same.length) others.push(`${b}(${same.join(', ')})`);
   }
-  out.push({ ok: !others.length, what: '다른 열린 브랜치', detail: others.length ? `같은 파일을 바꾼 브랜치: ${others.join('; ')}` : '같은 파일을 바꾼 다른 브랜치 없음' });
-  if (o.run !== false) {
+  // 겹침은 알림이다: 서로를 열린 브랜치로 세어 둘 다 못 합치는 일이 없게 항상 통과로 두고, 실제 충돌은 합칠 때 mergeBranch가 되돌린다
+  out.push({ ok: true, what: '다른 열린 브랜치', detail: others.length ? `같은 파일을 바꾼 브랜치(알림, 합치기는 막지 않음): ${others.join('; ')}` : '같은 파일을 바꾼 다른 브랜치 없음' });
+  if (o.run !== false && !existsSync(join(ref.path, 'node_modules'))) {
+    // node_modules가 없으면 타입 검사·시험이 전부 실패해 원인이 묻히므로 한 줄로 알린다
+    out.push({ ok: false, what: '시험 환경', detail: '작업 폴더에 node_modules가 없어 타입 검사·시험을 돌릴 수 없다(.claude/settings.json의 worktree.symlinkDirectories가 작업 폴더를 만들 때 연결한다)' });
+  } else if (o.run !== false) {
     for (const [what, args] of [['타입 검사', ['run', 'typecheck']], ['시험', ['test']]] as const) {
       try { execFileSync('npm', [...args], { cwd: ref.path, encoding: 'utf8', timeout: 600000, stdio: ['ignore', 'pipe', 'pipe'] }); out.push({ ok: true, what, detail: '통과' }); } catch (e) { out.push({ ok: false, what, detail: `실패: ${String((e as { stdout?: string }).stdout ?? e).trim().split('\n').slice(-3).join(' / ')}` }); }
     }

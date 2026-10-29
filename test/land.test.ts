@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { mergeBranch, landRequest } from '../src/land.js';
+import { mergeBranch, landRequest, checkRequest } from '../src/land.js';
 import { addRequest, startDesign, submitDesign, approveDesign, requestTest, approveTest } from '../src/request.js';
 import { worktreeOf } from '../src/worktree.js';
 import { tempProject } from './helpers.js';
@@ -104,6 +104,8 @@ test('합치기 커밋 없이 합쳐진 옛 브랜치(요청 기록의 커밋이
 function approvedRequest(testScript: string, extra: string[] = []): { root: string; src: string } {
   const { root, wt } = repoWithWorktree();
   const src = path.join(root, 'src');
+  // 실제 작업 폴더는 만들 때 node_modules가 연결된다(.claude/settings.json). 빈 폴더는 git이 세지 않는다
+  fs.mkdirSync(path.join(wt, 'node_modules'));
   addRequest(src, { title: '합치기' }); startDesign(src, 1);
   submitDesign(src, 1, { understanding: '이해', approach: '방법', files: [{ path: 'b.txt', why: '시험' }, { path: 'package.json', why: '시험' }] });
   approveDesign(src, 1); requestTest(src, 1); approveTest(src, 1, true);
@@ -144,4 +146,33 @@ test('main 폴더에서 실행 기록(finish.json)만 바뀐 것은 거부하지
   fs.writeFileSync(path.join(root, '.spec', 'finish.json'), '{"ok":"dirty"}\n');
   landRequest(src, 1);
   assert.ok(fs.existsSync(path.join(root, 'b.txt')));
+});
+
+test('같은 파일을 바꾼 다른 열린 브랜치가 있어도 확인은 통과하고 겹침은 알림으로 남는다', () => {
+  const { root, src } = approvedRequest('node -e 0');
+  git(root, 'worktree', 'add', '-q', path.join(root, '.claude', 'worktrees', 'req-2'), '-b', 'worktree-req-2');
+  const other = path.join(root, '.claude', 'worktrees', 'req-2');
+  fs.writeFileSync(path.join(other, 'b.txt'), 'other\n');
+  git(other, 'add', '-A'); git(other, 'commit', '-q', '-m', 'other');
+  const line = checkRequest(src, 1).find((l) => l.what === '다른 열린 브랜치');
+  assert.equal(line?.ok, true);
+  assert.match(line?.detail ?? '', /worktree-req-2.*b\.txt/);
+});
+
+test('node_modules가 없는 작업 폴더는 시험 실패 더미 대신 한 줄로 알린다', () => {
+  const { root, src } = approvedRequest('node -e 0');
+  fs.rmSync(path.join(root, '.claude', 'worktrees', 'req-1', 'node_modules'), { recursive: true });
+  const bad = checkRequest(src, 1).filter((l) => !l.ok);
+  assert.equal(bad.length, 1);
+  assert.equal(bad[0].what, '시험 환경');
+  assert.match(bad[0].detail, /node_modules가 없어/);
+});
+
+test('node_modules 링크는 .gitignore가 무시해 저장 안 한 변경으로 세지 않는다', () => {
+  const { root, wt } = repoWithWorktree();
+  fs.writeFileSync(path.join(root, '.gitignore'), 'node_modules\n');
+  git(root, 'add', '.gitignore'); git(root, 'commit', '-q', '-m', 'ignore'); git(wt, 'merge', '-q', 'main');
+  fs.mkdirSync(path.join(root, 'node_modules'));
+  fs.symlinkSync(path.join(root, 'node_modules'), path.join(wt, 'node_modules'));
+  assert.equal(git(wt, 'status', '--porcelain').trim(), '');
 });
