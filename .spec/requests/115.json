@@ -1,0 +1,151 @@
+{
+  "id": 115,
+  "title": "메신저가 사용량 한도로 막힘 상태가 된 뒤 한도가 풀려도 다시 깨어나지 않는 것을 고친다",
+  "source": "user",
+  "origin": {
+    "text": "한도에 걸린뒤 안깨어나는건 나중에 수정해",
+    "channel": "대화",
+    "at": "2026-10-29T01:50:02.590Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": "dev-method #115 담당"
+  },
+  "noTest": "화면이 바뀌지 않는 서버 동작 수리(메신저를 깨우는 조건)",
+  "stage": "impl",
+  "step": "working",
+  "events": [
+    {
+      "at": "2026-10-29T01:50:02.590Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-10-29T05:44:22.114Z",
+      "by": "agent",
+      "kind": "started",
+      "note": "설계를 시작함(우선순위를 정해 시작)"
+    },
+    {
+      "at": "2026-10-29T05:44:22.177Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(53838318)"
+    },
+    {
+      "at": "2026-10-29T05:44:29.996Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #115 담당"
+    },
+    {
+      "at": "2026-10-29T05:45:07.035Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-29T05:46:55.717Z",
+      "by": "user",
+      "kind": "design-rejected",
+      "note": "설계 반려: ㄷㅏㄹㅡㄴ ㅁㅜㄴㅈㅔ ㅇㅓㅂㅅㄴㅡㄴㅈㅣ ㅎㅏㄴㅂㅓㄴㄷㅓ ㄱㅓㅁㅌㅗㅎㅐ"
+    },
+    {
+      "at": "2026-10-29T05:47:38.375Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-10-29T05:47:38.490Z",
+      "by": "agent",
+      "kind": "asking",
+      "note": "질문: 메신저 수리와 같은 뿌리의 문제를 더 찾았습니다: 한도로 막힌 담당 세션·점검 세션도 '돌고 있음'으로 보여 깨우지 않습니다. 이번 요청은 메신저만 고치고 이 둘은 따로 요청할까요, 이번에 같이 고칠까요?"
+    },
+    {
+      "at": "2026-10-29T05:48:28.332Z",
+      "by": "user",
+      "kind": "design-approved",
+      "note": "설계 없음 승인"
+    },
+    {
+      "at": "2026-10-29T05:48:44.291Z",
+      "by": "agent",
+      "kind": "impl",
+      "note": "구현 시작"
+    },
+    {
+      "at": "2026-10-29T05:53:27.132Z",
+      "by": "agent",
+      "kind": "blocked",
+      "note": "막힘: finish가 '테스트 서버가 새 코드로 떠 있다(포트 5391)'에서 두 번 연속 실패해 테스트 요청을 못 올림. 워크트리 안에서 finish가 newCodeProblem을 srcDir 없이 불러 서버가 뜬 코드(워크트리/테스트 대상)와 다른 소스 표를 비교하는 것으로 보이나 확인하지 못함. 구현은 커밋됨(워크트리 req-115, 타입 검사·시험 196건 통과). 도구(src/finish.ts) 수정은 이 요청 범위 밖"
+    }
+  ],
+  "design": {
+    "understanding": "한도로 막힌 메신저는 프로세스가 사라져 목록에 pid·status 없이 state: blocked만 남는다. 서버는 status가 idle일 때만 깨우므로 영영 안 깨운다. 이 모양(프로세스 없는 blocked)을 '깨울 대상'으로 보고, 한도가 안 풀렸을 때는 10분 간격으로만 다시 시도한다.",
+    "points": [
+      {
+        "area": "메신저 깨우기",
+        "title": "프로세스 없는 blocked도 깨울 대상",
+        "text": "ensureMessenger는 status === 'idle'일 때만 --resume으로 깨운다. 한도로 멈춘 메신저는 목록에 status·pid 없이 state: 'blocked'만 있어 조건에 안 걸린다. 'idle'이거나 '프로세스 없는 blocked'(status 없음, state blocked)이고 대기 줄이 있으면 깨운다. pid가 있는 blocked(#107처럼 status idle)는 지금도 idle로 잡힌다. busy·waiting은 그대로 건드리지 않는다."
+      },
+      {
+        "area": "메신저 깨우기",
+        "title": "한도가 안 풀렸을 때의 재시도 간격",
+        "text": "깨웠는데 한도가 그대로면 곧바로 다시 막힌다. 30초마다 계속 깨우면 낭비이므로 막힌 상태의 깨우기는 마지막 시도 뒤 10분이 지나야 한다(서버 메모리에만 두며, 서버를 다시 켜면 한 번 바로 시도한다). 시도는 outbox 로그에 남긴다."
+      },
+      {
+        "area": "메신저 깨우기",
+        "title": "중복 안 생김 확인",
+        "text": "막힌 메신저도 목록에 있으므로 '메신저가 없음'으로 보아 새로 띄우지 않는다(지금도 같다). 시험으로 새로 띄우지 않고 한 세션을 이어 깨우는 것만 확인한다."
+      },
+      {
+        "area": "시험",
+        "title": "막힘 메신저 시험 추가",
+        "text": "test/wake.test.ts: ① 프로세스 없는 blocked + 대기 줄 → --resume으로 깨움 ② 같은 상태 + 대기 줄 없음 → 안 깨움 ③ 깨운 직후 10분 안에는 다시 안 깨움 ④ busy·waiting은 건드리지 않음 ⑤ 새 메신저를 띄우지 않음."
+      },
+      {
+        "area": "이번에 안 고침",
+        "title": "같은 뿌리의 다른 곳 2군데(질문)",
+        "text": "① runningOwner(src/outbox.ts)는 담당 세션이 목록에 있으면 상태와 무관하게 '돌고 있음'으로 봐서, 한도로 막힌 담당(지금도 #95·#98·#101·#103·#104·#108)은 새로 띄우지도 않고 글만 '보낼 수 있음'으로 둔다. ② reviewerUp(src/reviewer.ts)은 status가 stopped만 아니면 돌고 있다고 봐 막힌 점검 세션을 다시 띄우지 않는다. 막힌 담당이 SendMessage를 받으면 깨어나는지는 확인하지 못했다. 이번 요청은 메신저만 고치고, 이 둘은 따로 요청할지 사용자 결정을 받는다."
+      }
+    ],
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 1,
+    "files": [
+      {
+        "path": "src/outbox.ts",
+        "why": "ensureMessenger의 깨우는 조건에 프로세스 없는 blocked를 더하고 재시도 간격을 둔다"
+      },
+      {
+        "path": "test/wake.test.ts",
+        "why": "막힘 메신저를 깨우는 시험을 더한다"
+      }
+    ],
+    "brief": [
+      "원인: 실제 목록에서 확인. 한도로 멈춘 세션은 pid·status가 없고 state: blocked만 있다(#98·#101 등). 서버는 status가 idle일 때만 메신저를 깨워 이 모양을 지나친다.",
+      "고침: 메신저가 이 모양이고 대기 줄이 있으면 --resume으로 깨운다. 한도가 안 풀렸으면 다시 막히므로 마지막 시도 뒤 10분이 지나야 다시 시도한다.",
+      "다시 검토해 같은 뿌리의 문제를 더 찾았다: 담당 세션 확인(runningOwner)과 점검 세션 확인(reviewerUp)이 막힌 세션을 '돌고 있음'으로 본다. 요청 범위(메신저)를 넘으므로 이번에는 고치지 않고 따로 요청할지 묻는다."
+    ]
+  },
+  "files": [
+    {
+      "path": "src/outbox.ts",
+      "why": "ensureMessenger의 깨우는 조건에 프로세스 없는 blocked를 더하고 재시도 간격을 둔다"
+    },
+    {
+      "path": "test/wake.test.ts",
+      "why": "막힘 메신저를 깨우는 시험을 더한다"
+    }
+  ]
+}

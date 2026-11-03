@@ -1,0 +1,370 @@
+{
+  "id": 116,
+  "title": "소스 주석 누락을 커밋 때 기계가 막고, 지금 빠진 곳(@spec 없는 파일 2개, 숫자 상수 근거, 터미널 쪽 설명)을 채운다",
+  "source": "user",
+  "origin": {
+    "text": "전부 해야 되고 문제점이 많구만.",
+    "channel": "대화",
+    "at": "2026-11-01T10:31:07.449Z"
+  },
+  "scope": {
+    "screens": [],
+    "infos": [],
+    "scenarios": [],
+    "steps": [],
+    "impactOnly": []
+  },
+  "agent": {
+    "name": "dev-method #116 담당"
+  },
+  "noTest": "화면이 바뀌지 않는 검사 도구·주석 수리",
+  "detail": {
+    "text": "전수조사 결과: ①@spec 줄이 없는 파일(paths.ts, theme.ts)은 경고 없이 빠진다 ②숫자 상수 근거·항목별 설명(ttyd.ts·terminal-dock.ts 등 146개)은 검사 없음. 새 경고가 기존 누락 때문에 커밋을 막지 않게 기준선과 함께 설계한다",
+    "confirmedAt": "2026-11-01T10:31:07.449Z",
+    "mode": "design",
+    "reason": "검사 규칙이 바뀌는 설계 결정이 있다"
+  },
+  "stage": "design",
+  "step": "submitted",
+  "events": [
+    {
+      "at": "2026-11-01T10:31:07.449Z",
+      "by": "agent",
+      "kind": "created",
+      "note": "요청 등록"
+    },
+    {
+      "at": "2026-11-01T10:31:36.647Z",
+      "by": "agent",
+      "kind": "started",
+      "note": "설계를 시작함(우선순위를 정해 시작)"
+    },
+    {
+      "at": "2026-11-01T10:31:36.687Z",
+      "by": "agent",
+      "kind": "session-started",
+      "note": "담당 세션을 새로 만듦(5ceb51e6)"
+    },
+    {
+      "at": "2026-11-01T10:31:45.146Z",
+      "by": "agent",
+      "kind": "agent",
+      "note": "맡은 에이전트: dev-method #116 담당"
+    },
+    {
+      "at": "2026-11-01T10:32:26.788Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-11-02T10:46:28.974Z",
+      "by": "user",
+      "kind": "design-rejected",
+      "note": "설계 반려: 설명 누락은 기준선으로 남기지 말고 전부 채운다(약 146곳 전체). 이번에 채우는 숫자 상수 18개와 설명 누락이 있는 모든 파일을 파일 목록에 넣는다(conversation.ts·propflow.ts·samples.ts·watch.ts 등 빠진 파일 포함). 기준선은 쓰지 않고 경고 0을 요구한다. (대화에서 한 반려를 인용해 기록함)",
+      "quote": "아니 그래서 전부 채우라고 했는데 뭘 다시 물어."
+    },
+    {
+      "at": "2026-11-02T10:52:57.707Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    },
+    {
+      "at": "2026-11-02T10:53:05.309Z",
+      "by": "agent",
+      "kind": "design-submitted",
+      "note": "설계 없음으로 올림"
+    }
+  ],
+  "design": {
+    "understanding": "소스 주석 누락을 기계가 커밋 때 막고, 지금 빠진 핵심 곳을 채운다. 화면은 바뀌지 않는다.",
+    "points": [
+      {
+        "area": "검사 도구",
+        "title": "@spec 없는 파일을 경고",
+        "text": "지금 extract는 @spec·@screen이 한 줄도 없는 파일은 읽지 않아 경고 없이 빠진다(paths.ts, theme.ts). 소스 폴더의 .ts·.mjs 파일마다 머리에 존재 이유가 없으면 경고한다."
+      },
+      {
+        "area": "검사 도구",
+        "title": "숫자 상수 근거·항목 설명 검사 신설",
+        "text": "새 검사 'src-comments'를 커밋 전 검사(precommit)에 더한다. 최상위 const 중 값이 숫자(5 * 60 * 1000 같은 식 포함)인데 위나 같은 줄에 주석이 없으면 경고, 최상위 function·const·class 위에 설명 주석(/** */)이 없으면 경고한다. 한 줄짜리 export 별칭과 import는 제외한다."
+      },
+      {
+        "area": "소스 주석",
+        "title": "지금 빠진 곳을 채움",
+        "text": "paths.ts·theme.ts에 @spec/@why 헤더, 숫자 상수 18개에 근거(모르면 '근거 없음'), 소스 폴더 안 설명 없는 함수·상수 전부에 존재 이유를 쓴다(대상 파일은 파일 목록). 동작은 바꾸지 않는다."
+      },
+      {
+        "area": "규칙 문서",
+        "title": "docs/source-comments.md·rules/meta.md에 검사 사실 반영",
+        "text": "무엇을 기계가 막는지 한 줄씩 적어, 규칙과 검사가 어긋나지 않게 한다."
+      },
+      {
+        "area": "검사 도구",
+        "title": "기준선 없이 경고 0",
+        "text": "이 프로젝트에는 기준선 파일이 없으므로 새 검사도 경고가 하나라도 있으면 커밋을 막는다. 그래서 같은 변경 안에서 모든 누락을 먼저 채운다."
+      }
+    ],
+    "approach": "",
+    "changes": [],
+    "screens": [],
+    "none": true,
+    "rejected": 1,
+    "files": [
+      {
+        "path": "src/extract.ts",
+        "why": "@spec 없는 파일을 경고로 낸다"
+      },
+      {
+        "path": "src/src-comments.ts",
+        "why": "숫자 상수 근거·함수 설명 누락을 읽는 새 검사"
+      },
+      {
+        "path": "src/precommit.ts",
+        "why": "새 검사를 커밋 전 검사 목록에 더한다"
+      },
+      {
+        "path": "skills/spec-view/spec.mjs",
+        "why": "새 검사 명령을 입구에 등록한다"
+      },
+      {
+        "path": "docs/source-comments.md",
+        "why": "기계가 막는 항목 반영"
+      },
+      {
+        "path": "skills/spec-view/rules/meta.md",
+        "why": "기계가 막는 항목 반영"
+      },
+      {
+        "path": "test/src-comments.test.ts",
+        "why": "새 검사의 시험"
+      },
+      {
+        "path": "src/ttyd.ts",
+        "why": "설명 없는 함수·상수 16곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/terminal-dock.ts",
+        "why": "설명 없는 함수·상수 15곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/app.ts",
+        "why": "설명 없는 함수·상수 7곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/notify.ts",
+        "why": "설명 없는 함수·상수 7곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/propflow.ts",
+        "why": "설명 없는 함수·상수 5곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/outbox.ts",
+        "why": "설명 없는 함수·상수 5곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/model.ts",
+        "why": "설명 없는 함수·상수 5곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/design.ts",
+        "why": "설명 없는 함수·상수 5곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/util.ts",
+        "why": "설명 없는 함수·상수 4곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/comment-basket.ts",
+        "why": "설명 없는 함수·상수 4곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/shot.ts",
+        "why": "설명 없는 함수·상수 4곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/paths.ts",
+        "why": "설명 없는 함수·상수 4곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/delivery.ts",
+        "why": "설명 없는 함수·상수 4곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/comment.ts",
+        "why": "설명 없는 함수·상수 4곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/test-screen.ts",
+        "why": "설명 없는 함수·상수 3곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/live.ts",
+        "why": "설명 없는 함수·상수 3곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/comment.ts",
+        "why": "설명 없는 함수·상수 3곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/samples.ts",
+        "why": "설명 없는 함수·상수 3곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/report.ts",
+        "why": "설명 없는 함수·상수 3곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/worktree.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/theme.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/terms.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/manage-list.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/manage-detail.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/flow.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/testdata.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/terminal.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/snapshot.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/land.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/history.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/conversation.ts",
+        "why": "설명 없는 함수·상수 2곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/watch.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/test-probe.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/tabs.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/screen.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/review.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/reports.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/manage-views.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/manage-parts.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/info.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/erd.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/viewer/change-key.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/session.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/routes.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/project.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/nav.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/middleware.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/memo.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/lock.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/glossary.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/files.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/analyze-ts.ts",
+        "why": "설명 없는 함수·상수 1곳에 존재 이유를 쓴다"
+      },
+      {
+        "path": "src/kst.ts",
+        "why": "숫자 상수 근거를 쓴다"
+      },
+      {
+        "path": "src/owner-check.ts",
+        "why": "숫자 상수 근거를 쓴다"
+      },
+      {
+        "path": "src/request.ts",
+        "why": "숫자 상수 근거를 쓴다"
+      }
+    ],
+    "brief": [
+      "커밋할 때 기계가 소스 주석 누락 세 가지를 막는다: ①파일 머리 존재 이유(@spec) 없음 ②숫자 상수 근거 없음 ③함수·상수 위 설명 없음.",
+      "지금 빠진 곳은 기준선으로 봐 주지 않고 이번에 전부 채운다(src 안 약 153곳, 숫자 상수 18개, @spec 없는 파일 2개). 채운 뒤 경고 0을 요구한다.",
+      "기준선(.spec/baseline.json)은 만들지 않는다. 동작은 바꾸지 않고 주석만 더한다."
+    ]
+  }
+}
